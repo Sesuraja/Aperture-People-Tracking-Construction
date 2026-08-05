@@ -111,7 +111,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           <div className="inline-flex items-center justify-center w-14 h-14 bg-white/10 rounded-2xl mb-3 backdrop-blur-sm border border-white/20">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Aperture People Tracking</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Aperture People Tracking in Construction</h1>
           <p className="text-xs text-sky-100 mt-1 font-medium">Real-Time RFID System</p>
         </div>
 
