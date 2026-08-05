@@ -137,7 +137,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
   {/* Product */}
   <h2 className="relative text-2xl font-bold text-white">
-    People Tracking System
+    Construction People Tracking System
   </h2>
 
   {/* Tagline */}
