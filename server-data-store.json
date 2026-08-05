@@ -1,0 +1,3788 @@
+{
+  "floorplans": [
+    {
+      "id": "demo_plan_1",
+      "name": "Aperture HQ 1st Floor",
+      "building": "Aperture Building A",
+      "imageUrl": "/assets/images/facility_floorplan_2d_1780726630123.png",
+      "devices": [
+        {
+          "id": "dev_1",
+          "name": "Server Room RFID",
+          "mac": "00:1A:2B:3C:4D:5E",
+          "x": 85,
+          "y": 20
+        },
+        {
+          "id": "dev_2",
+          "name": "Meeting Room RFID",
+          "mac": "00:1A:2B:3C:4D:5F",
+          "x": 55,
+          "y": 20
+        },
+        {
+          "id": "dev_3",
+          "name": "Cafeteria RFID",
+          "mac": "00:1A:2B:3C:4D:6A",
+          "x": 20,
+          "y": 30
+        },
+        {
+          "id": "dev_4",
+          "name": "Office RFID",
+          "mac": "00:1A:2B:3C:4D:6B",
+          "x": 65,
+          "y": 55
+        }
+      ]
+    }
+  ],
+  "devices": [
+    {
+      "id": "dev_1",
+      "name": "Server Room RFID",
+      "mac": "00:1A:2B:3C:4D:5E",
+      "status": "Online",
+      "location": "Server Room",
+      "ip": "192.168.1.101"
+    },
+    {
+      "id": "dev_2",
+      "name": "Meeting Room RFID",
+      "mac": "00:1A:2B:3C:4D:5F",
+      "status": "Online",
+      "location": "Meeting Room",
+      "ip": "192.168.1.102"
+    },
+    {
+      "id": "dev_3",
+      "name": "Cafeteria RFID",
+      "mac": "00:1A:2B:3C:4D:6A",
+      "status": "Online",
+      "location": "Cafeteria",
+      "ip": "192.168.1.103"
+    },
+    {
+      "id": "dev_4",
+      "name": "Office RFID",
+      "mac": "00:1A:2B:3C:4D:6B",
+      "status": "Online",
+      "location": "Office",
+      "ip": "192.168.1.104"
+    }
+  ],
+  "registered_people": [
+    {
+      "id": "1",
+      "name": "Alice Smith",
+      "role": "Employee",
+      "department": "Engineering",
+      "tag": "1",
+      "email": "alice@aperturestaff.com"
+    },
+    {
+      "id": "2",
+      "name": "Bob Johnson",
+      "role": "Visitor",
+      "department": "Product Guest",
+      "tag": "2",
+      "email": "bob@fictional.com"
+    },
+    {
+      "id": "3",
+      "name": "Charlie Davis",
+      "role": "Security",
+      "department": "Operations",
+      "tag": "3",
+      "email": "charlie@aperturestaff.com"
+    },
+    {
+      "id": "4",
+      "name": "Diana Prince",
+      "role": "Employee",
+      "department": "Executive",
+      "tag": "4",
+      "email": "diana@aperturestaff.com"
+    }
+  ],
+  "visitors": [
+    {
+      "id": "VIS-BOB",
+      "name": "Bob Johnson",
+      "company": "Fictional Corp",
+      "host": "Diana Prince",
+      "status": "Active",
+      "time": "Arrived 10:15 AM",
+      "tag": "2",
+      "email": "bob@fictional.com",
+      "location": "Office",
+      "duration": "1h 45m",
+      "path": [
+        "Entrance",
+        "Office"
+      ],
+      "arrivalTime": 1785849230872
+    }
+  ],
+  "settings": [
+    {
+      "id": "global",
+      "loiteringThreshold": 120,
+      "idleAlertThreshold": 300,
+      "occupancyThresholds": {
+        "Server Room": 2,
+        "Meeting Room": 4,
+        "Cafeteria": 8,
+        "Office": 10
+      }
+    },
+    {
+      "id": "role_permissions",
+      "admin": {
+        "dashboard": true,
+        "live": true,
+        "playback": true,
+        "people": true,
+        "visitors": true,
+        "attendance": true,
+        "alerts": true,
+        "incidents": true,
+        "digitalTwin": true,
+        "analytics": true,
+        "aiInsights": true,
+        "devices": true,
+        "maintenance": true,
+        "audit": true,
+        "settings": true
+      },
+      "manager": {
+        "dashboard": true,
+        "live": true,
+        "playback": true,
+        "people": true,
+        "visitors": true,
+        "attendance": true,
+        "alerts": true,
+        "incidents": true,
+        "digitalTwin": true,
+        "analytics": true,
+        "aiInsights": true,
+        "devices": true,
+        "maintenance": true,
+        "audit": true,
+        "settings": false
+      },
+      "operator": {
+        "dashboard": false,
+        "live": true,
+        "playback": false,
+        "people": true,
+        "visitors": true,
+        "attendance": true,
+        "alerts": true,
+        "incidents": true,
+        "digitalTwin": true,
+        "analytics": false,
+        "aiInsights": false,
+        "devices": false,
+        "maintenance": true,
+        "audit": false,
+        "settings": false
+      },
+      "blocked": {
+        "dashboard": false,
+        "live": false,
+        "playback": false,
+        "people": false,
+        "visitors": false,
+        "attendance": false,
+        "alerts": false,
+        "incidents": false,
+        "digitalTwin": false,
+        "analytics": false,
+        "aiInsights": false,
+        "devices": false,
+        "maintenance": false,
+        "audit": false,
+        "settings": false
+      }
+    },
+    {
+      "id": "user_role_sigmund_ts_boot",
+      "uid": "sigmund_ts_boot",
+      "email": "sigmund.t.d@gaostaff.com",
+      "displayName": "sigmund.t.d",
+      "role": "admin",
+      "updatedAt": "2026-08-04T15:13:50.872Z"
+    },
+    {
+      "uid": "fu9fXy6M8WhnqBXxUtcYCLjzJci2",
+      "email": "sigmund.t.d@gaostaff.com",
+      "displayName": "Sigmund T.D",
+      "role": "admin",
+      "updatedAt": "2026-08-04T16:05:44.488Z",
+      "id": "user_role_fu9fXy6M8WhnqBXxUtcYCLjzJci2"
+    }
+  ],
+  "incidents": [
+    {
+      "id": "inc_1",
+      "type": "Unauthorized Entry",
+      "zone": "Server Room",
+      "timestamp": "2026-08-04T15:13:50.872Z",
+      "status": "Investigating",
+      "person": "Bob Johnson",
+      "severity": "High",
+      "description": "Visitor entered Server Room without escort."
+    }
+  ],
+  "alerts": [
+    {
+      "id": "alert_1",
+      "type": "warning",
+      "message": "OVERCAPACITY: Server Room exceeded max occupancy of 2. Currently 3.",
+      "timestamp": "2026-08-04T15:12:10.873Z",
+      "resolved": false
+    },
+    {
+      "id": "alert_2",
+      "type": "security",
+      "message": "UNAUTHORIZED ACCESS: Bob Johnson entered Server Room",
+      "timestamp": "2026-08-04T15:08:50.873Z",
+      "resolved": false
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:14:26.534Z",
+      "resolved": false,
+      "id": "doc_fgh1m7fwh",
+      "createdAt": "2026-08-04T15:14:27.109Z",
+      "_id": "6a7201d33fc15a19b174224b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:14:51.814Z",
+      "resolved": false,
+      "id": "doc_3b9qbafpp",
+      "createdAt": "2026-08-04T15:14:52.469Z",
+      "_id": "6a7201ec3fc15a19b174224c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to D6",
+      "timestamp": "2026-08-04T15:14:56.647Z",
+      "resolved": false,
+      "id": "doc_2xsdbidoz",
+      "createdAt": "2026-08-04T15:14:57.247Z",
+      "_id": "6a7201f13fc15a19b174224d"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:15:15.647Z",
+      "resolved": false,
+      "id": "doc_ds2lssxkv",
+      "createdAt": "2026-08-04T15:15:16.587Z",
+      "_id": "6a7202043fc15a19b174224e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:17:15.645Z",
+      "resolved": false,
+      "id": "doc_xzwdpn9mj",
+      "createdAt": "2026-08-04T15:17:16.607Z",
+      "_id": "6a72027c3fc15a19b174224f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:19:15.645Z",
+      "resolved": false,
+      "id": "doc_6r15rswoj",
+      "createdAt": "2026-08-04T15:19:18.229Z",
+      "_id": "6a7202f63fc15a19b1742250"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Zone2",
+      "timestamp": "2026-08-04T15:20:38.343Z",
+      "resolved": false,
+      "id": "doc_ld0ir9u6w",
+      "createdAt": "2026-08-04T15:20:38.897Z",
+      "_id": "6a7203463fc15a19b1742251"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:21:03.084Z",
+      "resolved": false,
+      "id": "doc_kl3mxhkop",
+      "createdAt": "2026-08-04T15:21:03.669Z",
+      "_id": "6a72035f3fc15a19b1742252"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:21:12.176Z",
+      "resolved": false,
+      "id": "doc_sx4t7lfe2",
+      "createdAt": "2026-08-04T15:21:13.520Z",
+      "_id": "6a7203693fc15a19b1742253"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to D6",
+      "timestamp": "2026-08-04T15:21:12.176Z",
+      "resolved": false,
+      "id": "doc_w4brs69zt",
+      "createdAt": "2026-08-04T15:21:13.523Z",
+      "_id": "6a7203693fc15a19b1742254"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to d6",
+      "timestamp": "2026-08-04T15:21:38.579Z",
+      "resolved": false,
+      "id": "doc_3qxsvu0bj",
+      "createdAt": "2026-08-04T15:21:39.142Z",
+      "_id": "6a7203833fc15a19b1742255"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:21:49.937Z",
+      "resolved": false,
+      "id": "doc_1jqpo6kmi",
+      "createdAt": "2026-08-04T15:21:50.522Z",
+      "_id": "6a72038e3fc15a19b1742256"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:21:58.162Z",
+      "resolved": false,
+      "id": "doc_wicvqkabr",
+      "createdAt": "2026-08-04T15:21:58.747Z",
+      "_id": "6a7203963fc15a19b1742257"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Zone1",
+      "timestamp": "2026-08-04T15:22:07.327Z",
+      "resolved": false,
+      "id": "doc_uhf7rwobk",
+      "createdAt": "2026-08-04T15:22:08.551Z",
+      "_id": "6a7203a03fc15a19b1742258"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T15:22:13.476Z",
+      "resolved": false,
+      "id": "doc_fu2gchl2d",
+      "createdAt": "2026-08-04T15:22:14.029Z",
+      "_id": "6a7203a63fc15a19b1742259"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:22:17.682Z",
+      "resolved": false,
+      "id": "doc_deqomnw2w",
+      "createdAt": "2026-08-04T15:22:18.227Z",
+      "_id": "6a7203aa3fc15a19b174225a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Zone2",
+      "timestamp": "2026-08-04T15:22:25.697Z",
+      "resolved": false,
+      "id": "doc_6a5ldp11f",
+      "createdAt": "2026-08-04T15:22:26.250Z",
+      "_id": "6a7203b23fc15a19b174225b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to d8",
+      "timestamp": "2026-08-04T15:22:35.775Z",
+      "resolved": false,
+      "id": "doc_wh7z00sd9",
+      "createdAt": "2026-08-04T15:22:36.884Z",
+      "_id": "6a7203bc3fc15a19b174225c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Zone2",
+      "timestamp": "2026-08-04T15:22:40.416Z",
+      "resolved": false,
+      "id": "doc_0tiux1qpa",
+      "createdAt": "2026-08-04T15:22:41.002Z",
+      "_id": "6a7203c13fc15a19b174225d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:22:40.416Z",
+      "resolved": false,
+      "id": "doc_yq1l8pqx6",
+      "createdAt": "2026-08-04T15:22:41.003Z",
+      "_id": "6a7203c13fc15a19b174225e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Zone2",
+      "timestamp": "2026-08-04T15:22:40.425Z",
+      "resolved": false,
+      "id": "doc_r8d2v4bsq",
+      "createdAt": "2026-08-04T15:22:41.650Z",
+      "_id": "6a7203c13fc15a19b174225f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to D6",
+      "timestamp": "2026-08-04T15:22:46.682Z",
+      "resolved": false,
+      "id": "doc_pdc2y8k3y",
+      "createdAt": "2026-08-04T15:22:47.264Z",
+      "_id": "6a7203c73fc15a19b1742260"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:22:46.684Z",
+      "resolved": false,
+      "id": "doc_p0kec4trn",
+      "createdAt": "2026-08-04T15:22:47.787Z",
+      "_id": "6a7203c73fc15a19b1742261"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:22:50.244Z",
+      "resolved": false,
+      "id": "doc_l8zz4vyi5",
+      "createdAt": "2026-08-04T15:22:50.820Z",
+      "_id": "6a7203ca3fc15a19b1742262"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:22:56.811Z",
+      "resolved": false,
+      "id": "doc_2p8ssbx5q",
+      "createdAt": "2026-08-04T15:22:57.359Z",
+      "_id": "6a7203d13fc15a19b1742263"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T15:23:10.516Z",
+      "resolved": false,
+      "id": "doc_q43nf5ohe",
+      "createdAt": "2026-08-04T15:23:11.102Z",
+      "_id": "6a7203df3fc15a19b1742264"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Zone2",
+      "timestamp": "2026-08-04T15:23:25.087Z",
+      "resolved": false,
+      "id": "doc_o5vzxx64e",
+      "createdAt": "2026-08-04T15:23:25.651Z",
+      "_id": "6a7203ed3fc15a19b1742265"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to d6",
+      "timestamp": "2026-08-04T15:24:16.979Z",
+      "resolved": false,
+      "id": "doc_slib14var",
+      "createdAt": "2026-08-04T15:24:17.539Z",
+      "_id": "6a7204213fc15a19b1742266"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:24:16.989Z",
+      "resolved": false,
+      "id": "doc_so5j9g0sy",
+      "createdAt": "2026-08-04T15:24:17.789Z",
+      "_id": "6a7204213fc15a19b1742267"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to d6",
+      "timestamp": "2026-08-04T15:24:37.513Z",
+      "resolved": false,
+      "id": "doc_wlrb3hpt2",
+      "createdAt": "2026-08-04T15:24:38.331Z",
+      "_id": "6a7204363fc15a19b1742268"
+    },
+    {
+      "type": "security",
+      "message": "HAZARD ALERT: Visitor Sven Lindqvist entered Confined Shaft without Escort!",
+      "timestamp": "2026-08-04T15:24:40.738Z",
+      "resolved": false,
+      "id": "doc_1px5c3xoh",
+      "createdAt": "2026-08-04T15:24:41.685Z",
+      "_id": "6a7204393fc15a19b1742269"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to D8",
+      "timestamp": "2026-08-04T15:24:44.282Z",
+      "resolved": false,
+      "id": "doc_wp0g9x20i",
+      "createdAt": "2026-08-04T15:24:45.035Z",
+      "_id": "6a72043d3fc15a19b174226a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to D8",
+      "timestamp": "2026-08-04T15:24:44.282Z",
+      "resolved": false,
+      "id": "doc_j60hp393l",
+      "createdAt": "2026-08-04T15:24:45.036Z",
+      "_id": "6a72043d3fc15a19b174226b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to D8",
+      "timestamp": "2026-08-04T15:25:05.661Z",
+      "resolved": false,
+      "id": "doc_d7hb2leqa",
+      "createdAt": "2026-08-04T15:25:06.478Z",
+      "_id": "6a7204523fc15a19b174226c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T15:25:32.673Z",
+      "resolved": false,
+      "id": "doc_h4r7nx0km",
+      "createdAt": "2026-08-04T15:25:33.682Z",
+      "_id": "6a72046d3fc15a19b174226d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to d8",
+      "timestamp": "2026-08-04T15:25:39.866Z",
+      "resolved": false,
+      "id": "doc_ku6wiicq0",
+      "createdAt": "2026-08-04T15:25:40.538Z",
+      "_id": "6a7204743fc15a19b174226e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T15:26:07.083Z",
+      "resolved": false,
+      "id": "doc_tmggpxpox",
+      "createdAt": "2026-08-04T15:26:07.682Z",
+      "_id": "6a72048f3fc15a19b174226f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:26:21.431Z",
+      "resolved": false,
+      "id": "doc_1ycgoozfa",
+      "createdAt": "2026-08-04T15:26:22.259Z",
+      "_id": "6a72049e3fc15a19b1742270"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:26:25.133Z",
+      "resolved": false,
+      "id": "doc_um0vgrd5m",
+      "createdAt": "2026-08-04T15:26:25.716Z",
+      "_id": "6a7204a13fc15a19b1742271"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Zone2",
+      "timestamp": "2026-08-04T15:26:43.099Z",
+      "resolved": false,
+      "id": "doc_mj28udq5o",
+      "createdAt": "2026-08-04T15:26:43.825Z",
+      "_id": "6a7204b33fc15a19b1742272"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:26:46.211Z",
+      "resolved": false,
+      "id": "doc_esdst9ihm",
+      "createdAt": "2026-08-04T15:26:46.913Z",
+      "_id": "6a7204b63fc15a19b1742273"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Zone1",
+      "timestamp": "2026-08-04T15:26:52.470Z",
+      "resolved": false,
+      "id": "doc_tywrz7jgu",
+      "createdAt": "2026-08-04T15:26:53.341Z",
+      "_id": "6a7204bd0dfbf3321e3783a6"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to d8",
+      "timestamp": "2026-08-04T15:27:06.959Z",
+      "resolved": false,
+      "id": "doc_2swvqzi3y",
+      "createdAt": "2026-08-04T15:27:07.801Z",
+      "_id": "6a7204cb0dfbf3321e3783a7"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:27:12.437Z",
+      "resolved": false,
+      "id": "doc_1an5qpvid",
+      "createdAt": "2026-08-04T15:27:13.012Z",
+      "_id": "6a7204d10dfbf3321e3783a8"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to D6",
+      "timestamp": "2026-08-04T15:27:20.289Z",
+      "resolved": false,
+      "id": "doc_v5ntbixxh",
+      "createdAt": "2026-08-04T15:27:20.935Z",
+      "_id": "6a7204d80dfbf3321e3783a9"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T15:27:32.312Z",
+      "resolved": false,
+      "id": "doc_4dt98ku0y",
+      "createdAt": "2026-08-04T15:27:32.916Z",
+      "_id": "6a7204e40dfbf3321e3783aa"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to D6",
+      "timestamp": "2026-08-04T15:27:32.312Z",
+      "resolved": false,
+      "id": "doc_1imzmfxhr",
+      "createdAt": "2026-08-04T15:27:32.918Z",
+      "_id": "6a7204e40dfbf3321e3783ab"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T15:27:50.277Z",
+      "resolved": false,
+      "id": "doc_f72kyrdo4",
+      "createdAt": "2026-08-04T15:27:50.915Z",
+      "_id": "6a7204f60dfbf3321e3783ac"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to d6",
+      "timestamp": "2026-08-04T15:27:50.277Z",
+      "resolved": false,
+      "id": "doc_vok4w6gjt",
+      "createdAt": "2026-08-04T15:27:50.917Z",
+      "_id": "6a7204f60dfbf3321e3783ad"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:27:54.269Z",
+      "resolved": false,
+      "id": "doc_k0py3m2d9",
+      "createdAt": "2026-08-04T15:27:54.843Z",
+      "_id": "6a7204fa0dfbf3321e3783ae"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Zone1",
+      "timestamp": "2026-08-04T15:27:58.271Z",
+      "resolved": false,
+      "id": "doc_ddhvgd74a",
+      "createdAt": "2026-08-04T15:27:58.911Z",
+      "_id": "6a7204fe0dfbf3321e3783af"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:28:08.508Z",
+      "resolved": false,
+      "id": "doc_0orndcvl4",
+      "createdAt": "2026-08-04T15:28:09.187Z",
+      "_id": "6a7205090dfbf3321e3783b0"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:28:08.508Z",
+      "resolved": false,
+      "id": "doc_5zy458ce3",
+      "createdAt": "2026-08-04T15:28:09.189Z",
+      "_id": "6a7205090dfbf3321e3783b1"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Zone1",
+      "timestamp": "2026-08-04T15:28:10.283Z",
+      "resolved": false,
+      "id": "doc_66cvmpsrp",
+      "createdAt": "2026-08-04T15:28:10.929Z",
+      "_id": "6a72050a0dfbf3321e3783b2"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:28:28.639Z",
+      "resolved": false,
+      "id": "doc_znw9i6n1f",
+      "createdAt": "2026-08-04T15:28:29.263Z",
+      "_id": "6a72051d0dfbf3321e3783b3"
+    },
+    {
+      "type": "security",
+      "message": "HAZARD ALERT: Visitor Sven Lindqvist entered Confined Shaft without Escort!",
+      "timestamp": "2026-08-04T15:28:42.642Z",
+      "resolved": false,
+      "id": "doc_fsqqodu3c",
+      "createdAt": "2026-08-04T15:28:43.260Z",
+      "_id": "6a72052b0dfbf3321e3783b4"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T15:28:56.651Z",
+      "resolved": false,
+      "id": "doc_q63t59tsy",
+      "createdAt": "2026-08-04T15:28:57.301Z",
+      "_id": "6a7205390dfbf3321e3783b5"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to D6",
+      "timestamp": "2026-08-04T15:29:14.640Z",
+      "resolved": false,
+      "id": "doc_px7rlht66",
+      "createdAt": "2026-08-04T15:29:15.275Z",
+      "_id": "6a72054b0dfbf3321e3783b6"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T15:29:34.273Z",
+      "resolved": false,
+      "id": "doc_re0o8pkza",
+      "createdAt": "2026-08-04T15:29:34.899Z",
+      "_id": "6a72055e0dfbf3321e3783b7"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to d6",
+      "timestamp": "2026-08-04T15:29:44.280Z",
+      "resolved": false,
+      "id": "doc_uj92xp896",
+      "createdAt": "2026-08-04T15:29:44.920Z",
+      "_id": "6a7205680dfbf3321e3783b8"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to D8",
+      "timestamp": "2026-08-04T15:29:58.270Z",
+      "resolved": false,
+      "id": "doc_9qc5rtix5",
+      "createdAt": "2026-08-04T15:29:58.890Z",
+      "_id": "6a7205760dfbf3321e3783b9"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to d8",
+      "timestamp": "2026-08-04T15:30:02.270Z",
+      "resolved": false,
+      "id": "doc_y7j8uthqk",
+      "createdAt": "2026-08-04T15:30:02.896Z",
+      "_id": "6a72057a0dfbf3321e3783ba"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:30:44.268Z",
+      "resolved": false,
+      "id": "doc_65nhiofuo",
+      "createdAt": "2026-08-04T15:30:44.910Z",
+      "_id": "6a7205a40dfbf3321e3783bb"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to D8",
+      "timestamp": "2026-08-04T15:31:08.274Z",
+      "resolved": false,
+      "id": "doc_f1afk3772",
+      "createdAt": "2026-08-04T15:31:08.899Z",
+      "_id": "6a7205bc0dfbf3321e3783bc"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Zone1",
+      "timestamp": "2026-08-04T15:31:08.274Z",
+      "resolved": false,
+      "id": "doc_t32en16jf",
+      "createdAt": "2026-08-04T15:31:08.912Z",
+      "_id": "6a7205bc0dfbf3321e3783bd"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:31:14.275Z",
+      "resolved": false,
+      "id": "doc_1js5ob57j",
+      "createdAt": "2026-08-04T15:31:14.853Z",
+      "_id": "6a7205c20dfbf3321e3783be"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:31:18.266Z",
+      "resolved": false,
+      "id": "doc_h8emm54as",
+      "createdAt": "2026-08-04T15:31:18.869Z",
+      "_id": "6a7205c60dfbf3321e3783bf"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to D8",
+      "timestamp": "2026-08-04T15:31:18.269Z",
+      "resolved": false,
+      "id": "doc_hppgyqlxu",
+      "createdAt": "2026-08-04T15:31:18.921Z",
+      "_id": "6a7205c60dfbf3321e3783c0"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Zone1",
+      "timestamp": "2026-08-04T15:31:32.271Z",
+      "resolved": false,
+      "id": "doc_wz5thrz9z",
+      "createdAt": "2026-08-04T15:31:32.890Z",
+      "_id": "6a7205d40dfbf3321e3783c1"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:31:38.277Z",
+      "resolved": false,
+      "id": "doc_ceroezwc0",
+      "createdAt": "2026-08-04T15:31:38.903Z",
+      "_id": "6a7205da0dfbf3321e3783c2"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:32:16.283Z",
+      "resolved": false,
+      "id": "doc_mnse2rqnh",
+      "createdAt": "2026-08-04T15:32:16.900Z",
+      "_id": "6a7206000dfbf3321e3783c3"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to d6",
+      "timestamp": "2026-08-04T15:32:26.653Z",
+      "resolved": false,
+      "id": "doc_zop0a0nbv",
+      "createdAt": "2026-08-04T15:32:27.280Z",
+      "_id": "6a72060b0dfbf3321e3783c4"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to D8",
+      "timestamp": "2026-08-04T15:32:34.278Z",
+      "resolved": false,
+      "id": "doc_93hebakja",
+      "createdAt": "2026-08-04T15:32:34.916Z",
+      "_id": "6a7206120dfbf3321e3783c5"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to D8",
+      "timestamp": "2026-08-04T15:32:52.271Z",
+      "resolved": false,
+      "id": "doc_g0expzm9z",
+      "createdAt": "2026-08-04T15:32:52.900Z",
+      "_id": "6a7206240dfbf3321e3783c6"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:33:12.268Z",
+      "resolved": false,
+      "id": "doc_2lxwy1tny",
+      "createdAt": "2026-08-04T15:33:12.906Z",
+      "_id": "6a7206380dfbf3321e3783c7"
+    },
+    {
+      "type": "security",
+      "message": "HAZARD ALERT: Visitor Sven Lindqvist entered Confined Shaft without Escort!",
+      "timestamp": "2026-08-04T15:33:16.270Z",
+      "resolved": false,
+      "id": "doc_cno0pflh9",
+      "createdAt": "2026-08-04T15:33:16.898Z",
+      "_id": "6a72063c0dfbf3321e3783c8"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:33:16.270Z",
+      "resolved": false,
+      "id": "doc_900ctk758",
+      "createdAt": "2026-08-04T15:33:16.900Z",
+      "_id": "6a72063c0dfbf3321e3783c9"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to D6",
+      "timestamp": "2026-08-04T15:33:20.277Z",
+      "resolved": false,
+      "id": "doc_rpithc42z",
+      "createdAt": "2026-08-04T15:33:20.909Z",
+      "_id": "6a7206400dfbf3321e3783ca"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to d8",
+      "timestamp": "2026-08-04T15:33:28.281Z",
+      "resolved": false,
+      "id": "doc_4ibym4ly6",
+      "createdAt": "2026-08-04T15:33:28.906Z",
+      "_id": "6a7206480dfbf3321e3783cb"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to d6",
+      "timestamp": "2026-08-04T15:33:28.281Z",
+      "resolved": false,
+      "id": "doc_dtdvciqwf",
+      "createdAt": "2026-08-04T15:33:28.908Z",
+      "_id": "6a7206480dfbf3321e3783cc"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:33:30.267Z",
+      "resolved": false,
+      "id": "doc_o2ss09kea",
+      "createdAt": "2026-08-04T15:33:30.905Z",
+      "_id": "6a72064a0dfbf3321e3783cd"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:33:32.268Z",
+      "resolved": false,
+      "id": "doc_7oc9j8yvu",
+      "createdAt": "2026-08-04T15:33:32.891Z",
+      "_id": "6a72064c0dfbf3321e3783ce"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:33:40.272Z",
+      "resolved": false,
+      "id": "doc_v36y08lgm",
+      "createdAt": "2026-08-04T15:33:40.897Z",
+      "_id": "6a7206540dfbf3321e3783cf"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to D6",
+      "timestamp": "2026-08-04T15:33:54.274Z",
+      "resolved": false,
+      "id": "doc_tau9qjwn0",
+      "createdAt": "2026-08-04T15:33:54.910Z",
+      "_id": "6a7206620dfbf3321e3783d0"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:33:54.274Z",
+      "resolved": false,
+      "id": "doc_n67qxfd2c",
+      "createdAt": "2026-08-04T15:33:54.912Z",
+      "_id": "6a7206620dfbf3321e3783d1"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:34:12.271Z",
+      "resolved": false,
+      "id": "doc_x8pez8btf",
+      "createdAt": "2026-08-04T15:34:12.905Z",
+      "_id": "6a7206740dfbf3321e3783d2"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to D8",
+      "timestamp": "2026-08-04T15:34:28.272Z",
+      "resolved": false,
+      "id": "doc_4m2wast7o",
+      "createdAt": "2026-08-04T15:34:28.942Z",
+      "_id": "6a720684cc335ccf02ba52d2"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to D8",
+      "timestamp": "2026-08-04T15:34:30.267Z",
+      "resolved": false,
+      "id": "doc_d911onbh4",
+      "createdAt": "2026-08-04T15:34:30.895Z",
+      "_id": "6a720686cc335ccf02ba52d3"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to d8",
+      "timestamp": "2026-08-04T15:34:46.460Z",
+      "resolved": false,
+      "id": "doc_2medvd25o",
+      "createdAt": "2026-08-04T15:34:47.086Z",
+      "_id": "6a720697cc335ccf02ba52d4"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T15:34:46.460Z",
+      "resolved": false,
+      "id": "doc_xm5d8jado",
+      "createdAt": "2026-08-04T15:34:47.088Z",
+      "_id": "6a720697cc335ccf02ba52d5"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:34:58.470Z",
+      "resolved": false,
+      "id": "doc_kfzfhs6xa",
+      "createdAt": "2026-08-04T15:34:59.126Z",
+      "_id": "6a7206a3cc335ccf02ba52d6"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:35:04.458Z",
+      "resolved": false,
+      "id": "doc_tijivvk2o",
+      "createdAt": "2026-08-04T15:35:05.066Z",
+      "_id": "6a7206a9cc335ccf02ba52d7"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:35:10.460Z",
+      "resolved": false,
+      "id": "doc_gsbj71v3q",
+      "createdAt": "2026-08-04T15:35:11.086Z",
+      "_id": "6a7206afcc335ccf02ba52d8"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T15:35:16.461Z",
+      "resolved": false,
+      "id": "doc_ojn0ui9i0",
+      "createdAt": "2026-08-04T15:35:17.099Z",
+      "_id": "6a7206b5cc335ccf02ba52d9"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:35:24.457Z",
+      "resolved": false,
+      "id": "doc_hzji25qfr",
+      "createdAt": "2026-08-04T15:35:25.116Z",
+      "_id": "6a7206bdcc335ccf02ba52da"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T15:35:26.463Z",
+      "resolved": false,
+      "id": "doc_mcxpuzqoy",
+      "createdAt": "2026-08-04T15:35:27.125Z",
+      "_id": "6a7206bfcc335ccf02ba52db"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T15:35:26.464Z",
+      "resolved": false,
+      "id": "doc_p33ncqwi5",
+      "createdAt": "2026-08-04T15:35:27.127Z",
+      "_id": "6a7206bfcc335ccf02ba52dc"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:35:28.471Z",
+      "resolved": false,
+      "id": "doc_80qqohtus",
+      "createdAt": "2026-08-04T15:35:29.118Z",
+      "_id": "6a7206c1cc335ccf02ba52dd"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:35:38.462Z",
+      "resolved": false,
+      "id": "doc_zjpvalmlq",
+      "createdAt": "2026-08-04T15:35:39.113Z",
+      "_id": "6a7206cbcc335ccf02ba52de"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Zone1",
+      "timestamp": "2026-08-04T15:35:38.462Z",
+      "resolved": false,
+      "id": "doc_int61zko4",
+      "createdAt": "2026-08-04T15:35:39.114Z",
+      "_id": "6a7206cbcc335ccf02ba52df"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to D8",
+      "timestamp": "2026-08-04T15:35:56.456Z",
+      "resolved": false,
+      "id": "doc_6u7kqzo0j",
+      "createdAt": "2026-08-04T15:35:57.089Z",
+      "_id": "6a7206ddcc335ccf02ba52e0"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Zone2",
+      "timestamp": "2026-08-04T15:36:02.455Z",
+      "resolved": false,
+      "id": "doc_iqyy9gbrm",
+      "createdAt": "2026-08-04T15:36:03.089Z",
+      "_id": "6a7206e3cc335ccf02ba52e1"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Zone1",
+      "timestamp": "2026-08-04T15:36:12.472Z",
+      "resolved": false,
+      "id": "doc_hpeegmu6g",
+      "createdAt": "2026-08-04T15:36:13.109Z",
+      "_id": "6a7206edcc335ccf02ba52e2"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Structure & Scaffolding (L1-L4) with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:36:42.460Z",
+      "resolved": false,
+      "id": "doc_iar9mbv6d",
+      "createdAt": "2026-08-04T15:36:43.097Z",
+      "_id": "6a72070bcc335ccf02ba52e3"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to D6",
+      "timestamp": "2026-08-04T15:37:02.461Z",
+      "resolved": false,
+      "id": "doc_a5o4gcaxs",
+      "createdAt": "2026-08-04T15:37:03.235Z",
+      "_id": "6a72071fcc335ccf02ba52e4"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:37:08.463Z",
+      "resolved": false,
+      "id": "doc_630mx4xdn",
+      "createdAt": "2026-08-04T15:37:09.104Z",
+      "_id": "6a720725cc335ccf02ba52e5"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Structure & Scaffolding (L1-L4) with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:37:14.462Z",
+      "resolved": false,
+      "id": "doc_vy18qkx6o",
+      "createdAt": "2026-08-04T15:37:15.079Z",
+      "_id": "6a72072bcc335ccf02ba52e6"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:37:20.460Z",
+      "resolved": false,
+      "id": "doc_l28u0siln",
+      "createdAt": "2026-08-04T15:37:21.116Z",
+      "_id": "6a720731cc335ccf02ba52e7"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:37:30.460Z",
+      "resolved": false,
+      "id": "doc_6pba7cyas",
+      "createdAt": "2026-08-04T15:37:31.127Z",
+      "_id": "6a72073bcc335ccf02ba52e8"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to D6",
+      "timestamp": "2026-08-04T15:37:44.457Z",
+      "resolved": false,
+      "id": "doc_uudlqvwzv",
+      "createdAt": "2026-08-04T15:37:45.111Z",
+      "_id": "6a720749cc335ccf02ba52e9"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Zone1",
+      "timestamp": "2026-08-04T15:37:52.456Z",
+      "resolved": false,
+      "id": "doc_o7youcxv1",
+      "createdAt": "2026-08-04T15:37:53.091Z",
+      "_id": "6a720751cc335ccf02ba52ea"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Structure & Scaffolding (L1-L4) with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:37:56.456Z",
+      "resolved": false,
+      "id": "doc_ao7hgdkq5",
+      "createdAt": "2026-08-04T15:37:57.106Z",
+      "_id": "6a720755cc335ccf02ba52eb"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Zone1",
+      "timestamp": "2026-08-04T15:38:14.459Z",
+      "resolved": false,
+      "id": "doc_9edec4ywr",
+      "createdAt": "2026-08-04T15:38:15.114Z",
+      "_id": "6a720767cc335ccf02ba52ec"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T15:38:16.457Z",
+      "resolved": false,
+      "id": "doc_5ix7en7q6",
+      "createdAt": "2026-08-04T15:38:17.115Z",
+      "_id": "6a720769cc335ccf02ba52ed"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:38:38.460Z",
+      "resolved": false,
+      "id": "doc_3y900xh3i",
+      "createdAt": "2026-08-04T15:38:39.137Z",
+      "_id": "6a72077fcc335ccf02ba52ee"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to d6",
+      "timestamp": "2026-08-04T15:38:40.459Z",
+      "resolved": false,
+      "id": "doc_fdlooluuk",
+      "createdAt": "2026-08-04T15:38:41.150Z",
+      "_id": "6a720781cc335ccf02ba52ef"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:38:46.646Z",
+      "resolved": false,
+      "id": "doc_uep1a2n5g",
+      "createdAt": "2026-08-04T15:38:47.295Z",
+      "_id": "6a720787cc335ccf02ba52f0"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Zone2",
+      "timestamp": "2026-08-04T15:39:06.639Z",
+      "resolved": false,
+      "id": "doc_9w2j9nncw",
+      "createdAt": "2026-08-04T15:39:07.281Z",
+      "_id": "6a72079bcc335ccf02ba52f1"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:39:16.646Z",
+      "resolved": false,
+      "id": "doc_9lxvuc1h2",
+      "createdAt": "2026-08-04T15:39:17.315Z",
+      "_id": "6a7207a5cc335ccf02ba52f2"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to D6",
+      "timestamp": "2026-08-04T15:39:26.647Z",
+      "resolved": false,
+      "id": "doc_rwcdfiqrr",
+      "createdAt": "2026-08-04T15:39:27.294Z",
+      "_id": "6a7207afcc335ccf02ba52f3"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to d8",
+      "timestamp": "2026-08-04T15:39:26.647Z",
+      "resolved": false,
+      "id": "doc_egz23mza4",
+      "createdAt": "2026-08-04T15:39:27.346Z",
+      "_id": "6a7207afcc335ccf02ba52f4"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T15:39:30.651Z",
+      "resolved": false,
+      "id": "doc_u11t3ctcz",
+      "createdAt": "2026-08-04T15:39:31.311Z",
+      "_id": "6a7207b3cc335ccf02ba52f5"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to d6",
+      "timestamp": "2026-08-04T15:40:15.653Z",
+      "resolved": false,
+      "id": "doc_uc7efxqzy",
+      "createdAt": "2026-08-04T15:40:20.538Z",
+      "_id": "6a7207e4ad63f2d1089cef17"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:40:24.226Z",
+      "resolved": false,
+      "id": "doc_b5qsxelg1",
+      "createdAt": "2026-08-04T15:40:24.994Z",
+      "_id": "6a7207e8ad63f2d1089cef18"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Zone1",
+      "timestamp": "2026-08-04T15:40:24.227Z",
+      "resolved": false,
+      "id": "doc_yr9i3fn9z",
+      "createdAt": "2026-08-04T15:40:24.996Z",
+      "_id": "6a7207e8ad63f2d1089cef19"
+    },
+    {
+      "type": "security",
+      "message": "HAZARD ALERT: Visitor Sven Lindqvist entered Confined Shaft without Escort!",
+      "timestamp": "2026-08-04T15:40:29.052Z",
+      "resolved": false,
+      "id": "doc_xfwo1wa6y",
+      "createdAt": "2026-08-04T15:40:30.266Z",
+      "_id": "6a7207eead63f2d1089cef1a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T15:40:47.292Z",
+      "resolved": false,
+      "id": "doc_z88sejabb",
+      "createdAt": "2026-08-04T15:40:47.905Z",
+      "_id": "6a7207ffad63f2d1089cef1b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to D6",
+      "timestamp": "2026-08-04T15:40:47.294Z",
+      "resolved": false,
+      "id": "doc_b3g7cvi55",
+      "createdAt": "2026-08-04T15:40:48.434Z",
+      "_id": "6a720800ad63f2d1089cef1c"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:40:47.294Z",
+      "resolved": false,
+      "id": "doc_uxj25xknr",
+      "createdAt": "2026-08-04T15:40:48.445Z",
+      "_id": "6a720800ad63f2d1089cef1d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:40:55.812Z",
+      "resolved": false,
+      "id": "doc_z6sultwq0",
+      "createdAt": "2026-08-04T15:40:56.424Z",
+      "_id": "6a720808ad63f2d1089cef1e"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T15:43:07.071Z",
+      "resolved": false,
+      "id": "doc_9nl9rgeop",
+      "createdAt": "2026-08-04T15:43:07.701Z",
+      "_id": "6a72088bad63f2d1089cef1f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T15:43:12.051Z",
+      "resolved": false,
+      "id": "doc_kbaj6rbxh",
+      "createdAt": "2026-08-04T15:43:12.646Z",
+      "_id": "6a720890ad63f2d1089cef20"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:43:22.651Z",
+      "resolved": false,
+      "id": "doc_1j4hcmg8l",
+      "createdAt": "2026-08-04T15:43:23.816Z",
+      "_id": "6a72089bad63f2d1089cef21"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to D6",
+      "timestamp": "2026-08-04T15:43:26.464Z",
+      "resolved": false,
+      "id": "doc_xhggjijlr",
+      "createdAt": "2026-08-04T15:43:27.595Z",
+      "_id": "6a72089fad63f2d1089cef22"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:43:56.101Z",
+      "resolved": false,
+      "id": "doc_rzkr8bvgh",
+      "createdAt": "2026-08-04T15:43:57.167Z",
+      "_id": "6a7208bdad63f2d1089cef23"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:44:31.075Z",
+      "resolved": false,
+      "id": "doc_fekfhaway",
+      "createdAt": "2026-08-04T15:44:31.684Z",
+      "_id": "6a7208dfad63f2d1089cef24"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:44:37.083Z",
+      "resolved": false,
+      "id": "doc_zf15m3zko",
+      "createdAt": "2026-08-04T15:44:38.494Z",
+      "_id": "6a7208e6ad63f2d1089cef25"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T15:44:41.072Z",
+      "resolved": false,
+      "id": "doc_bjg4fb4pv",
+      "createdAt": "2026-08-04T15:44:41.805Z",
+      "_id": "6a7208e9ad63f2d1089cef26"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Zone1",
+      "timestamp": "2026-08-04T15:44:43.089Z",
+      "resolved": false,
+      "id": "doc_tcgz63h0b",
+      "createdAt": "2026-08-04T15:44:43.710Z",
+      "_id": "6a7208ebad63f2d1089cef27"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to D8",
+      "timestamp": "2026-08-04T15:44:53.071Z",
+      "resolved": false,
+      "id": "doc_qude7xzrc",
+      "createdAt": "2026-08-04T15:44:53.745Z",
+      "_id": "6a7208f5ad63f2d1089cef28"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:45:11.066Z",
+      "resolved": false,
+      "id": "doc_zhd8vneo7",
+      "createdAt": "2026-08-04T15:45:11.729Z",
+      "_id": "6a720907ad63f2d1089cef29"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to D6",
+      "timestamp": "2026-08-04T15:45:13.071Z",
+      "resolved": false,
+      "id": "doc_fzgl7gox6",
+      "createdAt": "2026-08-04T15:45:13.736Z",
+      "_id": "6a720909ad63f2d1089cef2a"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Structure & Scaffolding (L1-L4) with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:45:17.066Z",
+      "resolved": false,
+      "id": "doc_t50a0lh32",
+      "createdAt": "2026-08-04T15:45:17.743Z",
+      "_id": "6a72090dad63f2d1089cef2b"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T15:45:35.084Z",
+      "resolved": false,
+      "id": "doc_y0mnc52sa",
+      "createdAt": "2026-08-04T15:45:35.741Z",
+      "_id": "6a72091fad63f2d1089cef2c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:45:41.067Z",
+      "resolved": false,
+      "id": "doc_oqhbye9xx",
+      "createdAt": "2026-08-04T15:45:41.746Z",
+      "_id": "6a720925ad63f2d1089cef2d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T15:46:31.077Z",
+      "resolved": false,
+      "id": "doc_1u2vnm0f1",
+      "createdAt": "2026-08-04T15:46:31.713Z",
+      "_id": "6a720957ad63f2d1089cef2e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:46:35.067Z",
+      "resolved": false,
+      "id": "doc_yxirfaz3y",
+      "createdAt": "2026-08-04T15:46:35.739Z",
+      "_id": "6a72095bad63f2d1089cef2f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Zone2",
+      "timestamp": "2026-08-04T15:46:35.067Z",
+      "resolved": false,
+      "id": "doc_u70vynsl3",
+      "createdAt": "2026-08-04T15:46:35.740Z",
+      "_id": "6a72095bad63f2d1089cef30"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Zone1",
+      "timestamp": "2026-08-04T15:46:43.645Z",
+      "resolved": false,
+      "id": "doc_cq4pcqfkc",
+      "createdAt": "2026-08-04T15:46:44.267Z",
+      "_id": "6a720964ad63f2d1089cef31"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:46:51.067Z",
+      "resolved": false,
+      "id": "doc_15hlqzdx5",
+      "createdAt": "2026-08-04T15:46:51.706Z",
+      "_id": "6a72096bad63f2d1089cef32"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Structure & Scaffolding (L1-L4) with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:47:19.067Z",
+      "resolved": false,
+      "id": "doc_ttnmaqxfx",
+      "createdAt": "2026-08-04T15:47:19.691Z",
+      "_id": "6a720987ad63f2d1089cef33"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Zone2",
+      "timestamp": "2026-08-04T15:47:21.067Z",
+      "resolved": false,
+      "id": "doc_7lapo3q0f",
+      "createdAt": "2026-08-04T15:47:21.677Z",
+      "_id": "6a720989ad63f2d1089cef34"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to d6",
+      "timestamp": "2026-08-04T15:47:21.068Z",
+      "resolved": false,
+      "id": "doc_g2191mo20",
+      "createdAt": "2026-08-04T15:47:21.721Z",
+      "_id": "6a720989ad63f2d1089cef35"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:47:31.075Z",
+      "resolved": false,
+      "id": "doc_lic08mk0s",
+      "createdAt": "2026-08-04T15:47:31.702Z",
+      "_id": "6a720993ad63f2d1089cef36"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:47:37.078Z",
+      "resolved": false,
+      "id": "doc_80ptzpws9",
+      "createdAt": "2026-08-04T15:47:37.684Z",
+      "_id": "6a720999ad63f2d1089cef37"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to d6",
+      "timestamp": "2026-08-04T15:47:55.072Z",
+      "resolved": false,
+      "id": "doc_09ppivrhq",
+      "createdAt": "2026-08-04T15:47:55.732Z",
+      "_id": "6a7209abad63f2d1089cef38"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T15:48:07.071Z",
+      "resolved": false,
+      "id": "doc_7y18wl9pu",
+      "createdAt": "2026-08-04T15:48:07.714Z",
+      "_id": "6a7209b7ad63f2d1089cef39"
+    },
+    {
+      "type": "security",
+      "message": "HAZARD ALERT: Visitor Sven Lindqvist entered Confined Shaft without Escort!",
+      "timestamp": "2026-08-04T15:48:39.066Z",
+      "resolved": false,
+      "id": "doc_y562gwqr2",
+      "createdAt": "2026-08-04T15:48:39.744Z",
+      "_id": "6a7209d7ad63f2d1089cef3a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:48:43.073Z",
+      "resolved": false,
+      "id": "doc_srl4cnvi0",
+      "createdAt": "2026-08-04T15:48:43.855Z",
+      "_id": "6a7209dbad63f2d1089cef3b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to d6",
+      "timestamp": "2026-08-04T15:48:51.075Z",
+      "resolved": false,
+      "id": "doc_4lyof0kn6",
+      "createdAt": "2026-08-04T15:48:51.780Z",
+      "_id": "6a7209e3ad63f2d1089cef3c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:48:51.076Z",
+      "resolved": false,
+      "id": "doc_87cv3kv8j",
+      "createdAt": "2026-08-04T15:48:51.782Z",
+      "_id": "6a7209e3ad63f2d1089cef3d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:49:09.074Z",
+      "resolved": false,
+      "id": "doc_dwkzt6sgn",
+      "createdAt": "2026-08-04T15:49:09.733Z",
+      "_id": "6a7209f5ad63f2d1089cef3e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T15:49:11.073Z",
+      "resolved": false,
+      "id": "doc_y77tu80zx",
+      "createdAt": "2026-08-04T15:49:11.738Z",
+      "_id": "6a7209f7ad63f2d1089cef3f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T15:49:19.074Z",
+      "resolved": false,
+      "id": "doc_hh4fe4pz7",
+      "createdAt": "2026-08-04T15:49:19.695Z",
+      "_id": "6a7209ffad63f2d1089cef40"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to D6",
+      "timestamp": "2026-08-04T15:49:37.071Z",
+      "resolved": false,
+      "id": "doc_rg1dwj1vs",
+      "createdAt": "2026-08-04T15:49:37.691Z",
+      "_id": "6a720a11ad63f2d1089cef41"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to d6",
+      "timestamp": "2026-08-04T15:50:07.643Z",
+      "resolved": false,
+      "id": "doc_bayk92ebi",
+      "createdAt": "2026-08-04T15:50:08.268Z",
+      "_id": "6a720a30ad63f2d1089cef42"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Zone1",
+      "timestamp": "2026-08-04T15:50:25.647Z",
+      "resolved": false,
+      "id": "doc_p2t8ox2sf",
+      "createdAt": "2026-08-04T15:50:26.328Z",
+      "_id": "6a720a42ad63f2d1089cef43"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Zone1",
+      "timestamp": "2026-08-04T15:50:53.071Z",
+      "resolved": false,
+      "id": "doc_70y5phi0m",
+      "createdAt": "2026-08-04T15:50:53.726Z",
+      "_id": "6a720a5dad63f2d1089cef44"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:50:57.637Z",
+      "resolved": false,
+      "id": "doc_4ncfqnzcd",
+      "createdAt": "2026-08-04T15:50:58.313Z",
+      "_id": "6a720a62ad63f2d1089cef45"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T15:51:07.068Z",
+      "resolved": false,
+      "id": "doc_bfkm9bic9",
+      "createdAt": "2026-08-04T15:51:07.762Z",
+      "_id": "6a720a6bad63f2d1089cef46"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:51:11.650Z",
+      "resolved": false,
+      "id": "doc_qap6kqywq",
+      "createdAt": "2026-08-04T15:51:12.339Z",
+      "_id": "6a720a70ad63f2d1089cef47"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T15:51:13.638Z",
+      "resolved": false,
+      "id": "doc_skc4rx36n",
+      "createdAt": "2026-08-04T15:51:14.262Z",
+      "_id": "6a720a72ad63f2d1089cef48"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T15:51:35.642Z",
+      "resolved": false,
+      "id": "doc_s1twuaw3h",
+      "createdAt": "2026-08-04T15:51:36.326Z",
+      "_id": "6a720a88ad63f2d1089cef49"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:51:43.645Z",
+      "resolved": false,
+      "id": "doc_o0xsfoamh",
+      "createdAt": "2026-08-04T15:51:44.299Z",
+      "_id": "6a720a90ad63f2d1089cef4a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T15:51:47.645Z",
+      "resolved": false,
+      "id": "doc_gngw2ze4b",
+      "createdAt": "2026-08-04T15:51:48.340Z",
+      "_id": "6a720a94ad63f2d1089cef4b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:52:05.068Z",
+      "resolved": false,
+      "id": "doc_p472z51jn",
+      "createdAt": "2026-08-04T15:52:05.742Z",
+      "_id": "6a720aa5ad63f2d1089cef4c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to d6",
+      "timestamp": "2026-08-04T15:52:45.635Z",
+      "resolved": false,
+      "id": "doc_kheajgxsg",
+      "createdAt": "2026-08-04T15:52:50.635Z",
+      "_id": "6a720ad2ad63f2d1089cef4d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to d8",
+      "timestamp": "2026-08-04T15:52:55.643Z",
+      "resolved": false,
+      "id": "doc_qcoi15xp8",
+      "createdAt": "2026-08-04T15:53:02.869Z",
+      "_id": "6a720adead63f2d1089cef4e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:53:01.784Z",
+      "resolved": false,
+      "id": "doc_zcbsym7v9",
+      "createdAt": "2026-08-04T15:53:03.054Z",
+      "_id": "6a720adfad63f2d1089cef4f"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Structure & Scaffolding (L1-L4) with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:53:03.646Z",
+      "resolved": false,
+      "id": "doc_1ysg1zarc",
+      "createdAt": "2026-08-04T15:53:04.466Z",
+      "_id": "6a720ae0ad63f2d1089cef50"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:53:15.658Z",
+      "resolved": false,
+      "id": "doc_z7xn15m55",
+      "createdAt": "2026-08-04T15:53:16.446Z",
+      "_id": "6a720aecad63f2d1089cef51"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to d6",
+      "timestamp": "2026-08-04T15:53:17.648Z",
+      "resolved": false,
+      "id": "doc_hvrc3w22d",
+      "createdAt": "2026-08-04T15:53:18.341Z",
+      "_id": "6a720aeead63f2d1089cef52"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T15:53:25.638Z",
+      "resolved": false,
+      "id": "doc_i3petkslk",
+      "createdAt": "2026-08-04T15:53:26.283Z",
+      "_id": "6a720af6ad63f2d1089cef53"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Zone1",
+      "timestamp": "2026-08-04T15:53:27.639Z",
+      "resolved": false,
+      "id": "doc_vbkr1b53s",
+      "createdAt": "2026-08-04T15:53:28.310Z",
+      "_id": "6a720af8ad63f2d1089cef54"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to d6",
+      "timestamp": "2026-08-04T15:53:43.651Z",
+      "resolved": false,
+      "id": "doc_4khwckc4y",
+      "createdAt": "2026-08-04T15:53:44.307Z",
+      "_id": "6a720b08ad63f2d1089cef55"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to D6",
+      "timestamp": "2026-08-04T15:53:59.649Z",
+      "resolved": false,
+      "id": "doc_ec9pyuchx",
+      "createdAt": "2026-08-04T15:54:00.303Z",
+      "_id": "6a720b18ad63f2d1089cef56"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T15:54:01.643Z",
+      "resolved": false,
+      "id": "doc_d0lve9yav",
+      "createdAt": "2026-08-04T15:54:02.341Z",
+      "_id": "6a720b1aad63f2d1089cef57"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:54:05.636Z",
+      "resolved": false,
+      "id": "doc_rq1vh7p50",
+      "createdAt": "2026-08-04T15:54:06.294Z",
+      "_id": "6a720b1ead63f2d1089cef58"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T15:54:05.636Z",
+      "resolved": false,
+      "id": "doc_sw54gzgir",
+      "createdAt": "2026-08-04T15:54:06.295Z",
+      "_id": "6a720b1ead63f2d1089cef59"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Zone2",
+      "timestamp": "2026-08-04T15:54:13.643Z",
+      "resolved": false,
+      "id": "doc_270dwc7j8",
+      "createdAt": "2026-08-04T15:54:14.342Z",
+      "_id": "6a720b26ad63f2d1089cef5a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:54:15.638Z",
+      "resolved": false,
+      "id": "doc_m9vbdz8cw",
+      "createdAt": "2026-08-04T15:54:16.299Z",
+      "_id": "6a720b28ad63f2d1089cef5b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T15:54:29.643Z",
+      "resolved": false,
+      "id": "doc_e8qz3ag3m",
+      "createdAt": "2026-08-04T15:54:30.336Z",
+      "_id": "6a720b36ad63f2d1089cef5c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T15:55:05.318Z",
+      "resolved": false,
+      "id": "doc_f2whcsheh",
+      "createdAt": "2026-08-04T15:55:05.965Z",
+      "_id": "6a720b597ed0969646941e74"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Zone1",
+      "timestamp": "2026-08-04T15:55:08.607Z",
+      "resolved": false,
+      "id": "doc_dmjs2do1z",
+      "createdAt": "2026-08-04T15:55:09.477Z",
+      "_id": "6a720b5d7ed0969646941e75"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T15:55:17.765Z",
+      "resolved": false,
+      "id": "doc_3pmg4v8n0",
+      "createdAt": "2026-08-04T15:55:18.619Z",
+      "_id": "6a720b667ed0969646941e76"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Zone2",
+      "timestamp": "2026-08-04T15:55:24.358Z",
+      "resolved": false,
+      "id": "doc_a3826kkhr",
+      "createdAt": "2026-08-04T15:55:25.503Z",
+      "_id": "6a720b6d7ed0969646941e77"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to d8",
+      "timestamp": "2026-08-04T15:55:45.432Z",
+      "resolved": false,
+      "id": "doc_ore6rfcsc",
+      "createdAt": "2026-08-04T15:55:46.385Z",
+      "_id": "6a720b827ed0969646941e78"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T15:56:03.772Z",
+      "resolved": false,
+      "id": "doc_bazvg6fdn",
+      "createdAt": "2026-08-04T15:56:04.404Z",
+      "_id": "6a720b947ed0969646941e79"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T15:56:25.741Z",
+      "resolved": false,
+      "id": "doc_nv20kb66g",
+      "createdAt": "2026-08-04T15:56:26.995Z",
+      "_id": "6a720baa7ed0969646941e7a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T15:56:39.366Z",
+      "resolved": false,
+      "id": "doc_xa5dsamoy",
+      "createdAt": "2026-08-04T15:56:40.218Z",
+      "_id": "6a720bb87ed0969646941e7b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to D6",
+      "timestamp": "2026-08-04T15:57:03.953Z",
+      "resolved": false,
+      "id": "doc_gfnqdgogj",
+      "createdAt": "2026-08-04T15:57:04.784Z",
+      "_id": "6a720bd0555eaae43050a034"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T15:59:32.863Z",
+      "resolved": false,
+      "id": "doc_o92mn77de",
+      "createdAt": "2026-08-04T15:59:33.655Z",
+      "_id": "6a720c65f4fda3d2e26e560c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T16:00:05.055Z",
+      "resolved": false,
+      "id": "doc_k3bks15ll",
+      "createdAt": "2026-08-04T16:00:05.759Z",
+      "_id": "6a720c85f4fda3d2e26e560d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T16:00:11.060Z",
+      "resolved": false,
+      "id": "doc_jo11a0b8j",
+      "createdAt": "2026-08-04T16:00:11.740Z",
+      "_id": "6a720c8bf4fda3d2e26e560e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T16:00:15.047Z",
+      "resolved": false,
+      "id": "doc_dp7o0s9ld",
+      "createdAt": "2026-08-04T16:00:15.754Z",
+      "_id": "6a720c8ff4fda3d2e26e560f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T16:00:21.052Z",
+      "resolved": false,
+      "id": "doc_vt7msn380",
+      "createdAt": "2026-08-04T16:00:21.764Z",
+      "_id": "6a720c95f4fda3d2e26e5610"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to d8",
+      "timestamp": "2026-08-04T16:00:35.046Z",
+      "resolved": false,
+      "id": "doc_pa94s4zlr",
+      "createdAt": "2026-08-04T16:00:35.721Z",
+      "_id": "6a720ca3f4fda3d2e26e5611"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T16:00:53.049Z",
+      "resolved": false,
+      "id": "doc_899neq0sc",
+      "createdAt": "2026-08-04T16:00:53.742Z",
+      "_id": "6a720cb5f4fda3d2e26e5612"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Structure & Scaffolding (L1-L4) with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:00:55.057Z",
+      "resolved": false,
+      "id": "doc_u4qtvl138",
+      "createdAt": "2026-08-04T16:00:55.754Z",
+      "_id": "6a720cb7f4fda3d2e26e5613"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to D8",
+      "timestamp": "2026-08-04T16:02:11.048Z",
+      "resolved": false,
+      "id": "doc_ava3gzu1t",
+      "createdAt": "2026-08-04T16:02:11.692Z",
+      "_id": "6a720d03f4fda3d2e26e5614"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Zone1",
+      "timestamp": "2026-08-04T16:02:17.046Z",
+      "resolved": false,
+      "id": "doc_suoq58d45",
+      "createdAt": "2026-08-04T16:02:17.717Z",
+      "_id": "6a720d09f4fda3d2e26e5615"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T16:02:19.046Z",
+      "resolved": false,
+      "id": "doc_5indav7a9",
+      "createdAt": "2026-08-04T16:02:19.742Z",
+      "_id": "6a720d0bf4fda3d2e26e5616"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T16:02:27.045Z",
+      "resolved": false,
+      "id": "doc_jhpfs2rqm",
+      "createdAt": "2026-08-04T16:02:27.698Z",
+      "_id": "6a720d13f4fda3d2e26e5617"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T16:02:27.048Z",
+      "resolved": false,
+      "id": "doc_tt21ez7jr",
+      "createdAt": "2026-08-04T16:02:27.742Z",
+      "_id": "6a720d13f4fda3d2e26e5618"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T16:02:27.048Z",
+      "resolved": false,
+      "id": "doc_o92b69ql4",
+      "createdAt": "2026-08-04T16:02:27.744Z",
+      "_id": "6a720d13f4fda3d2e26e5619"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T16:02:35.046Z",
+      "resolved": false,
+      "id": "doc_pgbw6mxox",
+      "createdAt": "2026-08-04T16:02:35.720Z",
+      "_id": "6a720d1bf4fda3d2e26e561a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to d8",
+      "timestamp": "2026-08-04T16:03:01.048Z",
+      "resolved": false,
+      "id": "doc_3nw1l8y6x",
+      "createdAt": "2026-08-04T16:03:01.759Z",
+      "_id": "6a720d35f4fda3d2e26e561b"
+    },
+    {
+      "type": "security",
+      "message": "HAZARD ALERT: Visitor Sven Lindqvist entered Confined Shaft without Escort!",
+      "timestamp": "2026-08-04T16:03:05.048Z",
+      "resolved": false,
+      "id": "doc_l4180a7s8",
+      "createdAt": "2026-08-04T16:03:05.769Z",
+      "_id": "6a720d39f4fda3d2e26e561c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to D6",
+      "timestamp": "2026-08-04T16:03:17.045Z",
+      "resolved": false,
+      "id": "doc_69nuzecu3",
+      "createdAt": "2026-08-04T16:03:17.731Z",
+      "_id": "6a720d45f4fda3d2e26e561d"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:03:39.052Z",
+      "resolved": false,
+      "id": "doc_nvsmeh02o",
+      "createdAt": "2026-08-04T16:03:39.772Z",
+      "_id": "6a720d5bf4fda3d2e26e561e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T16:03:47.046Z",
+      "resolved": false,
+      "id": "doc_pwp2lhlel",
+      "createdAt": "2026-08-04T16:03:47.737Z",
+      "_id": "6a720d63f4fda3d2e26e561f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to d8",
+      "timestamp": "2026-08-04T16:03:51.063Z",
+      "resolved": false,
+      "id": "doc_bkmruu3ri",
+      "createdAt": "2026-08-04T16:03:51.758Z",
+      "_id": "6a720d67f4fda3d2e26e5620"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to d8",
+      "timestamp": "2026-08-04T16:03:53.045Z",
+      "resolved": false,
+      "id": "doc_5taqou0zm",
+      "createdAt": "2026-08-04T16:03:53.694Z",
+      "_id": "6a720d69f4fda3d2e26e5621"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T16:04:03.047Z",
+      "resolved": false,
+      "id": "doc_qktdk5nfe",
+      "createdAt": "2026-08-04T16:04:03.742Z",
+      "_id": "6a720d73f4fda3d2e26e5622"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T16:04:21.058Z",
+      "resolved": false,
+      "id": "doc_7w0ioprs5",
+      "createdAt": "2026-08-04T16:04:21.739Z",
+      "_id": "6a720d85f4fda3d2e26e5623"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Zone2",
+      "timestamp": "2026-08-04T16:04:43.045Z",
+      "resolved": false,
+      "id": "doc_9xli29my8",
+      "createdAt": "2026-08-04T16:04:43.861Z",
+      "_id": "6a720d9bf4fda3d2e26e5624"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T16:06:43.319Z",
+      "resolved": false,
+      "id": "doc_1wykix2bo",
+      "createdAt": "2026-08-04T16:06:44.005Z",
+      "_id": "6a720e1438e6034e67c1de55"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T16:06:47.317Z",
+      "resolved": false,
+      "id": "doc_7ym3xyjzj",
+      "createdAt": "2026-08-04T16:06:48.020Z",
+      "_id": "6a720e1838e6034e67c1de56"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to D6",
+      "timestamp": "2026-08-04T16:06:51.319Z",
+      "resolved": false,
+      "id": "doc_dvh6kgy2d",
+      "createdAt": "2026-08-04T16:06:51.985Z",
+      "_id": "6a720e1b38e6034e67c1de57"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T16:06:51.322Z",
+      "resolved": false,
+      "id": "doc_ktc1310nw",
+      "createdAt": "2026-08-04T16:06:52.017Z",
+      "_id": "6a720e1c38e6034e67c1de58"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to D8",
+      "timestamp": "2026-08-04T16:07:01.317Z",
+      "resolved": false,
+      "id": "doc_9t4gpm6o5",
+      "createdAt": "2026-08-04T16:07:01.996Z",
+      "_id": "6a720e2538e6034e67c1de59"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T16:07:13.318Z",
+      "resolved": false,
+      "id": "doc_ar7bwr21i",
+      "createdAt": "2026-08-04T16:07:14.041Z",
+      "_id": "6a720e3238e6034e67c1de5a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T16:07:25.327Z",
+      "resolved": false,
+      "id": "doc_e395jxfyq",
+      "createdAt": "2026-08-04T16:07:26.051Z",
+      "_id": "6a720e3e38e6034e67c1de5b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T16:07:43.638Z",
+      "resolved": false,
+      "id": "doc_7opahkkms",
+      "createdAt": "2026-08-04T16:07:44.368Z",
+      "_id": "6a720e5038e6034e67c1de5c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T16:07:49.643Z",
+      "resolved": false,
+      "id": "doc_tqbl0rje0",
+      "createdAt": "2026-08-04T16:07:50.345Z",
+      "_id": "6a720e5638e6034e67c1de5d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T16:07:59.644Z",
+      "resolved": false,
+      "id": "doc_01wsdeox1",
+      "createdAt": "2026-08-04T16:08:00.360Z",
+      "_id": "6a720e6038e6034e67c1de5e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Zone2",
+      "timestamp": "2026-08-04T16:08:01.641Z",
+      "resolved": false,
+      "id": "doc_fg7jdjhvw",
+      "createdAt": "2026-08-04T16:08:02.356Z",
+      "_id": "6a720e6238e6034e67c1de5f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to d8",
+      "timestamp": "2026-08-04T16:08:31.648Z",
+      "resolved": false,
+      "id": "doc_guxfzhsoj",
+      "createdAt": "2026-08-04T16:08:32.353Z",
+      "_id": "6a720e8038e6034e67c1de60"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to D8",
+      "timestamp": "2026-08-04T16:08:43.317Z",
+      "resolved": false,
+      "id": "doc_ax4kww5q9",
+      "createdAt": "2026-08-04T16:08:44.039Z",
+      "_id": "6a720e8c38e6034e67c1de61"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to d8",
+      "timestamp": "2026-08-04T16:08:51.648Z",
+      "resolved": false,
+      "id": "doc_0dtmnegp0",
+      "createdAt": "2026-08-04T16:08:52.314Z",
+      "_id": "6a720e9438e6034e67c1de62"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to D8",
+      "timestamp": "2026-08-04T16:08:57.645Z",
+      "resolved": false,
+      "id": "doc_gvyxqazrj",
+      "createdAt": "2026-08-04T16:08:58.309Z",
+      "_id": "6a720e9a38e6034e67c1de63"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T16:09:11.329Z",
+      "resolved": false,
+      "id": "doc_yug4depp1",
+      "createdAt": "2026-08-04T16:09:12.047Z",
+      "_id": "6a720ea838e6034e67c1de64"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T16:09:13.315Z",
+      "resolved": false,
+      "id": "doc_598gqrx8e",
+      "createdAt": "2026-08-04T16:09:14.054Z",
+      "_id": "6a720eaa38e6034e67c1de65"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to D8",
+      "timestamp": "2026-08-04T16:09:21.328Z",
+      "resolved": false,
+      "id": "doc_gj6abbbxh",
+      "createdAt": "2026-08-04T16:09:22.002Z",
+      "_id": "6a720eb238e6034e67c1de66"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T16:09:37.318Z",
+      "resolved": false,
+      "id": "doc_uuvl3ypnv",
+      "createdAt": "2026-08-04T16:09:38.027Z",
+      "_id": "6a720ec238e6034e67c1de67"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to D8",
+      "timestamp": "2026-08-04T16:09:43.319Z",
+      "resolved": false,
+      "id": "doc_h9sbukrmh",
+      "createdAt": "2026-08-04T16:09:44.044Z",
+      "_id": "6a720ec838e6034e67c1de68"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T16:10:01.320Z",
+      "resolved": false,
+      "id": "doc_vg3gprm4e",
+      "createdAt": "2026-08-04T16:10:02.041Z",
+      "_id": "6a720eda38e6034e67c1de69"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T16:10:15.319Z",
+      "resolved": false,
+      "id": "doc_bqe7m9uur",
+      "createdAt": "2026-08-04T16:10:16.005Z",
+      "_id": "6a720ee838e6034e67c1de6a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T16:10:29.329Z",
+      "resolved": false,
+      "id": "doc_53c3x42xu",
+      "createdAt": "2026-08-04T16:10:30.030Z",
+      "_id": "6a720ef638e6034e67c1de6b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Zone1",
+      "timestamp": "2026-08-04T16:10:35.324Z",
+      "resolved": false,
+      "id": "doc_02io6adhx",
+      "createdAt": "2026-08-04T16:10:36.055Z",
+      "_id": "6a720efc38e6034e67c1de6c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to D6",
+      "timestamp": "2026-08-04T16:10:39.324Z",
+      "resolved": false,
+      "id": "doc_o36two8vx",
+      "createdAt": "2026-08-04T16:10:40.025Z",
+      "_id": "6a720f0038e6034e67c1de6d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T16:10:49.324Z",
+      "resolved": false,
+      "id": "doc_dg2aczbc1",
+      "createdAt": "2026-08-04T16:10:50.023Z",
+      "_id": "6a720f0a38e6034e67c1de6e"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T16:10:55.317Z",
+      "resolved": false,
+      "id": "doc_c3uf7pp6k",
+      "createdAt": "2026-08-04T16:10:56.005Z",
+      "_id": "6a720f1038e6034e67c1de6f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T16:11:03.317Z",
+      "resolved": false,
+      "id": "doc_wkk2cgxfh",
+      "createdAt": "2026-08-04T16:11:03.988Z",
+      "_id": "6a720f1738e6034e67c1de70"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T16:11:15.327Z",
+      "resolved": false,
+      "id": "doc_58z75eyjg",
+      "createdAt": "2026-08-04T16:11:16.013Z",
+      "_id": "6a720f2438e6034e67c1de71"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to D6",
+      "timestamp": "2026-08-04T16:11:35.321Z",
+      "resolved": false,
+      "id": "doc_65b2h22nj",
+      "createdAt": "2026-08-04T16:11:36.026Z",
+      "_id": "6a720f3838e6034e67c1de72"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to D6",
+      "timestamp": "2026-08-04T16:12:59.320Z",
+      "resolved": false,
+      "id": "doc_l755tsasg",
+      "createdAt": "2026-08-04T16:13:00.044Z",
+      "_id": "6a720f8c38e6034e67c1de73"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T16:13:17.317Z",
+      "resolved": false,
+      "id": "doc_g2hf5c7pl",
+      "createdAt": "2026-08-04T16:13:18.028Z",
+      "_id": "6a720f9e38e6034e67c1de74"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T16:13:31.318Z",
+      "resolved": false,
+      "id": "doc_quju3sn2y",
+      "createdAt": "2026-08-04T16:13:32.020Z",
+      "_id": "6a720fac38e6034e67c1de75"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T16:13:41.317Z",
+      "resolved": false,
+      "id": "doc_uc06u3ue5",
+      "createdAt": "2026-08-04T16:13:42.026Z",
+      "_id": "6a720fb638e6034e67c1de76"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T16:14:11.323Z",
+      "resolved": false,
+      "id": "doc_7bt5ovzw4",
+      "createdAt": "2026-08-04T16:14:12.028Z",
+      "_id": "6a720fd438e6034e67c1de77"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Zone1",
+      "timestamp": "2026-08-04T16:14:17.319Z",
+      "resolved": false,
+      "id": "doc_2rpqqs5g9",
+      "createdAt": "2026-08-04T16:14:18.049Z",
+      "_id": "6a720fda38e6034e67c1de78"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to D8",
+      "timestamp": "2026-08-04T16:14:31.325Z",
+      "resolved": false,
+      "id": "doc_j63t3mosg",
+      "createdAt": "2026-08-04T16:14:32.030Z",
+      "_id": "6a720fe838e6034e67c1de7a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T16:14:31.325Z",
+      "resolved": false,
+      "id": "doc_de9j18ntc",
+      "createdAt": "2026-08-04T16:14:32.028Z",
+      "_id": "6a720fe838e6034e67c1de79"
+    },
+    {
+      "type": "security",
+      "message": "EXCLUSION BREACH: Uncertified Visitor Sven Lindqvist entered Heavy Crane Radius!",
+      "timestamp": "2026-08-04T16:14:51.318Z",
+      "resolved": false,
+      "id": "doc_pd9305weh",
+      "createdAt": "2026-08-04T16:14:52.039Z",
+      "_id": "6a720ffc38e6034e67c1de7b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T16:14:51.318Z",
+      "resolved": false,
+      "id": "doc_xe3zitnpf",
+      "createdAt": "2026-08-04T16:14:52.041Z",
+      "_id": "6a720ffc38e6034e67c1de7c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to D8",
+      "timestamp": "2026-08-04T16:14:53.316Z",
+      "resolved": false,
+      "id": "doc_d0ukc17ox",
+      "createdAt": "2026-08-04T16:14:54.785Z",
+      "_id": "6a720ffe38e6034e67c1de7d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T16:15:03.322Z",
+      "resolved": false,
+      "id": "doc_oe0x99hxa",
+      "createdAt": "2026-08-04T16:15:03.995Z",
+      "_id": "6a72100738e6034e67c1de7e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T16:15:09.319Z",
+      "resolved": false,
+      "id": "doc_fhn31m6zr",
+      "createdAt": "2026-08-04T16:15:09.989Z",
+      "_id": "6a72100d38e6034e67c1de7f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T16:15:21.320Z",
+      "resolved": false,
+      "id": "doc_1tcg2vlha",
+      "createdAt": "2026-08-04T16:15:22.003Z",
+      "_id": "6a72101a38e6034e67c1de80"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to d6",
+      "timestamp": "2026-08-04T16:15:25.317Z",
+      "resolved": false,
+      "id": "doc_6y2l7ajw2",
+      "createdAt": "2026-08-04T16:15:26.034Z",
+      "_id": "6a72101e38e6034e67c1de81"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T16:15:35.326Z",
+      "resolved": false,
+      "id": "doc_hfqv1s38u",
+      "createdAt": "2026-08-04T16:15:36.028Z",
+      "_id": "6a72102838e6034e67c1de82"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to D8",
+      "timestamp": "2026-08-04T16:15:59.322Z",
+      "resolved": false,
+      "id": "doc_49uqcwuoo",
+      "createdAt": "2026-08-04T16:16:00.058Z",
+      "_id": "6a72104038e6034e67c1de83"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T16:16:01.322Z",
+      "resolved": false,
+      "id": "doc_91h3saehg",
+      "createdAt": "2026-08-04T16:16:02.042Z",
+      "_id": "6a72104238e6034e67c1de84"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:16:03.319Z",
+      "resolved": false,
+      "id": "doc_6uoya90dm",
+      "createdAt": "2026-08-04T16:16:04.033Z",
+      "_id": "6a72104438e6034e67c1de85"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Gate 1 / Main Access Gate",
+      "timestamp": "2026-08-04T16:16:07.327Z",
+      "resolved": false,
+      "id": "doc_kbmqme9my",
+      "createdAt": "2026-08-04T16:16:08.035Z",
+      "_id": "6a72104838e6034e67c1de86"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Robert Jackson (IronClad Steel Corp) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T16:16:31.318Z",
+      "resolved": false,
+      "id": "doc_rw6k4dmb3",
+      "createdAt": "2026-08-04T16:16:32.039Z",
+      "_id": "6a72106038e6034e67c1de87"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T16:16:37.328Z",
+      "resolved": false,
+      "id": "doc_e2jggpqmt",
+      "createdAt": "2026-08-04T16:16:38.058Z",
+      "_id": "6a72106638e6034e67c1de88"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Excavation & Foundation Pit with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:16:39.317Z",
+      "resolved": false,
+      "id": "doc_to4y7qkiy",
+      "createdAt": "2026-08-04T16:16:40.035Z",
+      "_id": "6a72106838e6034e67c1de89"
+    },
+    {
+      "type": "security",
+      "message": "HAZARD ALERT: Visitor Sven Lindqvist entered Confined Shaft without Escort!",
+      "timestamp": "2026-08-04T16:16:41.321Z",
+      "resolved": false,
+      "id": "doc_ahmfza6ya",
+      "createdAt": "2026-08-04T16:16:42.049Z",
+      "_id": "6a72106a38e6034e67c1de8a"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to d6",
+      "timestamp": "2026-08-04T16:16:53.319Z",
+      "resolved": false,
+      "id": "doc_kcov01yzo",
+      "createdAt": "2026-08-04T16:16:54.049Z",
+      "_id": "6a72107638e6034e67c1de8b"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Elena Rostova (BuildCorp Safety) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T16:16:55.318Z",
+      "resolved": false,
+      "id": "doc_9mo6nw6yv",
+      "createdAt": "2026-08-04T16:16:56.045Z",
+      "_id": "6a72107838e6034e67c1de8c"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Jake Miller (Titan Heavy Machinery) moved to Site Office & Welfare Container",
+      "timestamp": "2026-08-04T16:16:55.318Z",
+      "resolved": false,
+      "id": "doc_w5i4zsao0",
+      "createdAt": "2026-08-04T16:16:56.046Z",
+      "_id": "6a72107838e6034e67c1de8d"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T16:16:55.318Z",
+      "resolved": false,
+      "id": "doc_axnxcvhwj",
+      "createdAt": "2026-08-04T16:16:56.047Z",
+      "_id": "6a72107838e6034e67c1de8e"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to D8",
+      "timestamp": "2026-08-04T16:17:29.316Z",
+      "resolved": false,
+      "id": "doc_h1y7hhoi5",
+      "createdAt": "2026-08-04T16:17:30.063Z",
+      "_id": "6a72109a38e6034e67c1de8f"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T16:17:29.316Z",
+      "resolved": false,
+      "id": "doc_1sw6p957q",
+      "createdAt": "2026-08-04T16:17:30.064Z",
+      "_id": "6a72109a38e6034e67c1de90"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Heavy Crane & Exclusion Area",
+      "timestamp": "2026-08-04T16:17:33.321Z",
+      "resolved": false,
+      "id": "doc_g22h6okww",
+      "createdAt": "2026-08-04T16:17:34.048Z",
+      "_id": "6a72109e38e6034e67c1de91"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Marcus Vance (BuildCorp General) moved to Material Laydown & Loading",
+      "timestamp": "2026-08-04T16:17:35.321Z",
+      "resolved": false,
+      "id": "doc_7gl5ntg01",
+      "createdAt": "2026-08-04T16:17:36.060Z",
+      "_id": "6a7210a038e6034e67c1de92"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to d6",
+      "timestamp": "2026-08-04T16:17:37.327Z",
+      "resolved": false,
+      "id": "doc_5g2uagc7t",
+      "createdAt": "2026-08-04T16:17:38.074Z",
+      "_id": "6a7210a238e6034e67c1de93"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to D8",
+      "timestamp": "2026-08-04T16:17:41.325Z",
+      "resolved": false,
+      "id": "doc_zvw9dwbb9",
+      "createdAt": "2026-08-04T16:17:42.075Z",
+      "_id": "6a7210a638e6034e67c1de94"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Sven Lindqvist (City Structural Audit Dept) moved to Excavation & Foundation Pit",
+      "timestamp": "2026-08-04T16:18:05.316Z",
+      "resolved": false,
+      "id": "doc_g9lkpx8ii",
+      "createdAt": "2026-08-04T16:18:06.073Z",
+      "_id": "6a7210be38e6034e67c1de95"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Zone2",
+      "timestamp": "2026-08-04T16:18:09.321Z",
+      "resolved": false,
+      "id": "doc_435y89bez",
+      "createdAt": "2026-08-04T16:18:10.069Z",
+      "_id": "6a7210c238e6034e67c1de96"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Confined Shaft & Tunneling",
+      "timestamp": "2026-08-04T16:18:11.323Z",
+      "resolved": false,
+      "id": "doc_zfh546tyw",
+      "createdAt": "2026-08-04T16:18:12.068Z",
+      "_id": "6a7210c438e6034e67c1de97"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: David Chen (Apex Scaffold Solutions) moved to Muster Point A (Emergency)",
+      "timestamp": "2026-08-04T16:18:13.316Z",
+      "resolved": false,
+      "id": "doc_3zd6k3i6q",
+      "createdAt": "2026-08-04T16:18:14.050Z",
+      "_id": "6a7210c638e6034e67c1de98"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson entered Structure & Scaffolding (L1-L4) with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:18:17.324Z",
+      "resolved": false,
+      "id": "doc_imzvhpt6k",
+      "createdAt": "2026-08-04T16:18:18.065Z",
+      "_id": "6a7210ca38e6034e67c1de99"
+    },
+    {
+      "type": "info",
+      "message": "Worker Check-in: Carlos Mendez (VoltCraft Electrical) moved to Structure & Scaffolding (L1-L4)",
+      "timestamp": "2026-08-04T16:18:21.323Z",
+      "resolved": false,
+      "id": "doc_lurh78jzc",
+      "createdAt": "2026-08-04T16:18:23.268Z",
+      "_id": "6a7210cfad90467c1dc802e9"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:18:41.075Z",
+      "resolved": false,
+      "id": "doc_j3lclqhvn",
+      "createdAt": "2026-08-04T16:18:41.904Z",
+      "_id": "6a7210e1ad90467c1dc802ea"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:19:00.077Z",
+      "resolved": false,
+      "id": "doc_4bex6b9f6",
+      "createdAt": "2026-08-04T16:19:00.806Z",
+      "_id": "6a7210f4ad90467c1dc802eb"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:19:20.081Z",
+      "resolved": false,
+      "id": "doc_2uac85lbm",
+      "createdAt": "2026-08-04T16:19:20.806Z",
+      "_id": "6a721108ad90467c1dc802ec"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:19:40.089Z",
+      "resolved": false,
+      "id": "doc_7bb6xrhm0",
+      "createdAt": "2026-08-04T16:19:40.832Z",
+      "_id": "6a72111cad90467c1dc802ed"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:20:00.079Z",
+      "resolved": false,
+      "id": "doc_mgi1rboef",
+      "createdAt": "2026-08-04T16:20:00.798Z",
+      "_id": "6a721130ad90467c1dc802ee"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:20:20.086Z",
+      "resolved": false,
+      "id": "doc_hpa0htkac",
+      "createdAt": "2026-08-04T16:20:20.862Z",
+      "_id": "6a721144ad90467c1dc802ef"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:20:40.086Z",
+      "resolved": false,
+      "id": "doc_eh3flq9ji",
+      "createdAt": "2026-08-04T16:20:40.815Z",
+      "_id": "6a721158ad90467c1dc802f0"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:21:00.081Z",
+      "resolved": false,
+      "id": "doc_2kw06ou4h",
+      "createdAt": "2026-08-04T16:21:00.805Z",
+      "_id": "6a72116cad90467c1dc802f1"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:21:20.083Z",
+      "resolved": false,
+      "id": "doc_wfh28s941",
+      "createdAt": "2026-08-04T16:21:20.801Z",
+      "_id": "6a721180ad90467c1dc802f2"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:21:40.080Z",
+      "resolved": false,
+      "id": "doc_02pgjqary",
+      "createdAt": "2026-08-04T16:21:40.823Z",
+      "_id": "6a721194ad90467c1dc802f3"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:22:00.087Z",
+      "resolved": false,
+      "id": "doc_ypvizptvr",
+      "createdAt": "2026-08-04T16:22:00.809Z",
+      "_id": "6a7211a8ad90467c1dc802f4"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:22:20.081Z",
+      "resolved": false,
+      "id": "doc_jpcmknnhz",
+      "createdAt": "2026-08-04T16:22:20.839Z",
+      "_id": "6a7211bcad90467c1dc802f5"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:22:40.079Z",
+      "resolved": false,
+      "id": "doc_9mw6wwgvl",
+      "createdAt": "2026-08-04T16:22:40.805Z",
+      "_id": "6a7211d0ad90467c1dc802f6"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:23:00.090Z",
+      "resolved": false,
+      "id": "doc_q48ro361i",
+      "createdAt": "2026-08-04T16:23:00.841Z",
+      "_id": "6a7211e4ad90467c1dc802f7"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:23:20.080Z",
+      "resolved": false,
+      "id": "doc_mlq1bcs7t",
+      "createdAt": "2026-08-04T16:23:20.803Z",
+      "_id": "6a7211f8ad90467c1dc802f8"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:23:40.084Z",
+      "resolved": false,
+      "id": "doc_2fw7hg3zg",
+      "createdAt": "2026-08-04T16:23:40.795Z",
+      "_id": "6a72120cad90467c1dc802f9"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:24:00.088Z",
+      "resolved": false,
+      "id": "doc_78crvbl6f",
+      "createdAt": "2026-08-04T16:24:00.799Z",
+      "_id": "6a721220ad90467c1dc802fa"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:24:20.079Z",
+      "resolved": false,
+      "id": "doc_bmzaiuq3n",
+      "createdAt": "2026-08-04T16:24:20.794Z",
+      "_id": "6a721234ad90467c1dc802fb"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:24:40.077Z",
+      "resolved": false,
+      "id": "doc_m4vfeqjvb",
+      "createdAt": "2026-08-04T16:24:40.800Z",
+      "_id": "6a721248ad90467c1dc802fc"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:25:00.093Z",
+      "resolved": false,
+      "id": "doc_ynp31elfn",
+      "createdAt": "2026-08-04T16:25:02.328Z",
+      "_id": "6a72125ead90467c1dc802fd"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:25:20.088Z",
+      "resolved": false,
+      "id": "doc_xs02dvtag",
+      "createdAt": "2026-08-04T16:25:20.792Z",
+      "_id": "6a721270ad90467c1dc802fe"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:25:40.082Z",
+      "resolved": false,
+      "id": "doc_75gze7rdi",
+      "createdAt": "2026-08-04T16:25:40.803Z",
+      "_id": "6a721284ad90467c1dc802ff"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:26:00.082Z",
+      "resolved": false,
+      "id": "doc_9igxary3f",
+      "createdAt": "2026-08-04T16:26:00.793Z",
+      "_id": "6a721298ad90467c1dc80300"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:26:20.079Z",
+      "resolved": false,
+      "id": "doc_dploxcb3r",
+      "createdAt": "2026-08-04T16:26:20.783Z",
+      "_id": "6a7212acad90467c1dc80301"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:26:40.091Z",
+      "resolved": false,
+      "id": "doc_awf4ar28a",
+      "createdAt": "2026-08-04T16:26:40.797Z",
+      "_id": "6a7212c0ad90467c1dc80302"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:27:00.092Z",
+      "resolved": false,
+      "id": "doc_zxvaumzlj",
+      "createdAt": "2026-08-04T16:27:00.824Z",
+      "_id": "6a7212d4ad90467c1dc80303"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Construction Zone with non-compliant safety gear!",
+      "timestamp": "2026-08-04T16:27:20.648Z",
+      "resolved": false,
+      "id": "doc_zhafwuevj",
+      "createdAt": "2026-08-04T16:27:21.399Z",
+      "_id": "6a7212e9ad90467c1dc80304"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:22:55.865Z",
+      "resolved": false,
+      "id": "doc_9zwc3pcg2",
+      "createdAt": "2026-08-05T05:22:57.200Z",
+      "_id": "6a72c8b1188c0dfd0e806178"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:23:17.865Z",
+      "resolved": false,
+      "id": "doc_w4d04akjv",
+      "createdAt": "2026-08-05T05:23:19.000Z",
+      "_id": "6a72c8c7188c0dfd0e806179"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:23:37.864Z",
+      "resolved": false,
+      "id": "doc_sl8d50w03",
+      "createdAt": "2026-08-05T05:23:39.229Z",
+      "_id": "6a72c8db188c0dfd0e80617a"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:24:03.864Z",
+      "resolved": false,
+      "id": "doc_6dqw123e9",
+      "createdAt": "2026-08-05T05:24:04.951Z",
+      "_id": "6a72c8f4188c0dfd0e80617b"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:24:31.868Z",
+      "resolved": false,
+      "id": "doc_3uk5qgmxu",
+      "createdAt": "2026-08-05T05:24:32.965Z",
+      "_id": "6a72c910188c0dfd0e80617c"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:25:07.872Z",
+      "resolved": false,
+      "id": "doc_tlfmjxg6u",
+      "createdAt": "2026-08-05T05:25:08.983Z",
+      "_id": "6a72c934188c0dfd0e80617d"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:25:29.863Z",
+      "resolved": false,
+      "id": "doc_b5t7fzgne",
+      "createdAt": "2026-08-05T05:25:31.010Z",
+      "_id": "6a72c94b188c0dfd0e80617e"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:25:53.864Z",
+      "resolved": false,
+      "id": "doc_n7f3llvrh",
+      "createdAt": "2026-08-05T05:25:54.980Z",
+      "_id": "6a72c962188c0dfd0e80617f"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:26:17.873Z",
+      "resolved": false,
+      "id": "doc_inpy5rfgz",
+      "createdAt": "2026-08-05T05:26:19.005Z",
+      "_id": "6a72c97b188c0dfd0e806180"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:26:37.874Z",
+      "resolved": false,
+      "id": "doc_c8tx2g6rr",
+      "createdAt": "2026-08-05T05:26:38.975Z",
+      "_id": "6a72c98e188c0dfd0e806181"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:27:09.868Z",
+      "resolved": false,
+      "id": "doc_4z7ky18gv",
+      "createdAt": "2026-08-05T05:27:11.000Z",
+      "_id": "6a72c9af188c0dfd0e806182"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:27:59.868Z",
+      "resolved": false,
+      "id": "doc_pzjm9t9dz",
+      "createdAt": "2026-08-05T05:28:01.019Z",
+      "_id": "6a72c9e1188c0dfd0e806183"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:30:05.886Z",
+      "resolved": false,
+      "id": "doc_nmb7exji9",
+      "createdAt": "2026-08-05T05:30:06.991Z",
+      "_id": "6a72ca5e6188fc43c9af4bd8"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:30:25.890Z",
+      "resolved": false,
+      "id": "doc_46afsbm7u",
+      "createdAt": "2026-08-05T05:30:27.039Z",
+      "_id": "6a72ca736188fc43c9af4bd9"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:30:45.895Z",
+      "resolved": false,
+      "id": "doc_gbz1thia0",
+      "createdAt": "2026-08-05T05:30:47.043Z",
+      "_id": "6a72ca876188fc43c9af4bda"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:31:05.891Z",
+      "resolved": false,
+      "id": "doc_l3goxgcjn",
+      "createdAt": "2026-08-05T05:31:07.018Z",
+      "_id": "6a72ca9b6188fc43c9af4bdb"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:31:25.888Z",
+      "resolved": false,
+      "id": "doc_98ndkjs15",
+      "createdAt": "2026-08-05T05:31:27.007Z",
+      "_id": "6a72caaf6188fc43c9af4bdc"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:32:15.888Z",
+      "resolved": false,
+      "id": "doc_pmcwpp7gt",
+      "createdAt": "2026-08-05T05:32:17.012Z",
+      "_id": "6a72cae16188fc43c9af4bdd"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:32:41.892Z",
+      "resolved": false,
+      "id": "doc_mq3owso48",
+      "createdAt": "2026-08-05T05:32:43.009Z",
+      "_id": "6a72cafb6188fc43c9af4bde"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:33:01.886Z",
+      "resolved": false,
+      "id": "doc_natu2uc6u",
+      "createdAt": "2026-08-05T05:33:03.033Z",
+      "_id": "6a72cb0f6188fc43c9af4bdf"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:33:21.887Z",
+      "resolved": false,
+      "id": "doc_qcajhuzk3",
+      "createdAt": "2026-08-05T05:33:23.030Z",
+      "_id": "6a72cb236188fc43c9af4be0"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:33:41.885Z",
+      "resolved": false,
+      "id": "doc_ujc0olxzk",
+      "createdAt": "2026-08-05T05:33:43.025Z",
+      "_id": "6a72cb376188fc43c9af4be1"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:34:01.885Z",
+      "resolved": false,
+      "id": "doc_524p2r4ir",
+      "createdAt": "2026-08-05T05:34:03.041Z",
+      "_id": "6a72cb4b6188fc43c9af4be2"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:34:21.894Z",
+      "resolved": false,
+      "id": "doc_7x7vgppn0",
+      "createdAt": "2026-08-05T05:34:23.040Z",
+      "_id": "6a72cb5f6188fc43c9af4be3"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:34:41.891Z",
+      "resolved": false,
+      "id": "doc_c7tacjg3s",
+      "createdAt": "2026-08-05T05:34:43.028Z",
+      "_id": "6a72cb736188fc43c9af4be4"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:35:17.046Z",
+      "resolved": false,
+      "id": "doc_cjzdcq8zy",
+      "createdAt": "2026-08-05T05:35:18.437Z",
+      "_id": "6a72cb9653b16ee811d84839"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:35:36.695Z",
+      "resolved": false,
+      "id": "doc_51rlpoxl0",
+      "createdAt": "2026-08-05T05:35:37.821Z",
+      "_id": "6a72cba953b16ee811d8483a"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:36:06.696Z",
+      "resolved": false,
+      "id": "doc_dknehsdh6",
+      "createdAt": "2026-08-05T05:36:07.824Z",
+      "_id": "6a72cbc753b16ee811d8483b"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:36:36.702Z",
+      "resolved": false,
+      "id": "doc_7vwi32jtv",
+      "createdAt": "2026-08-05T05:36:37.824Z",
+      "_id": "6a72cbe553b16ee811d8483c"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:36:56.696Z",
+      "resolved": false,
+      "id": "doc_5fkcyn637",
+      "createdAt": "2026-08-05T05:36:57.811Z",
+      "_id": "6a72cbf953b16ee811d8483d"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:37:26.693Z",
+      "resolved": false,
+      "id": "doc_h0vry5vt7",
+      "createdAt": "2026-08-05T05:37:27.804Z",
+      "_id": "6a72cc1753b16ee811d8483e"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:37:46.696Z",
+      "resolved": false,
+      "id": "doc_wkxuv3y77",
+      "createdAt": "2026-08-05T05:37:47.827Z",
+      "_id": "6a72cc2b53b16ee811d8483f"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:38:06.698Z",
+      "resolved": false,
+      "id": "doc_jfdlil4i0",
+      "createdAt": "2026-08-05T05:38:07.906Z",
+      "_id": "6a72cc3f53b16ee811d84840"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:39:10.693Z",
+      "resolved": false,
+      "id": "doc_jigtspc3e",
+      "createdAt": "2026-08-05T05:39:11.836Z",
+      "_id": "6a72cc7f53b16ee811d84841"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:39:30.693Z",
+      "resolved": false,
+      "id": "doc_miaukdtz5",
+      "createdAt": "2026-08-05T05:39:31.840Z",
+      "_id": "6a72cc9353b16ee811d84842"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:40:08.702Z",
+      "resolved": false,
+      "id": "doc_e0uclmnwc",
+      "createdAt": "2026-08-05T05:40:09.921Z",
+      "_id": "6a72ccb953b16ee811d84843"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:40:28.695Z",
+      "resolved": false,
+      "id": "doc_p33pkw3uw",
+      "createdAt": "2026-08-05T05:40:29.798Z",
+      "_id": "6a72cccd53b16ee811d84844"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:40:48.722Z",
+      "resolved": false,
+      "id": "doc_a28f06b51",
+      "createdAt": "2026-08-05T05:40:49.942Z",
+      "_id": "6a72cce153b16ee811d84845"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Heavy Crane & Exclusion Area with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:41:08.703Z",
+      "resolved": false,
+      "id": "doc_ws0kooecz",
+      "createdAt": "2026-08-05T05:41:09.856Z",
+      "_id": "6a72ccf553b16ee811d84846"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:42:54.696Z",
+      "resolved": false,
+      "id": "doc_e77v0qlv4",
+      "createdAt": "2026-08-05T05:42:55.868Z",
+      "_id": "6a72cd5f53b16ee811d84847"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:43:14.694Z",
+      "resolved": false,
+      "id": "doc_v9q7knze4",
+      "createdAt": "2026-08-05T05:43:15.868Z",
+      "_id": "6a72cd7353b16ee811d84848"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Tower Core Structure with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:43:34.693Z",
+      "resolved": false,
+      "id": "doc_81d1vefdo",
+      "createdAt": "2026-08-05T05:43:35.852Z",
+      "_id": "6a72cd8753b16ee811d84849"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:44:04.703Z",
+      "resolved": false,
+      "id": "doc_h6z8wh5e0",
+      "createdAt": "2026-08-05T05:44:05.878Z",
+      "_id": "6a72cda553b16ee811d8484a"
+    },
+    {
+      "type": "warning",
+      "message": "PPE VIOLATION: Worker Robert Jackson active in Deep Excavation Shaft with non-compliant safety gear!",
+      "timestamp": "2026-08-05T05:44:24.695Z",
+      "resolved": false,
+      "id": "doc_lpuptrfyu",
+      "createdAt": "2026-08-05T05:44:25.872Z",
+      "_id": "6a72cdb953b16ee811d8484b"
+    }
+  ],
+  "ai_recommendations": [
+    {
+      "id": "rec_1",
+      "title": "Optimizing HVAC Scheduling",
+      "category": "energy",
+      "content": "HVAC usage in Office Zone B remains active outside official hours.",
+      "roi": "$540/mo",
+      "appliedAt": "2026-08-04T15:13:50.873Z"
+    }
+  ],
+  "tag_history": [
+    {
+      "id": "hist_1",
+      "TagID": "1",
+      "name": "Alice Smith",
+      "role": "Employee",
+      "fromZone": "Entrance",
+      "toZone": "Office",
+      "timestamp": "2026-08-04T14:13:50.873Z"
+    },
+    {
+      "id": "hist_2",
+      "TagID": "2",
+      "name": "Bob Johnson",
+      "role": "Visitor",
+      "fromZone": "Entrance",
+      "toZone": "Office",
+      "timestamp": "2026-08-04T14:43:50.873Z"
+    }
+  ],
+  "projects": [
+    {
+      "id": "metro-tower",
+      "name": "Metro Commercial Tower & Deep Excavation Site",
+      "contractor": "Apex Construction Joint Venture",
+      "sizeSqFt": 350000,
+      "dimensions": "250m x 180m",
+      "floorplanUrl": "https://images.unsplash.com/photo-1581094288338-2314dddb7ecc?auto=format&fit=crop&q=80&w=1200",
+      "customZones": {
+        "Deep Excavation Shaft": {
+          "x": 10,
+          "y": 15,
+          "width": 34,
+          "height": 62,
+          "category": "EXCAVATION & SHORING"
+        },
+        "Tower Core Structure": {
+          "x": 51,
+          "y": 25,
+          "width": 32,
+          "height": 50,
+          "category": "CONCRETE REINFORCEMENT"
+        },
+        "Heavy Crane & Exclusion Area": {
+          "x": 80,
+          "y": 5,
+          "width": 16,
+          "height": 42,
+          "category": "CRANE SWING RADIUS"
+        }
+      },
+      "hardwareDevices": [
+        {
+          "id": "door-gate1",
+          "name": "Gate 1 Main Access Portal",
+          "macAddress": "GAO-UHF-MT-01",
+          "ipAddress": "192.168.1.101",
+          "port": 8080,
+          "x": 25.165950522642994,
+          "y": 63.19114986274689,
+          "zone": "Deep Excavation Shaft",
+          "type": "UHF RFID Gate Portal",
+          "orientation": "horizontal",
+          "powerDbm": 28,
+          "antennaGainDbi": 10,
+          "frequencyBand": "US 902-928 MHz UHF",
+          "scanIntervalMs": 250,
+          "rssiThreshold": -75,
+          "status": "Online",
+          "alertsEnabled": {
+            "unauthorizedAccess": true,
+            "ppeViolation": true,
+            "loiteringDwell": false
+          }
+        },
+        {
+          "id": "door-excavation",
+          "name": "Main Zone Access Scanner",
+          "macAddress": "GAO-UHF-MT-02",
+          "ipAddress": "192.168.1.102",
+          "port": 8080,
+          "x": 17.394349822402038,
+          "y": 45.844248029891915,
+          "zone": "Tower Core Structure",
+          "type": "Heavy Equipment RFID Beacon",
+          "orientation": "horizontal",
+          "powerDbm": 30,
+          "antennaGainDbi": 12,
+          "frequencyBand": "US 902-928 MHz UHF",
+          "scanIntervalMs": 100,
+          "rssiThreshold": -70,
+          "status": "Online",
+          "alertsEnabled": {
+            "unauthorizedAccess": true,
+            "ppeViolation": true,
+            "loiteringDwell": true
+          }
+        }
+      ],
+      "assets": [
+        {
+          "id": "AST-MT-01",
+          "name": "DeWalt Core Drilling Rig (UHF Tagged)",
+          "category": "Power Tool",
+          "location": "Tower Core Structure",
+          "assignedWorker": "Alice Smith",
+          "status": "Operating",
+          "utilization": 84,
+          "lastMovement": "2 mins ago",
+          "battery": 92,
+          "x": 26.875702676696005,
+          "y": 8.288951542174859
+        },
+        {
+          "id": "AST-MT-02",
+          "name": "Atlas Copco Diesel Air Compressor 375 CFM",
+          "category": "Compressor",
+          "location": "Deep Excavation Shaft",
+          "assignedWorker": "David Kim",
+          "status": "Operating",
+          "utilization": 95,
+          "lastMovement": "12 mins ago",
+          "battery": 88,
+          "x": 22,
+          "y": 28
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "CUSTOM-4902",
+          "name": "crane",
+          "type": "Hydraulic Excavator",
+          "operator": "Assigned Crew",
+          "location": "Deep Excavation Pit (Basement B3)",
+          "speed": 10,
+          "direction": 45,
+          "status": "Active",
+          "fuel": 90,
+          "x": 57.029513393630914,
+          "y": 56.91791797396668
+        },
+        {
+          "id": "VEH-MT-01",
+          "name": "Liebherr 280 EC-H 12 Litronic Tower Crane",
+          "type": "Tower Crane",
+          "operator": "Gavin Vance",
+          "location": "Heavy Crane & Exclusion Area",
+          "speed": 1.5,
+          "direction": 142,
+          "status": "Active",
+          "fuel": 88,
+          "x": 68.06518638797307,
+          "y": 43.321549959747365
+        },
+        {
+          "id": "VEH-MT-02",
+          "name": "CAT 336 Heavy Tracked Hydraulic Excavator",
+          "type": "Hydraulic Excavator",
+          "operator": "Hank Miller",
+          "location": "Deep Excavation Shaft",
+          "speed": 4.2,
+          "direction": 210,
+          "status": "Active",
+          "fuel": 72,
+          "x": 65.42284214989115,
+          "y": 17.87520420872413
+        }
+      ],
+      "cameras": [
+        {
+          "id": "CAM-MT-01",
+          "name": "Gate 1 License Plate & Hardhat AI Camera",
+          "zone": "Deep Excavation Shaft",
+          "status": "Online",
+          "aiStatus": "Active",
+          "aiFeatures": [
+            "PPE Detection",
+            "License Plate Recognition"
+          ],
+          "recentEvent": "PPE Complaint Entrance: 100% hardhats verified",
+          "streamResolution": "4K Ultra HD",
+          "x": 80.96604355037306,
+          "y": 67.64426036917595,
+          "angle": 45
+        },
+        {
+          "id": "CAM-MT-02",
+          "name": "Tower Crane Jib AI Cam",
+          "zone": "Heavy Crane & Exclusion Area",
+          "status": "Online",
+          "aiStatus": "Triggered",
+          "aiFeatures": [
+            "Exclusion Zone Intrusion",
+            "Crane Collision Risk"
+          ],
+          "recentEvent": "WARNING: Subcontractor worker inside active radius",
+          "streamResolution": "4K Ultra HD",
+          "x": 92.31258057272484,
+          "y": 25.245869874537757,
+          "angle": 220
+        }
+      ],
+      "envSensors": [
+        {
+          "id": "ENV-MT-01",
+          "name": "Confined Shaft Hazardous Gas Sensor",
+          "zone": "Deep Excavation Shaft",
+          "temperature": 28.4,
+          "gasLevel": 12.5,
+          "dustPM25": 42,
+          "noiseDb": 88,
+          "humidity": 78,
+          "status": "Warning",
+          "x": 22,
+          "y": 65
+        }
+      ],
+      "updatedAt": "2026-08-05T05:37:50.809Z"
+    }
+  ]
+}
