@@ -357,11 +357,12 @@ function PlaybackMap({ historyFrames, currentFrameIndex, zones, highlightedPerso
           return (
             <div
               key={p.id}
-              className="absolute w-4 h-4 rounded-full border-[2px] transition-all duration-300"
+              className="absolute w-4 h-4 rounded-full border-[2px]"
               style={{
                 left: `${p.x}%`,
                 top: `${p.y}%`,
                 transform: 'translate(-50%, -50%)',
+                transition: 'left 0.5s ease-out, top 0.5s ease-out',
                 opacity,
                 zIndex: isHighlighted ? 50 : 20,
                 backgroundColor: p.role === 'Visitor' ? '#f59e0b' : p.role === 'Security' ? '#10b981' : '#007BC4',

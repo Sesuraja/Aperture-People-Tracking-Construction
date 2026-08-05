@@ -98,6 +98,7 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
     const nextMap = { ...projectProperties, [activeProject]: nextProj };
     setProjectProperties(nextMap);
     localStorage.setItem('gao_project_properties', JSON.stringify(nextMap));
+    window.dispatchEvent(new Event('gao_project_updated'));
     
     try {
       // Save project metadata
@@ -410,7 +411,7 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
                   key={d.id}
                   onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(d.id, 'device'); }}
                   className={`absolute z-30 cursor-grab active:cursor-grabbing p-2.5 rounded-xl shadow-lg border backdrop-blur-md flex items-center gap-2 transition-transform ${isDragging ? 'scale-110 z-50 ring-4 ring-purple-500/30' : 'hover:scale-105'} ${d.status === 'Online' ? 'bg-purple-900/90 text-white border-purple-700' : 'bg-slate-900/90 text-slate-300 border-slate-700'}`}
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', transition: isDragging ? 'none' : 'left 0.8s ease-out, top 0.8s ease-out' }}
                 >
                   <Radio size={14} className="text-purple-300 animate-pulse" />
                   <div className="flex flex-col">
@@ -429,7 +430,7 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
                   key={a.id}
                   onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(a.id, 'asset'); }}
                   className={`absolute z-30 cursor-grab active:cursor-grabbing p-2.5 rounded-xl shadow-lg border backdrop-blur-md flex items-center gap-2 transition-transform ${isDragging ? 'scale-110 z-50 ring-4 ring-blue-500/30' : 'hover:scale-105'} bg-blue-900/90 text-white border-blue-700`}
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', transition: isDragging ? 'none' : 'left 0.8s ease-out, top 0.8s ease-out' }}
                 >
                   <Wrench size={14} className="text-blue-300" />
                   <div className="flex flex-col">
@@ -448,7 +449,7 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
                   key={v.id}
                   onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(v.id, 'vehicle'); }}
                   className={`absolute z-30 cursor-grab active:cursor-grabbing p-2.5 rounded-xl shadow-lg border backdrop-blur-md flex items-center gap-2 transition-transform ${isDragging ? 'scale-110 z-50 ring-4 ring-amber-500/30' : 'hover:scale-105'} bg-amber-900/90 text-white border-amber-700`}
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', transition: isDragging ? 'none' : 'left 0.8s ease-out, top 0.8s ease-out' }}
                 >
                   <Truck size={14} className="text-amber-300" />
                   <div className="flex flex-col">
@@ -467,7 +468,7 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
                   key={c.id}
                   onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(c.id, 'camera'); }}
                   className={`absolute z-30 cursor-grab active:cursor-grabbing p-2.5 rounded-xl shadow-lg border backdrop-blur-md flex items-center gap-2 transition-transform ${isDragging ? 'scale-110 z-50 ring-4 ring-emerald-500/30' : 'hover:scale-105'} bg-emerald-900/90 text-white border-emerald-700`}
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', transition: isDragging ? 'none' : 'left 0.8s ease-out, top 0.8s ease-out' }}
                 >
                   <Camera size={14} className="text-emerald-300" />
                   <div className="flex flex-col">

@@ -8,6 +8,9 @@ export interface AssetItem {
   utilization: number; // percentage
   lastMovement: string;
   battery: number;
+  speed?: number;
+  heading?: number;
+  rssi?: number;
   x: number;
   y: number;
 }
@@ -19,7 +22,9 @@ export interface VehicleItem {
   operator: string;
   location: string;
   speed: number; // km/h
-  direction: number; // degrees 0-360
+  direction?: number; // degrees 0-360
+  heading?: number;
+  rssi?: number;
   status: 'Active' | 'Idling' | 'Maintenance' | 'Parked';
   fuel: number;
   x: number;
@@ -31,11 +36,12 @@ export interface InfrastructureItem {
   name: string;
   type: 'UHF RFID Reader' | 'BLE Gateway' | 'UWB Anchor' | 'Wi-Fi Access Point' | 'IoT Edge Gateway';
   location: string;
-  ipAddress: string;
-  macAddress: string;
+  ipAddress?: string;
+  macAddress?: string;
   status: 'Online' | 'Offline' | 'Warning' | 'Maintenance Required';
-  signalRssi: number; // -30 to -90 dBm
-  battery: number | null;
+  signalRssi?: number; // -30 to -90 dBm
+  battery?: number | null;
+  occupancy?: string;
   x: number;
   y: number;
 }

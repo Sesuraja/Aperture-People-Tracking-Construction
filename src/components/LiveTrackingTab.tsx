@@ -7,13 +7,15 @@ import {
   Layers, Users, Maximize2, Minimize2, Truck, HardHat, Camera, Thermometer,
   Radio, Navigation, Eye, EyeOff, Map as MapIcon, Layout, ShieldAlert, Activity,
   Database, Info, Terminal, Zap, ChevronDown, Filter, Settings, Bell, Flame,
-  Box, Warehouse, MoreVertical, SlidersHorizontal, Trash2, BarChart3, ShieldCheck, Check
+  Box, Warehouse, MoreVertical, SlidersHorizontal, Trash2, BarChart3, ShieldCheck, Check,
+  FileText, PenTool, Volume2, BellRing
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import ManageWorkforceModal from './ManageWorkforceModal';
 import { db, collection, onSnapshot, doc } from '../lib/db';
 import { ZoneBounds } from './MapEditorModal';
 import { HardwareDevice } from './HardwareConfigModal';
+import { generatePDFReport } from '../lib/exportUtils';
 
 // Mock additional entities for enterprise view
 const MOCK_READERS: ReaderDevice[] = [
@@ -87,6 +89,42 @@ export default function LiveTrackingTab({
   const activeProject = propActiveProject !== undefined ? propActiveProject : localActiveProject;
 
   const currentProject = INITIAL_PROJECT_PROPERTIES[activeProject] || INITIAL_PROJECT_PROPERTIES['metro-tower'];
+
+  const [localProjectProps, setLocalProjectProps] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('gao_project_properties');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed[activeProject] || null;
+      }
+    } catch (e) {
+      console.warn('Failed to parse local project properties:', e);
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      try {
+        const saved = localStorage.getItem('gao_project_properties');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed[activeProject]) {
+            setLocalProjectProps(parsed[activeProject]);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to update local project properties:', e);
+      }
+    };
+    handleUpdate();
+    window.addEventListener('gao_project_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('gao_project_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [activeProject]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity>(null);
@@ -126,21 +164,201 @@ export default function LiveTrackingTab({
     return combined;
   }, [dbPeople, propPeople]);
 
+  // Custom Geofences & Capacity Thresholds
+  const [customZonesState, setCustomZonesState] = useState<Record<string, any>>(() => {
+    return defaultZones && Object.keys(defaultZones).length > 0 ? defaultZones : {
+      'Excavation Shaft': { x: 10, y: 15, width: 34, height: 62, category: 'EXCAVATION & SHORING', hazardLevel: 'warning', maxCapacity: 4 },
+      'Tower Core': { x: 51, y: 25, width: 32, height: 50, category: 'CONCRETE REINFORCEMENT', hazardLevel: 'standard', maxCapacity: 10 },
+      'Crane Swing Zone': { x: 80, y: 5, width: 16, height: 42, category: 'CRANE SWING RADIUS', hazardLevel: 'critical', maxCapacity: 3 },
+      'Muster Point A': { x: 2, y: 10, width: 8, height: 12, category: 'MUSTER POINT', hazardLevel: 'standard', maxCapacity: 30 }
+    };
+  });
+
+  const [zoneCapacities, setZoneCapacities] = useState<Record<string, number>>({
+    'Crane Swing Zone': 3,
+    'Excavation Shaft': 4,
+    'Tower Core': 10,
+    'Muster Point A': 30,
+  });
+
+  // Geofence Drawing State
+  const [isDrawingGeofence, setIsDrawingGeofence] = useState(false);
+
+  // Emergency SOS State
+  const [emergencySosState, setEmergencySosState] = useState<{
+    active: boolean;
+    workerId?: string;
+    workerName?: string;
+    zone?: string;
+    timestamp?: string;
+    x?: number;
+    y?: number;
+  } | null>(null);
+
+  const activeZones = useMemo(() => {
+    return projectMeta?.customZones || localProjectProps?.customZones || currentProject.customZones || customZonesState;
+  }, [projectMeta, localProjectProps, currentProject, customZonesState]);
+
+  // Over Capacity Check
+  const overCapacityZones = useMemo(() => {
+    return Object.entries(activeZones).filter(([zName, bounds]: [string, any]) => {
+      const count = people.filter(p => p.currentZone && p.currentZone.toLowerCase() === zName.toLowerCase()).length;
+      const cap = zoneCapacities[zName] || bounds.maxCapacity || 8;
+      return count > cap;
+    });
+  }, [activeZones, people, zoneCapacities]);
+
+  // Audio Emergency Alarm Synthesizer
+  const playEmergencyAudioAlarm = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    } catch (e) {
+      console.warn('Audio synthesis not supported or blocked:', e);
+    }
+  };
+
+  // Toggle Emergency SOS
+  const handleToggleEmergencySOS = () => {
+    if (emergencySosState?.active) {
+      setEmergencySosState(null);
+      setIsEmergencyMode(false);
+      setMapMode('standard');
+    } else {
+      playEmergencyAudioAlarm();
+      const targetWorker: Person = people.find(p => p.ppeStatus === 'NON_COMPLIANT' || p.currentZone === 'Crane Swing Zone') || people[0] || {
+        id: 'W-104',
+        name: 'John Smith',
+        role: 'Steelworker',
+        currentZone: 'Crane Swing Zone',
+        presenceState: 'MOVING',
+        dwellTime: 45,
+        x: 82,
+        y: 35,
+        lastSeen: new Date(),
+        trail: []
+      };
+
+      setEmergencySosState({
+        active: true,
+        workerId: targetWorker.id,
+        workerName: targetWorker.name,
+        zone: targetWorker.currentZone || 'Crane Swing Zone',
+        timestamp: new Date().toLocaleTimeString(),
+        x: targetWorker.x,
+        y: targetWorker.y
+      });
+      setIsEmergencyMode(true);
+      setMapMode('evacuation');
+      setSelectedEntity({
+        type: 'person',
+        data: targetWorker
+      });
+    }
+  };
+
+  // Save new geofence
+  const handleSaveCustomGeofence = (newZone: { name: string; bounds: { x: number; y: number; width: number; height: number }; hazardLevel: string; maxCapacity: number }) => {
+    setCustomZonesState(prev => ({
+      ...prev,
+      [newZone.name]: {
+        ...newZone.bounds,
+        category: 'CUSTOM GEOFENCE',
+        hazardLevel: newZone.hazardLevel,
+        maxCapacity: newZone.maxCapacity
+      }
+    }));
+    setZoneCapacities(prev => ({
+      ...prev,
+      [newZone.name]: newZone.maxCapacity
+    }));
+    setIsDrawingGeofence(false);
+  };
+
+  // Export Daily Attendance PDF Log
+  const handleExportAttendancePDF = () => {
+    const complianceRate = Math.round(((people.length - overCapacityZones.length) / Math.max(1, people.length)) * 100);
+    const pdfColumns = [
+      { key: 'id', label: 'WORKER ID' },
+      { key: 'name', label: 'NAME' },
+      { key: 'role', label: 'ROLE' },
+      { key: 'trade', label: 'TRADE / DEPT' },
+      { key: 'zone', label: 'GEOFENCE ZONE' },
+      { key: 'ppe', label: 'PPE STATUS' },
+      { key: 'checkIn', label: 'CHECK-IN TIME' }
+    ];
+    const pdfRows = people.map(p => ({
+      id: p.id,
+      name: p.name,
+      role: p.role || 'Worker',
+      trade: (p as any).trade || (p as any).department || 'Construction',
+      zone: p.currentZone || 'Unassigned Zone',
+      ppe: p.ppeStatus || 'COMPLIANT',
+      checkIn: (p as any).checkInTime || '07:00 AM'
+    }));
+    const pdfMetrics = [
+      { label: "Active Onsite Workers", value: people.length.toString() },
+      { label: "Monitored Geofences", value: Object.keys(activeZones).length.toString() },
+      { label: "Over-Capacity Alerts", value: overCapacityZones.length.toString() },
+      { label: "Shift Compliance Rate", value: `${complianceRate}%` }
+    ];
+
+    generatePDFReport(
+      "GAO RFID Shift Attendance & Zone Presence Report",
+      `Project: ${currentProject.name} | Contractor: ${currentProject.contractor} | Date: ${new Date().toLocaleDateString()}`,
+      pdfColumns,
+      pdfRows,
+      pdfMetrics
+    );
+  };
+
+  const localAssets = useMemo(() => {
+    if (localProjectProps?.assets && Array.isArray(localProjectProps.assets)) {
+      return localProjectProps.assets;
+    }
+    return [];
+  }, [localProjectProps]);
+
+  const localVehicles = useMemo(() => {
+    if (localProjectProps?.vehicles && Array.isArray(localProjectProps.vehicles)) {
+      return localProjectProps.vehicles;
+    }
+    return [];
+  }, [localProjectProps]);
+
   const assets = useMemo(() => {
     const combined = [...dbAssets];
+    localAssets.forEach((la: any) => {
+      if (!combined.find(a => a.id === la.id)) combined.push(la);
+    });
     propAssets.forEach(simA => {
       if (!combined.find(a => a.id === simA.id)) combined.push(simA);
     });
     return combined;
-  }, [propAssets, dbAssets]);
+  }, [propAssets, dbAssets, localAssets]);
 
   const vehicles = useMemo(() => {
     const combined = [...dbVehicles];
+    localVehicles.forEach((lv: any) => {
+      if (!combined.find(v => v.id === lv.id)) combined.push(lv);
+    });
     propVehicles.forEach(simV => {
       if (!combined.find(v => v.id === simV.id)) combined.push(simV);
     });
     return combined;
-  }, [propVehicles, dbVehicles]);
+  }, [propVehicles, dbVehicles, localVehicles]);
 
   useEffect(() => {
     const unsubProject = onSnapshot(doc(db, 'projects', activeProject), (snap: any) => {
@@ -148,10 +366,16 @@ export default function LiveTrackingTab({
     });
     const unsubPeople = onSnapshot(collection(db, 'people'), (snap: any) => {
       const items = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
-      setDbPeople(items.filter((p: any) => p.projectId === activeProject));
+      setDbPeople(items.filter((p: any) => !p.projectId || p.projectId === activeProject));
     });
-    const unsubAssets = onSnapshot(collection(db, 'assets'), (snap: any) => setDbAssets(snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))));
-    const unsubVehicles = onSnapshot(collection(db, 'vehicles'), (snap: any) => setDbVehicles(snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))));
+    const unsubAssets = onSnapshot(collection(db, 'assets'), (snap: any) => {
+      const items = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      setDbAssets(items.filter((a: any) => !a.projectId || a.projectId === activeProject));
+    });
+    const unsubVehicles = onSnapshot(collection(db, 'vehicles'), (snap: any) => {
+      const items = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      setDbVehicles(items.filter((v: any) => !v.projectId || v.projectId === activeProject));
+    });
     const unsubCameras = onSnapshot(collection(db, 'cameras'), (snap: any) => setCameras(snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))));
     const unsubSensors = onSnapshot(collection(db, 'sensors'), (snap: any) => setSensors(snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))));
 
@@ -257,25 +481,39 @@ export default function LiveTrackingTab({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <button className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white" />
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button 
+            onClick={handleExportAttendancePDF}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold shadow-sm transition"
+            title="Generate and Download Shift Attendance & Zone Presence PDF Log"
+          >
+            <FileText className="w-4 h-4 text-sky-600" />
+            <span className="hidden md:inline">PDF Compliance Log</span>
           </button>
+
           <button
-            onClick={() => {
-              setIsEmergencyMode(!isEmergencyMode);
-              if (!isEmergencyMode) setMapMode('evacuation');
-              else setMapMode('standard');
-            }}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-wider transition shadow-lg ${
-              isEmergencyMode 
-                ? 'bg-rose-600 text-white animate-pulse' 
-                : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'
+            onClick={() => setIsDrawingGeofence(!isDrawingGeofence)}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm border ${
+              isDrawingGeofence 
+                ? 'bg-sky-600 text-white border-sky-600 ring-2 ring-sky-300' 
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+            title="Draw custom geofence polygon directly on map"
+          >
+            <PenTool className="w-4 h-4 text-amber-500" />
+            <span className="hidden md:inline">{isDrawingGeofence ? 'Drawing Mode' : 'Draw Geofence'}</span>
+          </button>
+
+          <button
+            onClick={handleToggleEmergencySOS}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg ${
+              emergencySosState?.active || isEmergencyMode 
+                ? 'bg-rose-600 text-white ring-4 ring-rose-400 animate-pulse' 
+                : 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500'
             }`}
           >
-            <ShieldAlert className="w-4 h-4" />
-            {isEmergencyMode ? 'EVACUATION ACTIVE' : 'SOS EMERGENCY'}
+            <ShieldAlert className="w-4.5 h-4.5 animate-bounce" />
+            <span>{emergencySosState?.active ? 'ALARM ACTIVE - SILENCE' : 'EMERGENCY SOS'}</span>
           </button>
         </div>
       </div>
@@ -761,6 +999,29 @@ export default function LiveTrackingTab({
             </div>
           </div>
 
+          {/* Emergency SOS Persistent Active Alert Banner */}
+          {emergencySosState?.active && (
+            <div className="bg-rose-600 text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-xl border-b border-rose-700 animate-pulse z-40">
+              <div className="flex items-center gap-3">
+                <ShieldAlert className="w-5 h-5 text-amber-300 animate-bounce" />
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider">
+                    🚨 EMERGENCY SOS ACTIVE — WORKER AT RISK
+                  </div>
+                  <div className="text-[11px] font-bold text-rose-100">
+                    Worker: {emergencySosState.workerName} ({emergencySosState.workerId}) | Zone: {emergencySosState.zone} | Triggered: {emergencySosState.timestamp}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleToggleEmergencySOS}
+                className="px-3.5 py-1.5 bg-white text-rose-700 hover:bg-rose-50 rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition"
+              >
+                SILENCE & RESOLVE ALARM
+              </button>
+            </div>
+          )}
+
           <div className="flex-1 relative bg-slate-100">
             <LiveFloorMap 
               people={displayedPeople}
@@ -771,18 +1032,23 @@ export default function LiveTrackingTab({
               readers={MOCK_READERS}
               gates={MOCK_GATES}
               materials={MOCK_MATERIALS}
-              zones={defaultZones}
+              zones={activeZones}
               highlightedPersonId={selectedEntity?.type === 'person' ? selectedEntity.data.id : highlightedPersonId}
               initialFocusZone={focusZone}
-              floorplanUrl={projectMeta?.floorplanUrl || currentProject.floorplanUrl}
+              floorplanUrl={projectMeta?.floorplanUrl || localProjectProps?.floorplanUrl || currentProject.floorplanUrl}
               onSelectEntity={(entity) => setSelectedEntity(entity)}
-              customZones={projectMeta?.customZones || currentProject.customZones}
+              customZones={activeZones}
               projectId={projectMeta?.id || currentProject.id}
               projectName={projectMeta?.name || currentProject.name}
               contractor={projectMeta?.contractor || currentProject.contractor}
               dimensions={projectMeta?.dimensions || currentProject.dimensions}
               mode={mapMode}
               visibleLayers={visibleLayers}
+              zoneCapacities={zoneCapacities}
+              emergencySosState={emergencySosState}
+              isDrawingGeofence={isDrawingGeofence}
+              onSaveCustomGeofence={handleSaveCustomGeofence}
+              onCancelDrawing={() => setIsDrawingGeofence(false)}
             />
           </div>
 

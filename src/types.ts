@@ -14,6 +14,11 @@ export interface Person {
   dwellTime: number; 
   x: number; 
   y: number;
+  speed?: number; // m/s
+  heading?: number; // degrees
+  rssi?: number; // dBm
+  battery?: number; // %
+  lastReader?: string;
   lastSeen: Date;
   trail: {x: number, y: number}[];
   activityInsights?: { activity: string; confidence: number };
@@ -28,6 +33,10 @@ export interface Asset {
   y: number; 
   status?: string; 
   battery?: number;
+  speed?: number;
+  heading?: number;
+  rssi?: number;
+  lastReader?: string;
   projectId?: string;
 }
 
@@ -38,7 +47,11 @@ export interface Vehicle {
   x: number; 
   y: number; 
   status?: string; 
-  speed?: number;
+  speed?: number; // km/h or m/s
+  heading?: number;
+  rssi?: number;
+  fuel?: number;
+  operator?: string;
   projectId?: string;
 }
 
@@ -49,6 +62,8 @@ export interface CameraDevice {
   y: number; 
   status?: 'online' | 'offline'; 
   projectId?: string;
+  resolution?: string;
+  angle?: number;
 }
 
 export interface EnvSensor { 
@@ -57,6 +72,12 @@ export interface EnvSensor {
   x: number; 
   y: number; 
   status?: 'online' | 'offline'; 
+  temperature?: number;
+  humidity?: number;
+  gasLevel?: number;
+  dustPM25?: number;
+  noiseDb?: number;
+  battery?: number;
   projectId?: string;
 }
 

@@ -1249,8 +1249,8 @@ export default function DashboardTab({
                             id={`kpi-item-${kpi.id}`}
                             key={kpi.id}
                             draggable
-                            onDragStart={(e) => handleDragStart(e, idx)}
-                            onDragOver={(e) => handleDragOver(e, idx)}
+                            onDragStart={(e: any) => handleDragStart(e, idx)}
+                            onDragOver={(e: any) => handleDragOver(e, idx)}
                             onDragEnd={handleDragEnd}
                             onDrop={(e) => handleDrop(e, idx, 'kpi')}
                             transition={{ type: "spring", stiffness: 350, damping: 30 }}
@@ -1329,8 +1329,8 @@ export default function DashboardTab({
                             id={`panel-item-${panel.id}`}
                             key={panel.id}
                             draggable
-                            onDragStart={(e) => handleDragStart(e, idx)}
-                            onDragOver={(e) => handleDragOver(e, idx)}
+                            onDragStart={(e: any) => handleDragStart(e, idx)}
+                            onDragOver={(e: any) => handleDragOver(e, idx)}
                             onDragEnd={handleDragEnd}
                             onDrop={(e) => handleDrop(e, idx, 'panel')}
                             transition={{ type: "spring", stiffness: 350, damping: 30 }}

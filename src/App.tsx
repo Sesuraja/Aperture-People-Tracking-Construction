@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useSimulation } from './lib/simulation';
 import { Activity, Bell, Map, Map as MapIcon, Users, BarChart3, Settings, ShieldAlert, Cpu, LayoutDashboard, Radio, PlayCircle, Search, LogOut, Lock, Clock, Building2, ClipboardCheck, History, MessageSquare, Terminal, Wrench, Sparkles, Box, ShieldCheck } from 'lucide-react';
+import ErrorBoundary from './components/ErrorBoundary';
 import AttendanceTab from './components/AttendanceTab';
 import VisitorsTab from './components/VisitorsTab';
 import AuditTab from './components/AuditTab';
@@ -126,14 +127,16 @@ export default function App() {
 
   return (
     <AppModeContext.Provider value={{ mode }}>
-      <BrowserRouter>
-        <AppContent onLogout={() => {
-            if (mode === 'real') {
-                signOut(auth).catch(console.error);
-            }
-            changeMode(null);
-        }} />
-      </BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <AppContent onLogout={() => {
+              if (mode === 'real') {
+                  signOut(auth).catch(console.error);
+              }
+              changeMode(null);
+          }} />
+        </BrowserRouter>
+      </ErrorBoundary>
     </AppModeContext.Provider>
   );
 }
@@ -300,7 +303,8 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-extrabold tracking-tight text-[#007BC4] leading-none">Aperture</h1>
           </div>
-          <span className="text-[10px] tracking-widest text-slate-500 dark:text-slate-400 font-semibold mt-1">People Tracking in Construction</span>
+          <span className="text-[10px] tracking-widest text-slate-500 dark:text-slate-400 font-semibold mt-1">People Tracking</span>
+          <span className="text-[10px] tracking-widest text-slate-500 dark:text-slate-400 font-semibold mt-1">In Construction</span>
         </div>
 
         {/* Global Search */}

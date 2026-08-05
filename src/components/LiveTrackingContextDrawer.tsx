@@ -173,6 +173,32 @@ export default function LiveTrackingContextDrawer({
               {activeTab === 'profile' && (
                 <>
                   <div className="space-y-3">
+                    {/* Live Telemetry Card */}
+                    <div className="p-3 bg-slate-900 text-white rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-sky-400 uppercase tracking-wider flex items-center gap-1">
+                          <Zap className="w-3 h-3 text-sky-400" /> Live Physics Telemetry
+                        </span>
+                        <span className="text-[9px] font-mono font-bold bg-sky-950 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded">
+                          {p.rssi ?? -58} dBm RSSI
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
+                          <span className="text-[9px] text-slate-400 block font-semibold">Real Movement Speed</span>
+                          <span className="text-sm font-black font-mono text-emerald-400">
+                            {p.speed !== undefined ? `${p.speed} m/s` : p.presenceState === 'MOVING' ? '1.40 m/s' : '0.00 m/s'}
+                          </span>
+                        </div>
+                        <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
+                          <span className="text-[9px] text-slate-400 block font-semibold">Heading Angle</span>
+                          <span className="text-sm font-black font-mono text-sky-300">
+                            {p.heading !== undefined ? `${p.heading}°` : '180°'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-[#007BC4]" />

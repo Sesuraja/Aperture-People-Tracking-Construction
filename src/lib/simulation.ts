@@ -438,7 +438,10 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
          setPeople((prev) => {
            const nextPeople = [...prev];
            nextPeople.forEach(p => {
-             p.dwellTime += 2; 
+             const oldX = p.x;
+             const oldY = p.y;
+             
+             p.dwellTime += 1; 
              p.trail = p.trail || [];
              p.trail.push({ x: p.x, y: p.y });
              if (p.trail.length > 25) p.trail.shift();
@@ -447,15 +450,35 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
              const targetX = Math.max(2, Math.min(98, zoneRect.x + 2 + Math.random() * (zoneRect.width - 4)));
              const targetY = Math.max(2, Math.min(98, zoneRect.y + 2 + Math.random() * (zoneRect.height - 4)));
              
-             if (Math.random() < 0.3) {
-                p.x += (targetX - p.x) * 0.15;
-                p.y += (targetY - p.y) * 0.15;
+             if (Math.random() < 0.4) {
+                const stepX = (targetX - p.x) * 0.12;
+                const stepY = (targetY - p.y) * 0.12;
+                p.x += stepX;
+                p.y += stepY;
                 p.presenceState = 'MOVING';
              } else {
                 p.presenceState = 'IDLE';
              }
 
-             if (Math.random() < 0.05) {
+             // Calculate actual physical movement speed (m/s) & direction heading
+             const dx = p.x - oldX;
+             const dy = p.y - oldY;
+             const distMeters = Math.sqrt(dx * dx + dy * dy); // 1% map ~ 1 meter on a 100m site
+             p.speed = Number((distMeters * 1.2).toFixed(1)); // speed in m/s
+             if (distMeters > 0.1) {
+                p.heading = Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360);
+             } else {
+                p.speed = 0;
+             }
+
+             // Calculate RSSI based on distance to center of zone (-35 to -85 dBm)
+             const centerX = zoneRect.x + zoneRect.width / 2;
+             const centerY = zoneRect.y + zoneRect.height / 2;
+             const distToCenter = Math.sqrt(Math.pow(p.x - centerX, 2) + Math.pow(p.y - centerY, 2));
+             p.rssi = Math.max(-88, Math.min(-35, Math.round(-40 - distToCenter * 1.5)));
+             p.battery = p.battery ?? (90 + Math.floor(Math.random() * 9));
+
+             if (Math.random() < 0.04) {
                 const projZones = getZonesForProject(activeProjectId);
                 const randomZone = projZones[Math.floor(Math.random() * projZones.length)];
                 p.currentZone = randomZone;
@@ -466,19 +489,54 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
          });
 
          setAssets((prev) => {
-            return prev.map(a => ({
-               ...a,
-               x: Math.max(5, Math.min(95, a.x + (Math.random() - 0.5) * 0.5)),
-               y: Math.max(5, Math.min(95, a.y + (Math.random() - 0.5) * 0.5))
-            }));
+            return prev.map(a => {
+               const oldX = a.x;
+               const oldY = a.y;
+               const newX = Math.max(5, Math.min(95, a.x + (Math.random() - 0.5) * 0.6));
+               const newY = Math.max(5, Math.min(95, a.y + (Math.random() - 0.5) * 0.6));
+               const dx = newX - oldX;
+               const dy = newY - oldY;
+               const distMeters = Math.sqrt(dx * dx + dy * dy);
+               const speed = Number((distMeters * 0.8).toFixed(1));
+               const heading = distMeters > 0.05 ? Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360) : a.heading;
+               
+               return {
+                  ...a,
+                  x: newX,
+                  y: newY,
+                  speed,
+                  heading,
+                  rssi: Math.max(-85, Math.min(-38, Math.round(-45 - (newX % 15) * 2))),
+                  battery: a.battery || 94
+               };
+            });
          });
 
          setVehicles((prev) => {
-            return prev.map(v => ({
-               ...v,
-               x: Math.max(5, Math.min(95, v.x + (Math.random() - 0.5) * 0.8)),
-               y: Math.max(5, Math.min(95, v.y + (Math.random() - 0.5) * 0.8))
-            }));
+            return prev.map(v => {
+               const oldX = v.x;
+               const oldY = v.y;
+               const isCrane = v.type.toLowerCase().includes('crane');
+               // Cranes rotate/move slightly, excavators move around
+               const delta = isCrane ? 0.3 : 1.2;
+               const newX = Math.max(5, Math.min(95, v.x + (Math.random() - 0.5) * delta));
+               const newY = Math.max(5, Math.min(95, v.y + (Math.random() - 0.5) * delta));
+               const dx = newX - oldX;
+               const dy = newY - oldY;
+               const distMeters = Math.sqrt(dx * dx + dy * dy);
+               const speedKmh = Number((distMeters * 3.6 * 1.5).toFixed(1)); // km/h
+               const heading = distMeters > 0.05 ? Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360) : v.heading;
+
+               return {
+                  ...v,
+                  x: newX,
+                  y: newY,
+                  speed: speedKmh,
+                  heading,
+                  rssi: Math.max(-80, Math.min(-32, Math.round(-38 - (newX % 20)))),
+                  fuel: Math.max(10, (v.fuel || 85) - 0.05)
+               };
+            });
          });
        };
        interval = setInterval(demoTick, 1000);
