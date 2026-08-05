@@ -106,15 +106,47 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
         
-        {/* Header */}
-        <div className="p-8 text-center bg-[#007BC4] text-white relative">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-white/10 rounded-2xl mb-3 backdrop-blur-sm border border-white/20">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Aperture</h1>
-          <h2 className="text-3xl font-extrabold tracking-tight">People Tracking in Construction</h2>
-          <p className="text-xs text-sky-100 mt-1 font-medium">Real-Time RFID System</p>
-        </div>
+{/* Enterprise Brand Header */}
+<div className="relative overflow-hidden bg-gradient-to-br from-[#007BC4] via-[#0A84D6] to-[#0064A0] px-8 py-10 text-center">
+
+  {/* Background Decoration */}
+  <div className="absolute inset-0 opacity-10">
+    <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white"></div>
+    <div className="absolute -bottom-20 -left-20 w-56 h-56 rounded-full bg-white"></div>
+  </div>
+
+  {/* Logo */}
+  <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 shadow-lg">
+    <Shield className="w-8 h-8 text-white" />
+  </div>
+
+  {/* Company */}
+  <h1 className="relative mt-6 text-4xl font-extrabold tracking-tight text-white">
+    Aperture
+  </h1>
+
+  {/* Company Description */}
+  <p className="relative mt-2 text-sm tracking-[0.25em] uppercase text-sky-100 font-semibold">
+    Construction Intelligence
+  </p>
+
+  {/* Divider */}
+  <div className="relative flex justify-center my-6">
+    <div className="w-16 h-[2px] rounded-full bg-white/40"></div>
+  </div>
+
+  {/* Product */}
+  <h2 className="relative text-2xl font-bold text-white">
+    People Tracking System
+  </h2>
+
+  {/* Tagline */}
+  <p className="relative mt-3 text-sm text-sky-100 max-w-xs mx-auto leading-6">
+    Enterprise RFID Workforce Tracking, Live Location Monitoring &
+    Construction Safety Management
+  </p>
+
+</div>
 
         {/* Tab Switcher */}
         <div className="flex border-b border-slate-200 bg-slate-50">
