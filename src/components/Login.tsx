@@ -127,7 +127,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
   {/* Company Description */}
   <p className="relative mt-2 text-sm tracking-[0.25em] uppercase text-sky-100 font-semibold">
-    Construction Intelligence
+    Enterprise Construction Systems
   </p>
 
   {/* Divider */}
