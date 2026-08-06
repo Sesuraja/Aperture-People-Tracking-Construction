@@ -203,22 +203,22 @@ export default function SettingsTab() {
         setRolePermissions({
           admin: {
             dashboard: true, live: true, playback: true, people: true, visitors: true,
-            attendance: true, alerts: true, incidents: true, digitalTwin: true, analytics: true,
+            attendance: true, alerts: true, incidents: true, analytics: true,
             aiInsights: true, devices: true, maintenance: true, audit: true, settings: true
           },
           manager: {
             dashboard: true, live: true, playback: true, people: true, visitors: true,
-            attendance: true, alerts: true, incidents: true, digitalTwin: true, analytics: true,
+            attendance: true, alerts: true, incidents: true, analytics: true,
             aiInsights: true, devices: true, maintenance: true, audit: true, settings: false
           },
           operator: {
             dashboard: false, live: true, playback: false, people: true, visitors: true,
-            attendance: true, alerts: true, incidents: true, digitalTwin: true, analytics: false,
+            attendance: true, alerts: true, incidents: true, analytics: false,
             aiInsights: false, devices: false, maintenance: true, audit: false, settings: false
           },
           blocked: {
             dashboard: false, live: false, playback: false, people: false, visitors: false,
-            attendance: false, alerts: false, incidents: false, digitalTwin: false, analytics: false,
+            attendance: false, alerts: false, incidents: false, analytics: false,
             aiInsights: false, devices: false, maintenance: false, audit: false, settings: false
           },
         });
@@ -2463,7 +2463,6 @@ export default function SettingsTab() {
                           { key: "attendance", label: "Attendance Insights", desc: "Monitor daily automatic timesheets" },
                           { key: "alerts", label: "Alerts Control Center", desc: "Respond to zone loitering and idle triggers" },
                           { key: "incidents", label: "Incident Investigations", desc: "Review historic flags and actions taken" },
-                          { key: "digitalTwin", label: "3D Digital Twin", desc: "Load real-time 3D depth simulations" },
                           { key: "analytics", label: "Traffic Analytics", desc: "Explore aggregations and flow charts" },
                           { key: "aiInsights", label: "AI Insights Engine", desc: "Query Gemini predictive reports" },
                           { key: "devices", label: "Devices & Beacons", desc: "Register anchor hardware and firmware tags" },

@@ -15,7 +15,7 @@ export interface MaterialAsset { id: string; name: string; type: string; x: numb
 export type MapMode = 'standard' | 'bim' | 'satellite' | 'heatmap' | 'coverage' | 'evacuation' | 'asset' | 'hardware' | 'productivity' | 'security' | 'inventory' | 'environment';
 
 export function getBlueprintSvg(projectId: string, title: string, contractor: string, dimensions: string, mode: MapMode = 'standard'): string {
-  // Always use standard dark digital twin theme for high-end professional visual look
+  // Always use high-end professional visual look
   const bgColor = '#090d16';
   const gridColor = 'rgba(56,189,248,0.06)';
   const subGridColor = 'rgba(56,189,248,0.02)';

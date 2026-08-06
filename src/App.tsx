@@ -15,7 +15,6 @@ import AuditTab from './components/AuditTab';
 import IncidentsTab from './components/IncidentsTab';
 import AIInsightsTab from './components/AIInsightsTab';
 import MaintenanceTab from './components/MaintenanceTab';
-import DigitalTwinTab from './components/DigitalTwinTab';
 import TopBar from './components/TopBar';
 import PeopleTab from './components/PeopleTab';
 import AlertsTab from './components/AlertsTab';
@@ -167,22 +166,22 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
       setPermissions({
         admin: {
           dashboard: true, live: true, playback: true, people: true, visitors: true,
-          attendance: true, alerts: true, incidents: true, digitalTwin: true, analytics: true,
+          attendance: true, alerts: true, incidents: true, analytics: true,
           aiInsights: true, devices: true, maintenance: true, audit: true, settings: true
         },
         manager: {
           dashboard: true, live: true, playback: true, people: true, visitors: true,
-          attendance: true, alerts: true, incidents: true, digitalTwin: true, analytics: true,
+          attendance: true, alerts: true, incidents: true, analytics: true,
           aiInsights: true, devices: true, maintenance: true, audit: true, settings: false
         },
         operator: {
           dashboard: false, live: true, playback: false, people: true, visitors: true,
-          attendance: true, alerts: true, incidents: true, digitalTwin: true, analytics: false,
+          attendance: true, alerts: true, incidents: true, analytics: false,
           aiInsights: false, devices: false, maintenance: true, audit: false, settings: false
         },
         blocked: {
           dashboard: false, live: false, playback: false, people: false, visitors: false,
-          attendance: false, alerts: false, incidents: false, digitalTwin: false, analytics: false,
+          attendance: false, alerts: false, incidents: false, analytics: false,
           aiInsights: false, devices: false, maintenance: false, audit: false, settings: false
         }
       });
@@ -410,6 +409,15 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
                    featureName="Dashboard Telemetry"
                  />
               } />
+              <Route path="/dashboard" element={
+                 <ProtectedRoute 
+                   element={<DashboardTab people={people} alerts={alerts} zones={ZONES} highlightedPersonId={highlightedPersonId}  />}
+                   userRole={userRole}
+                   permissionKey="dashboard"
+                   permissions={permissions}
+                   featureName="Dashboard Telemetry"
+                 />
+              } />
               <Route path="/live" element={
                  <ProtectedRoute 
                    element={<LiveTrackingTab people={people} assets={assets} vehicles={vehicles} zones={ZONES} highlightedPersonId={highlightedPersonId}  activeProject={activeProject} setActiveProject={handleActiveProjectChange} />}
@@ -480,15 +488,6 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
                    permissionKey="incidents"
                    permissions={permissions}
                    featureName="Incident Log File"
-                 />
-              } />
-              <Route path="/digital-twin" element={
-                 <ProtectedRoute 
-                   element={<DigitalTwinTab />}
-                   userRole={userRole}
-                   permissionKey="digitalTwin"
-                   permissions={permissions}
-                   featureName="3D Digital Twin spatial simulation"
                  />
               } />
               <Route path="/analytics" element={
