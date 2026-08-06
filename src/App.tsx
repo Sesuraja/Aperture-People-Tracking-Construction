@@ -403,15 +403,6 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
             <Routes>
               <Route path="/" element={
                  <ProtectedRoute 
-                   element={<DigitalTwinTab />}
-                   userRole={userRole}
-                   permissionKey="digitalTwin"
-                   permissions={permissions}
-                   featureName="3D Digital Twin spatial simulation"
-                 />
-              } />
-              <Route path="/dashboard" element={
-                 <ProtectedRoute 
                    element={<DashboardTab people={people} alerts={alerts} zones={ZONES} highlightedPersonId={highlightedPersonId}  />}
                    userRole={userRole}
                    permissionKey="dashboard"
