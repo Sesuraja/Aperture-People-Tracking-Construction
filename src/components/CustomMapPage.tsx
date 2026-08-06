@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Map as MapIcon, Plus, Trash2, Edit3, Save, Upload, Sliders, Radio, 
-  Wrench, Truck, Camera, Thermometer, ShieldCheck, AlertTriangle, Box, Compass, RefreshCw, Check
+  Wrench, Truck, Camera, Thermometer, ShieldCheck, AlertTriangle, Box, Compass, RefreshCw, Check,
+  Layers, MapPin, Eye, Settings, HelpCircle, HardHat
 } from 'lucide-react';
-import { HardwareDevice } from './HardwareConfigModal';
+import HardwareConfigModal, { HardwareDevice } from './HardwareConfigModal';
 import { INITIAL_DEVICES, getBlueprintSvg } from './LiveFloorMap';
 import { AssetItem, VehicleItem, CCTVCameraItem, EnvironmentalSensorItem, INITIAL_ASSETS, INITIAL_VEHICLES, INITIAL_INFRASTRUCTURE, INITIAL_CCTVS, INITIAL_ENV_SENSORS } from '../lib/trackingLayers';
 import { doc, setDoc, deleteDoc, collection, onSnapshot } from '../lib/db';
@@ -59,6 +60,18 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
   const [envSensors, setEnvSensors] = useState<EnvironmentalSensorItem[]>(currentProj.envSensors || INITIAL_ENV_SENSORS);
   const [hardwareDevices, setHardwareDevices] = useState<HardwareDevice[]>(currentProj.hardwareDevices || INITIAL_DEVICES);
   const [customFloorplan, setCustomFloorplan] = useState<string | null>(currentProj.floorplanUrl || null);
+  
+  const [customZones, setCustomZones] = useState<Record<string, any>>(() => {
+    return currentProj.customZones || {
+      'Excavation Shaft': { x: 10, y: 15, width: 34, height: 62, category: 'EXCAVATION & SHORING', hazardLevel: 'warning', maxCapacity: 4 },
+      'Tower Core': { x: 51, y: 25, width: 32, height: 50, category: 'CONCRETE REINFORCEMENT', hazardLevel: 'standard', maxCapacity: 10 },
+      'Crane Swing Zone': { x: 80, y: 5, width: 16, height: 42, category: 'CRANE SWING RADIUS', hazardLevel: 'critical', maxCapacity: 3 },
+      'High Voltage Area': { x: 46, y: 5, width: 14, height: 16, category: 'SUBSTATION PERIMETER', hazardLevel: 'critical', maxCapacity: 1 },
+      'Muster Point A': { x: 2, y: 10, width: 8, height: 12, category: 'MUSTER POINT', hazardLevel: 'standard', maxCapacity: 30 }
+    };
+  });
+
+  const [activeSidebarTab, setActiveSidebarTab] = useState<'inventory' | 'zones'>('inventory');
 
   useEffect(() => {
     const unsubAssets = onSnapshot(collection(db, 'assets'), (snap) => {
@@ -82,14 +95,24 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
       if (filtered.length > 0) setEnvSensors(filtered);
     });
 
+    const unsubProject = onSnapshot(doc(db, 'projects', activeProject), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.customZones) setCustomZones(data.customZones);
+        if (data.hardwareDevices) setHardwareDevices(data.hardwareDevices);
+        if (data.floorplanUrl) setCustomFloorplan(data.floorplanUrl);
+      }
+    });
+
     const p = projectProperties[activeProject];
     if (p) {
       setHardwareDevices(p.hardwareDevices || INITIAL_DEVICES);
       setCustomFloorplan(p.floorplanUrl || null);
+      if (p.customZones) setCustomZones(p.customZones);
     }
 
     return () => {
-      unsubAssets(); unsubVehicles(); unsubCameras(); unsubSensors();
+      unsubAssets(); unsubVehicles(); unsubCameras(); unsubSensors(); unsubProject();
     };
   }, [activeProject]);
 
@@ -101,17 +124,18 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
     window.dispatchEvent(new Event('gao_project_updated'));
     
     try {
-      // Save project metadata
+      // Save project metadata including customZones & hardwareDevices to synchronize with tracking map
       await setDoc(doc(db, 'projects', activeProject), {
         id: activeProject,
         name: nextProj.name,
         contractor: nextProj.contractor,
         dimensions: nextProj.dimensions,
-        floorplanUrl: nextProj.floorplanUrl
+        floorplanUrl: nextProj.floorplanUrl,
+        customZones: nextProj.customZones || null,
+        hardwareDevices: nextProj.hardwareDevices || null,
       }, { merge: true });
 
       // If we have updated collections, sync them individually to respective collections
-      // This ensures real-time listeners on individual collections (assets, vehicles, etc) work
       if (updated.assets) {
         for (const asset of updated.assets) {
           await setDoc(doc(db, 'assets', asset.id), { ...asset, projectId: activeProject });
@@ -146,6 +170,21 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
   const [newItemType, setNewItemType] = useState<'asset' | 'vehicle' | 'camera' | 'sensor' | 'device'>('asset');
   const [newItemName, setNewItemName] = useState('');
   const [newItemZone, setNewItemZone] = useState('Deep Excavation Pit (Basement B3)');
+
+  // Selected device for full configuration modal
+  const [selectedDeviceForConfig, setSelectedDeviceForConfig] = useState<HardwareDevice | null>(null);
+
+  // Custom Site Layout Zone creation & editing state
+  const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
+  const [editingZoneKey, setEditingZoneKey] = useState<string | null>(null);
+  const [zoneFormName, setZoneFormName] = useState('');
+  const [zoneFormCategory, setZoneFormCategory] = useState('WORK_ZONE');
+  const [zoneFormHazard, setZoneFormHazard] = useState('standard');
+  const [zoneFormCapacity, setZoneFormCapacity] = useState(10);
+  const [zoneFormX, setZoneFormX] = useState(30);
+  const [zoneFormY, setZoneFormY] = useState(30);
+  const [zoneFormWidth, setZoneFormWidth] = useState(25);
+  const [zoneFormHeight, setZoneFormHeight] = useState(25);
 
   const handleMouseDown = (id: string, type: 'asset' | 'vehicle' | 'camera' | 'sensor' | 'device') => {
     setDraggedItem({ id, type });
@@ -270,13 +309,56 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
         const updated = hardwareDevices.filter(d => d.id !== id);
         setHardwareDevices(updated);
         saveToDb({ hardwareDevices: updated });
-        // devices aren't in a separate collection yet but good to have
       }
       setSuccessMsg('Item removed and synchronized across system.');
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       console.warn('Delete failed:', err);
     }
+  };
+
+  const handleSaveHardwareDevice = (updatedDevice: HardwareDevice) => {
+    const updated = hardwareDevices.map(d => d.id === updatedDevice.id ? updatedDevice : d);
+    setHardwareDevices(updated);
+    saveToDb({ hardwareDevices: updated });
+    setSuccessMsg(`Reader "${updatedDevice.name}" connectivity parameters & coverage updated successfully!`);
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const handleSaveZone = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!zoneFormName.trim()) return;
+
+    const nextZones = { ...customZones };
+    
+    if (editingZoneKey && editingZoneKey !== zoneFormName) {
+      delete nextZones[editingZoneKey];
+    }
+
+    nextZones[zoneFormName] = {
+      x: Number(zoneFormX),
+      y: Number(zoneFormY),
+      width: Number(zoneFormWidth),
+      height: Number(zoneFormHeight),
+      category: zoneFormCategory,
+      hazardLevel: zoneFormHazard,
+      maxCapacity: Number(zoneFormCapacity)
+    };
+
+    setCustomZones(nextZones);
+    saveToDb({ customZones: nextZones });
+    setIsZoneModalOpen(false);
+    setSuccessMsg(`Site layout element "${zoneFormName}" successfully synchronized with Live Tracking!`);
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const handleDeleteZone = (zName: string) => {
+    const nextZones = { ...customZones };
+    delete nextZones[zName];
+    setCustomZones(nextZones);
+    saveToDb({ customZones: nextZones });
+    setSuccessMsg(`Layout zone "${zName}" removed and synchronized.`);
+    setTimeout(() => setSuccessMsg(null), 3000);
   };
 
   return (
@@ -320,60 +402,170 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 items-start">
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">Site Inventory & Hardware ({assets.length + vehicles.length + cameras.length + envSensors.length + hardwareDevices.length})</h2>
+          <div className="flex border-b border-slate-200 dark:border-slate-700 pb-2 gap-4">
+            <button
+              onClick={() => setActiveSidebarTab('inventory')}
+              className={`pb-1.5 text-xs font-extrabold uppercase tracking-wider transition-all relative ${activeSidebarTab === 'inventory' ? 'text-[#007BC4]' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'}`}
+            >
+              Inventory ({assets.length + vehicles.length + cameras.length + envSensors.length + hardwareDevices.length})
+              {activeSidebarTab === 'inventory' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#007BC4] rounded-full" />}
+            </button>
+            <button
+              onClick={() => setActiveSidebarTab('zones')}
+              className={`pb-1.5 text-xs font-extrabold uppercase tracking-wider transition-all relative ${activeSidebarTab === 'zones' ? 'text-[#007BC4]' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'}`}
+            >
+              Site Zones ({Object.keys(customZones).length})
+              {activeSidebarTab === 'zones' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#007BC4] rounded-full" />}
+            </button>
+          </div>
           
           <div className="flex flex-col gap-2 max-h-[600px] overflow-y-auto pr-1">
-            {hardwareDevices.map(d => (
-              <div key={d.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between group">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 bg-purple-50 dark:bg-purple-950/50 text-purple-600 rounded-lg"><Radio size={14} /></span>
-                  <div>
-                    <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[130px]">{d.name}</div>
-                    <div className="text-[10px] text-slate-400 font-mono">{d.macAddress}</div>
+            {activeSidebarTab === 'inventory' && (
+              <>
+                <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">RFID Readers & Gateways</div>
+                {hardwareDevices.map(d => (
+                  <div key={d.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between group">
+                    <div className="flex items-center gap-2.5">
+                      <span className="p-2 bg-purple-50 dark:bg-purple-950/50 text-purple-600 rounded-lg"><Radio size={14} /></span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[110px]">{d.name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{d.zone}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => setSelectedDeviceForConfig(d)} 
+                        title="Configure RFID Hardware Gateway Settings"
+                        className="text-slate-400 hover:text-purple-600 transition p-1"
+                      >
+                        <Settings size={13} />
+                      </button>
+                      <button onClick={() => handleDeleteItem(d.id, 'device')} className="text-slate-400 hover:text-red-500 transition p-1"><Trash2 size={13} /></button>
+                    </div>
                   </div>
-                </div>
-                <button onClick={() => handleDeleteItem(d.id, 'device')} className="text-slate-400 hover:text-red-500 transition p-1"><Trash2 size={14} /></button>
-              </div>
-            ))}
+                ))}
 
-            {assets.map(a => (
-              <div key={a.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between group">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 bg-blue-50 dark:bg-blue-950/50 text-blue-600 rounded-lg"><Wrench size={14} /></span>
-                  <div>
-                    <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[130px]">{a.name}</div>
-                    <div className="text-[10px] text-slate-400">{a.location}</div>
+                <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-3 mb-1">Tracked Machinery Assets</div>
+                {assets.map(a => (
+                  <div key={a.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between group">
+                    <div className="flex items-center gap-2.5">
+                      <span className="p-2 bg-blue-50 dark:bg-blue-950/50 text-blue-600 rounded-lg"><Wrench size={14} /></span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[130px]">{a.name}</div>
+                        <div className="text-[10px] text-slate-400">{a.location}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteItem(a.id, 'asset')} className="text-slate-400 hover:text-red-500 transition p-1"><Trash2 size={14} /></button>
                   </div>
-                </div>
-                <button onClick={() => handleDeleteItem(a.id, 'asset')} className="text-slate-400 hover:text-red-500 transition p-1"><Trash2 size={14} /></button>
-              </div>
-            ))}
+                ))}
 
-            {vehicles.map(v => (
-              <div key={v.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between group">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 bg-amber-50 dark:bg-amber-950/50 text-amber-600 rounded-lg"><Truck size={14} /></span>
-                  <div>
-                    <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[130px]">{v.name}</div>
-                    <div className="text-[10px] text-slate-400">{v.location}</div>
+                <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-3 mb-1">Fleet Vehicles</div>
+                {vehicles.map(v => (
+                  <div key={v.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between group">
+                    <div className="flex items-center gap-2.5">
+                      <span className="p-2 bg-amber-50 dark:bg-amber-950/50 text-amber-600 rounded-lg"><Truck size={14} /></span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[130px]">{v.name}</div>
+                        <div className="text-[10px] text-slate-400">{v.location}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteItem(v.id, 'vehicle')} className="text-slate-400 hover:text-red-500 transition p-1"><Trash2 size={14} /></button>
                   </div>
-                </div>
-                <button onClick={() => handleDeleteItem(v.id, 'vehicle')} className="text-slate-400 hover:text-red-500 transition p-1"><Trash2 size={14} /></button>
-              </div>
-            ))}
+                ))}
 
-            {cameras.map(c => (
-              <div key={c.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between group">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 rounded-lg"><Camera size={14} /></span>
-                  <div>
-                    <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[130px]">{c.name}</div>
-                    <div className="text-[10px] text-slate-400">{c.zone}</div>
+                <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-3 mb-1">CCTV & Environment Sensors</div>
+                {cameras.map(c => (
+                  <div key={c.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between group">
+                    <div className="flex items-center gap-2.5">
+                      <span className="p-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 rounded-lg"><Camera size={14} /></span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[130px]">{c.name}</div>
+                        <div className="text-[10px] text-slate-400">{c.zone}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteItem(c.id, 'camera')} className="text-slate-400 hover:text-red-500 transition p-1"><Trash2 size={14} /></button>
                   </div>
-                </div>
-                <button onClick={() => handleDeleteItem(c.id, 'camera')} className="text-slate-400 hover:text-red-500 transition p-1"><Trash2 size={14} /></button>
-              </div>
-            ))}
+                ))}
+              </>
+            )}
+
+            {activeSidebarTab === 'zones' && (
+              <>
+                <button
+                  onClick={() => {
+                    setEditingZoneKey(null);
+                    setZoneFormName('');
+                    setZoneFormCategory('WORK_ZONE');
+                    setZoneFormHazard('standard');
+                    setZoneFormCapacity(10);
+                    setZoneFormX(35);
+                    setZoneFormY(35);
+                    setZoneFormWidth(25);
+                    setZoneFormHeight(25);
+                    setIsZoneModalOpen(true);
+                  }}
+                  className="mb-3 w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition"
+                >
+                  <Plus size={14} />
+                  Add Layout Zone Element
+                </button>
+
+                {Object.entries(customZones).map(([zName, bounds]: [string, any]) => {
+                  const isHazard = bounds.hazardLevel === 'critical';
+                  const isWarning = bounds.hazardLevel === 'warning';
+                  
+                  let colorBadge = 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400';
+                  if (bounds.category === 'MUSTER POINT' || bounds.category?.toLowerCase().includes('emergency')) {
+                    colorBadge = 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600';
+                  } else if (isHazard) {
+                    colorBadge = 'bg-rose-50 dark:bg-rose-950/30 text-rose-600';
+                  } else if (isWarning) {
+                    colorBadge = 'bg-amber-50 dark:bg-amber-950/30 text-amber-600';
+                  }
+
+                  return (
+                    <div key={zName} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between group">
+                      <div className="flex flex-col min-w-0 flex-1 pr-2">
+                        <div className="text-xs font-black text-slate-800 dark:text-white truncate">{zName}</div>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className={`px-1.5 py-0.5 text-[8px] font-extrabold uppercase rounded ${colorBadge}`}>
+                            {bounds.category || 'WORK ZONE'}
+                          </span>
+                          <span className="text-[9px] text-slate-400">
+                            Cap: {bounds.maxCapacity || 10}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => {
+                            setEditingZoneKey(zName);
+                            setZoneFormName(zName);
+                            setZoneFormCategory(bounds.category || 'WORK_ZONE');
+                            setZoneFormHazard(bounds.hazardLevel || 'standard');
+                            setZoneFormCapacity(bounds.maxCapacity || 10);
+                            setZoneFormX(bounds.x);
+                            setZoneFormY(bounds.y);
+                            setZoneFormWidth(bounds.width);
+                            setZoneFormHeight(bounds.height);
+                            setIsZoneModalOpen(true);
+                          }}
+                          className="text-slate-400 hover:text-sky-500 transition p-1"
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteZone(zName)} 
+                          className="text-slate-400 hover:text-red-500 transition p-1"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         </div>
 
@@ -403,6 +595,44 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
               />
             )}
 
+            {/* Custom Zones Overlays on Editor Map */}
+            {Object.entries(customZones).map(([zName, bounds]: [string, any]) => {
+              const isHazard = bounds.hazardLevel === 'critical';
+              const isWarning = bounds.hazardLevel === 'warning';
+              
+              let zoneColor = 'border-sky-500 bg-sky-500/10 text-sky-400 dark:text-sky-300';
+              if (bounds.category === 'MUSTER POINT' || bounds.category?.toLowerCase().includes('emergency')) {
+                zoneColor = 'border-emerald-500 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300';
+              } else if (bounds.category?.toLowerCase().includes('road') || bounds.category?.toLowerCase().includes('lane')) {
+                zoneColor = 'border-slate-400 bg-slate-400/10 text-slate-500 dark:text-slate-400';
+              } else if (isHazard) {
+                zoneColor = 'border-rose-500 bg-rose-500/15 text-rose-500 dark:text-rose-400';
+              } else if (isWarning) {
+                zoneColor = 'border-amber-500 bg-amber-500/10 text-amber-500 dark:text-amber-400';
+              }
+
+              return (
+                <div
+                  key={`editor-zone-${zName}`}
+                  className={`absolute border-2 border-dashed rounded-xl p-2.5 flex flex-col justify-between group pointer-events-none ${zoneColor}`}
+                  style={{
+                    left: `${bounds.x}%`,
+                    top: `${bounds.y}%`,
+                    width: `${bounds.width}%`,
+                    height: `${bounds.height}%`
+                  }}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-wider truncate">
+                    {zName}
+                  </div>
+                  <div className="text-[8px] font-mono opacity-80 mt-auto flex justify-between">
+                    <span>{bounds.category || 'ZONE'}</span>
+                    <span>Cap: {bounds.maxCapacity || 10}</span>
+                  </div>
+                </div>
+              );
+            })}
+
             {hardwareDevices.map(d => {
               const pos = dragPositions[d.id] || { x: d.x, y: d.y };
               const isDragging = draggedItem?.id === d.id;
@@ -410,6 +640,7 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
                 <div
                   key={d.id}
                   onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(d.id, 'device'); }}
+                  onDoubleClick={() => setSelectedDeviceForConfig(d)}
                   className={`absolute z-30 cursor-grab active:cursor-grabbing p-2.5 rounded-xl shadow-lg border backdrop-blur-md flex items-center gap-2 transition-transform ${isDragging ? 'scale-110 z-50 ring-4 ring-purple-500/30' : 'hover:scale-105'} ${d.status === 'Online' ? 'bg-purple-900/90 text-white border-purple-700' : 'bg-slate-900/90 text-slate-300 border-slate-700'}`}
                   style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', transition: isDragging ? 'none' : 'left 0.8s ease-out, top 0.8s ease-out' }}
                 >
@@ -483,6 +714,166 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
         </div>
 
       </div>
+
+      {/* Reader Parameters Config Modal */}
+      {selectedDeviceForConfig && (
+        <HardwareConfigModal
+          isOpen={true}
+          onClose={() => setSelectedDeviceForConfig(null)}
+          device={selectedDeviceForConfig}
+          onSave={handleSaveHardwareDevice}
+          availableZones={Object.keys(customZones)}
+        />
+      )}
+
+      {/* Site Layout Zone Modal */}
+      {isZoneModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl animate-in fade-in zoom-in-95 overflow-y-auto max-h-[90vh]">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+              {editingZoneKey ? `Edit Site Zone: ${editingZoneKey}` : 'Add Construction Site Layout Zone'}
+            </h3>
+            <form onSubmit={handleSaveZone} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Zone Name / Identifier</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Steel Staging Area B"
+                  value={zoneFormName}
+                  onChange={e => setZoneFormName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Category Type</label>
+                  <select 
+                    value={zoneFormCategory} 
+                    onChange={e => setZoneFormCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white"
+                  >
+                    <option value="EXCAVATION & SHORING">EXCAVATION & SHORING</option>
+                    <option value="CONCRETE REINFORCEMENT">CONCRETE REINFORCEMENT</option>
+                    <option value="CRANE SWING RADIUS">CRANE SWING RADIUS</option>
+                    <option value="SUBSTATION PERIMETER">SUBSTATION PERIMETER</option>
+                    <option value="MUSTER POINT">MUSTER POINT (SAFE ZONE)</option>
+                    <option value="BUILDING">BUILDING / TOWER BLOCK</option>
+                    <option value="FLOOR">FLOOR LEVEL</option>
+                    <option value="WORK_ZONE">GENERAL WORK ZONE</option>
+                    <option value="ROAD">ACCESS ROAD / LANE</option>
+                    <option value="RESTRICTED_AREA">RESTRICTED EXCLUSION ZONE</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Hazard Level</label>
+                  <select 
+                    value={zoneFormHazard} 
+                    onChange={e => setZoneFormHazard(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white"
+                  >
+                    <option value="standard">Standard (No Threat)</option>
+                    <option value="warning">Warning (PPE Required)</option>
+                    <option value="critical">Critical (Exclusion/Danger Area)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Max Capacity (Personnel)</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    required
+                    value={zoneFormCapacity}
+                    onChange={e => setZoneFormCapacity(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white"
+                  />
+                </div>
+                <div className="flex items-center pt-5">
+                  <p className="text-[10px] text-slate-400 font-medium">Triggers collision alerts on over-occupancy.</p>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
+                <span className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">Geometric Placement (Percentage %)</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Left Position (X %)</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      max="90"
+                      required
+                      value={zoneFormX}
+                      onChange={e => setZoneFormX(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Top Position (Y %)</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      max="90"
+                      required
+                      value={zoneFormY}
+                      onChange={e => setZoneFormY(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-800 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Width (Horizontal %)</label>
+                    <input 
+                      type="number" 
+                      min="5"
+                      max="95"
+                      required
+                      value={zoneFormWidth}
+                      onChange={e => setZoneFormWidth(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Height (Vertical %)</label>
+                    <input 
+                      type="number" 
+                      min="5"
+                      max="95"
+                      required
+                      value={zoneFormHeight}
+                      onChange={e => setZoneFormHeight(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-mono text-slate-800 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsZoneModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="px-5 py-2 bg-[#007BC4] hover:bg-[#00629c] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20"
+                >
+                  Synchronize Zone
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">

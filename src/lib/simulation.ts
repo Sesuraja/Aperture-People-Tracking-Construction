@@ -58,7 +58,8 @@ export const INITIAL_PROJECT_ZONES: Record<string, Record<string, { x: number; y
   'metro-tower': {
     'Deep Excavation Shaft': { x: 10, y: 15, width: 34, height: 62 },
     'Tower Core Structure': { x: 51, y: 25, width: 32, height: 50 },
-    'Heavy Crane & Exclusion Area': { x: 80, y: 5, width: 16, height: 42 }
+    'Heavy Crane & Exclusion Area': { x: 80, y: 5, width: 16, height: 42 },
+    'High Voltage Area': { x: 46, y: 5, width: 14, height: 16 }
   },
   'highrise-phase2': {
     'Structural Frame Sector A': { x: 18, y: 22, width: 30, height: 56 },
@@ -373,7 +374,7 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
 
                p.trail = p.trail || [];
                p.trail.push({ x: p.x, y: p.y });
-               if (p.trail.length > 15) p.trail.shift();
+               if (p.trail.length > 60) p.trail.shift();
 
                const zoneRect = getZoneRect(p.currentZone, activeProjectId, dynamicZones);
                const targetX = zoneRect.x + Math.random() * zoneRect.width;
@@ -444,29 +445,49 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
              p.dwellTime += 1; 
              p.trail = p.trail || [];
              p.trail.push({ x: p.x, y: p.y });
-             if (p.trail.length > 25) p.trail.shift();
+             if (p.trail.length > 60) p.trail.shift();
 
              const zoneRect = getZoneRect(p.currentZone, activeProjectId, dynamicZones);
-             const targetX = Math.max(2, Math.min(98, zoneRect.x + 2 + Math.random() * (zoneRect.width - 4)));
-             const targetY = Math.max(2, Math.min(98, zoneRect.y + 2 + Math.random() * (zoneRect.height - 4)));
-             
-             if (Math.random() < 0.4) {
-                const stepX = (targetX - p.x) * 0.12;
-                const stepY = (targetY - p.y) * 0.12;
-                p.x += stepX;
-                p.y += stepY;
-                p.presenceState = 'MOVING';
+
+             // Initialize target coordinates if not present
+             if (p.targetX === undefined || p.targetY === undefined) {
+               p.targetX = Math.max(2, Math.min(98, zoneRect.x + 2 + Math.random() * (zoneRect.width - 4)));
+               p.targetY = Math.max(2, Math.min(98, zoneRect.y + 2 + Math.random() * (zoneRect.height - 4)));
+               p.idleRemaining = 0;
+             }
+
+             // Handle idling phase vs walking phase
+             if (p.idleRemaining !== undefined && p.idleRemaining > 0) {
+               p.idleRemaining -= 1;
+               p.presenceState = 'IDLE';
+               // Subtle human sway micro-motions
+               p.x += (Math.random() - 0.5) * 0.01;
+               p.y += (Math.random() - 0.5) * 0.01;
              } else {
-                p.presenceState = 'IDLE';
+               const dx = p.targetX - p.x;
+               const dy = p.targetY - p.y;
+               const distance = Math.sqrt(dx * dx + dy * dy);
+
+               if (distance < 1.0) {
+                 p.x = p.targetX;
+                 p.y = p.targetY;
+                 p.presenceState = 'IDLE';
+                 p.idleRemaining = Math.floor(Math.random() * 8) + 4; // dwell for 4 to 12 seconds
+               } else {
+                 const stepSize = 0.6 + Math.random() * 0.5; // realistic walking velocity
+                 p.x += (dx / distance) * Math.min(distance, stepSize);
+                 p.y += (dy / distance) * Math.min(distance, stepSize);
+                 p.presenceState = 'MOVING';
+               }
              }
 
              // Calculate actual physical movement speed (m/s) & direction heading
-             const dx = p.x - oldX;
-             const dy = p.y - oldY;
-             const distMeters = Math.sqrt(dx * dx + dy * dy); // 1% map ~ 1 meter on a 100m site
+             const dx2 = p.x - oldX;
+             const dy2 = p.y - oldY;
+             const distMeters = Math.sqrt(dx2 * dx2 + dy2 * dy2); // 1% map ~ 1 meter on a 100m site
              p.speed = Number((distMeters * 1.2).toFixed(1)); // speed in m/s
-             if (distMeters > 0.1) {
-                p.heading = Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360);
+             if (distMeters > 0.05) {
+                p.heading = Math.round((Math.atan2(dy2, dx2) * 180 / Math.PI + 360) % 360);
              } else {
                 p.speed = 0;
              }
@@ -478,11 +499,17 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
              p.rssi = Math.max(-88, Math.min(-35, Math.round(-40 - distToCenter * 1.5)));
              p.battery = p.battery ?? (90 + Math.floor(Math.random() * 9));
 
-             if (Math.random() < 0.04) {
+             // Occasional natural zone transition (smoothly walk across the map to a new zone)
+             if (Math.random() < 0.015 && (!p.idleRemaining || p.idleRemaining === 0)) {
                 const projZones = getZonesForProject(activeProjectId);
                 const randomZone = projZones[Math.floor(Math.random() * projZones.length)];
-                p.currentZone = randomZone;
-                p.dwellTime = 0;
+                if (randomZone !== p.currentZone) {
+                   p.currentZone = randomZone;
+                   const nextRect = getZoneRect(randomZone, activeProjectId, dynamicZones);
+                   p.targetX = Math.max(2, Math.min(98, nextRect.x + 2 + Math.random() * (nextRect.width - 4)));
+                   p.targetY = Math.max(2, Math.min(98, nextRect.y + 2 + Math.random() * (nextRect.height - 4)));
+                   p.dwellTime = 0;
+                }
              }
            });
            return nextPeople;
@@ -517,24 +544,78 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
                const oldX = v.x;
                const oldY = v.y;
                const isCrane = v.type.toLowerCase().includes('crane');
-               // Cranes rotate/move slightly, excavators move around
-               const delta = isCrane ? 0.3 : 1.2;
-               const newX = Math.max(5, Math.min(95, v.x + (Math.random() - 0.5) * delta));
-               const newY = Math.max(5, Math.min(95, v.y + (Math.random() - 0.5) * delta));
-               const dx = newX - oldX;
-               const dy = newY - oldY;
+
+               if (isCrane) {
+                  // Cranes rotate jib smoothly and stay stationary
+                  const rotationSpeed = (Math.random() - 0.5) * 8; // degrees
+                  const nextHeading = Math.round(((v.heading || 0) + rotationSpeed + 360) % 360);
+                  return {
+                     ...v,
+                     heading: nextHeading,
+                     speed: 0,
+                     status: 'Active (Lifting)',
+                     rssi: -42 + Math.round((Math.random() - 0.5) * 3)
+                  };
+               }
+
+               // Vehicles (excavators, loaders) travel towards destination targets and work
+               if (v.targetX === undefined || v.targetY === undefined) {
+                  v.targetX = Math.max(10, Math.min(90, v.x + (Math.random() - 0.5) * 30));
+                  v.targetY = Math.max(10, Math.min(90, v.y + (Math.random() - 0.5) * 30));
+                  v.idleRemaining = 0;
+               }
+
+               let nextX = v.x;
+               let nextY = v.y;
+               let isMoving = false;
+
+               if (v.idleRemaining !== undefined && v.idleRemaining > 0) {
+                  v.idleRemaining -= 1;
+                  v.status = v.type === 'Excavator' ? 'Active (Excavating)' : 'Idle';
+               } else {
+                  const dx = v.targetX - v.x;
+                  const dy = v.targetY - v.y;
+                  const distance = Math.sqrt(dx * dx + dy * dy);
+
+                  if (distance < 2.0) {
+                     nextX = v.targetX;
+                     nextY = v.targetY;
+                     v.idleRemaining = Math.floor(Math.random() * 15) + 8; // Dwell for 8 to 23 seconds
+                     v.status = v.type === 'Excavator' ? 'Active (Excavating)' : 'Idle';
+                  } else {
+                     const speedPercent = 0.8 + Math.random() * 0.6;
+                     nextX += (dx / distance) * speedPercent;
+                     nextY += (dy / distance) * speedPercent;
+                     v.status = 'Moving';
+                     isMoving = true;
+                  }
+               }
+
+               const dx = nextX - oldX;
+               const dy = nextY - oldY;
                const distMeters = Math.sqrt(dx * dx + dy * dy);
-               const speedKmh = Number((distMeters * 3.6 * 1.5).toFixed(1)); // km/h
-               const heading = distMeters > 0.05 ? Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360) : v.heading;
+               const speedKmh = isMoving ? Number((distMeters * 3.6 * 1.5).toFixed(1)) : 0;
+               const nextHeading = distMeters > 0.1 ? Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360) : v.heading;
+
+               // Occasional destination route changes
+               if (Math.random() < 0.02 && (!v.idleRemaining || v.idleRemaining === 0)) {
+                  v.targetX = Math.max(10, Math.min(90, Math.random() * 100));
+                  v.targetY = Math.max(10, Math.min(90, Math.random() * 100));
+               }
+
+               const updatedTrail = v.trail ? [...v.trail] : [];
+               updatedTrail.push({ x: nextX, y: nextY });
+               if (updatedTrail.length > 60) updatedTrail.shift();
 
                return {
                   ...v,
-                  x: newX,
-                  y: newY,
+                  x: nextX,
+                  y: nextY,
                   speed: speedKmh,
-                  heading,
-                  rssi: Math.max(-80, Math.min(-32, Math.round(-38 - (newX % 20)))),
-                  fuel: Math.max(10, (v.fuel || 85) - 0.05)
+                  heading: nextHeading,
+                  trail: updatedTrail,
+                  rssi: Math.max(-80, Math.min(-32, Math.round(-38 - (nextX % 20)))),
+                  fuel: Math.max(10, (v.fuel || 85) - 0.02)
                };
             });
          });

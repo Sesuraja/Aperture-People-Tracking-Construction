@@ -23,6 +23,9 @@ export interface Person {
   trail: {x: number, y: number}[];
   activityInsights?: { activity: string; confidence: number };
   projectId?: string;
+  targetX?: number;
+  targetY?: number;
+  idleRemaining?: number;
 }
 
 export interface Asset { 
@@ -53,6 +56,10 @@ export interface Vehicle {
   fuel?: number;
   operator?: string;
   projectId?: string;
+  trail?: {x: number, y: number}[];
+  targetX?: number;
+  targetY?: number;
+  idleRemaining?: number;
 }
 
 export interface CameraDevice { 

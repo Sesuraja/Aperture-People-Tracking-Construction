@@ -61,6 +61,7 @@ const INITIAL_PROJECT_PROPERTIES: Record<string, ProjectProperties> = {
       'Excavation Shaft': { x: 10, y: 15, width: 34, height: 62, category: 'EXCAVATION & SHORING', hazardLevel: 'warning' },
       'Tower Core': { x: 51, y: 25, width: 32, height: 50, category: 'CONCRETE REINFORCEMENT' },
       'Crane Swing Zone': { x: 80, y: 5, width: 16, height: 42, category: 'CRANE SWING RADIUS', hazardLevel: 'critical' },
+      'High Voltage Area': { x: 46, y: 5, width: 14, height: 16, category: 'SUBSTATION PERIMETER', hazardLevel: 'critical' },
       'Muster Point A': { x: 2, y: 10, width: 8, height: 12, category: 'MUSTER POINT' }
     }
   }
@@ -132,7 +133,9 @@ export default function LiveTrackingTab({
   const [isEmergencyMode, setIsEmergencyMode] = useState(false);
   const [activeTab, setActiveTab] = useState<'people' | 'assets' | 'hardware' | 'zones'>('people');
   const [mapMode, setMapMode] = useState<MapMode>('standard');
-  const [activeFloor, setActiveFloor] = useState('B1');
+  const [activeFloor, setActiveFloor] = useState('Floor 3');
+  const [timelineTime, setTimelineTime] = useState('NOW (Live)');
+  const [isReplaying, setIsReplaying] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<string>('ALL');
   const [isMapFullScreen, setIsMapFullScreen] = useState(false);
 
@@ -359,6 +362,31 @@ export default function LiveTrackingTab({
     });
     return combined;
   }, [propVehicles, dbVehicles, localVehicles]);
+
+  const localHardwareDevices = useMemo(() => {
+    if (localProjectProps?.hardwareDevices && Array.isArray(localProjectProps.hardwareDevices)) {
+      return localProjectProps.hardwareDevices;
+    }
+    return [];
+  }, [localProjectProps]);
+
+  const readers = useMemo(() => {
+    const customDevs = (projectMeta?.hardwareDevices || localHardwareDevices || [])
+      .filter((d: any) => d && (d.type?.toLowerCase().includes('reader') || d.type?.toLowerCase().includes('rfid')))
+      .map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        x: d.x,
+        y: d.y,
+        range: d.antennaGainDbi ? Math.max(8, d.antennaGainDbi * 1.5) : 12,
+        health: d.status === 'Online' ? 100 : d.status === 'Maintenance' ? 60 : 0,
+        status: d.status === 'Online' ? 'online' : 'offline',
+        ipAddress: d.ipAddress,
+        macAddress: d.macAddress
+      }));
+
+    return customDevs.length > 0 ? customDevs : MOCK_READERS;
+  }, [projectMeta, localHardwareDevices]);
 
   useEffect(() => {
     const unsubProject = onSnapshot(doc(db, 'projects', activeProject), (snap: any) => {
@@ -694,7 +722,7 @@ export default function LiveTrackingTab({
               {activeTab === 'hardware' && (
                  <div className="space-y-3 p-2">
                    <div className="text-[10px] font-black text-slate-400 uppercase border-b pb-1">GAO RFID Readers</div>
-                   {MOCK_READERS.map(r => (
+                   {readers.map(r => (
                      <div 
                        key={r.id} 
                        onClick={() => setSelectedEntity({
@@ -704,8 +732,8 @@ export default function LiveTrackingTab({
                            name: r.name,
                            type: 'UHF RFID Reader',
                            location: 'Portal Sector West',
-                           ipAddress: '10.0.1.12',
-                           macAddress: 'AA:BB:CC:DD:EE:11',
+                           ipAddress: r.ipAddress || '10.0.1.12',
+                           macAddress: r.macAddress || 'AA:BB:CC:DD:EE:11',
                            status: r.status === 'online' ? 'Online' : 'Offline',
                            signalRssi: -55,
                            battery: r.health,
@@ -918,7 +946,7 @@ export default function LiveTrackingTab({
                           { key: 'workers', label: 'Personnel & Workers', icon: Users, color: 'text-sky-600 bg-sky-50 border-sky-200', count: people.length },
                           { key: 'assets', label: 'Equipment & Materials', icon: Box, color: 'text-emerald-600 bg-emerald-50 border-emerald-200', count: assets.length + MOCK_MATERIALS.length },
                           { key: 'vehicles', label: 'Heavy Machinery', icon: Truck, color: 'text-amber-600 bg-amber-50 border-amber-200', count: vehicles.length },
-                          { key: 'readers', label: 'RFID Readers & Gates', icon: Radio, color: 'text-indigo-600 bg-indigo-50 border-indigo-200', count: MOCK_READERS.length + MOCK_GATES.length },
+                           { key: 'readers', label: 'RFID Readers & Gates', icon: Radio, color: 'text-indigo-600 bg-indigo-50 border-indigo-200', count: readers.length + MOCK_GATES.length },
                           { key: 'zones', label: 'Geofenced Safety Zones', icon: Layout, color: 'text-sky-700 bg-sky-50 border-sky-200', count: Object.keys(defaultZones).length },
                           { key: 'cameras', label: 'AI CCTV Cameras', icon: Camera, color: 'text-purple-600 bg-purple-50 border-purple-200', count: cameras.length },
                           { key: 'sensors', label: 'EHS Environmental Sensors', icon: Thermometer, color: 'text-rose-600 bg-rose-50 border-rose-200', count: sensors.length },
@@ -968,34 +996,92 @@ export default function LiveTrackingTab({
           </div>
 
           {/* Trade Filter Pills Row */}
-          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth shrink-0">
-            <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 pr-2 border-r border-slate-200">
-              <Filter className="w-3.5 h-3.5 text-sky-600" />
-              <span>Trades:</span>
+          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 overflow-x-auto no-scrollbar scroll-smooth shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 pr-2 border-r border-slate-200">
+                <Filter className="w-3.5 h-3.5 text-sky-600" />
+                <span>Trades:</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {TRADE_OPTIONS.map(trade => {
+                  const isSelected = selectedTrade === trade.id;
+                  return (
+                    <button
+                      key={trade.id}
+                      onClick={() => setSelectedTrade(trade.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap shadow-sm border ${
+                        isSelected
+                          ? 'bg-sky-600 text-white border-sky-600 ring-2 ring-sky-300'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                      }`}
+                    >
+                      <span>{trade.icon}</span>
+                      <span>{trade.label}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {trade.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              {TRADE_OPTIONS.map(trade => {
-                const isSelected = selectedTrade === trade.id;
-                return (
-                  <button
-                    key={trade.id}
-                    onClick={() => setSelectedTrade(trade.id)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap shadow-sm border ${
-                      isSelected
-                        ? 'bg-sky-600 text-white border-sky-600 ring-2 ring-sky-300'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                    }`}
-                  >
-                    <span>{trade.icon}</span>
-                    <span>{trade.label}</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {trade.count}
-                    </span>
-                  </button>
-                );
-              })}
+
+            {/* Floor Selector (Floor 1 to Floor 7) */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">
+                <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Level:</span>
+              </div>
+              {['Floor 7', 'Floor 6', 'Floor 5', 'Floor 4', 'Floor 3', 'Floor 2', 'Floor 1'].map(floor => (
+                <button
+                  key={floor}
+                  onClick={() => setActiveFloor(floor)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
+                    activeFloor === floor
+                      ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400'
+                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {floor}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Timeline Replay Scrubber Bar */}
+          <div className="px-3 py-1.5 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between gap-4 shrink-0 text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsReplaying(!isReplaying)}
+                className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 rounded text-[10px] font-black uppercase tracking-wider text-white transition flex items-center gap-1"
+              >
+                <span>{isReplaying ? '⏸ PAUSE' : '▶ REPLAY'}</span>
+              </button>
+              <span className="text-[10px] font-bold text-sky-400">Timeline: {timelineTime}</span>
+            </div>
+            <div className="flex-1 max-w-md flex items-center gap-3">
+              <span className="text-[9px] text-slate-400">08:00 AM</span>
+              <input 
+                type="range" 
+                min="0" 
+                max="100" 
+                defaultValue="100"
+                className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val < 20) setTimelineTime('08:30 AM');
+                  else if (val < 40) setTimelineTime('10:00 AM');
+                  else if (val < 60) setTimelineTime('11:45 AM');
+                  else if (val < 80) setTimelineTime('02:15 PM');
+                  else setTimelineTime('NOW (Live)');
+                }}
+              />
+              <span className="text-[9px] font-bold text-emerald-400 whitespace-nowrap">NOW (Live)</span>
+            </div>
+            <div className="text-[10px] text-slate-400 hidden lg:block">
+              15-min path history loaded
             </div>
           </div>
 
@@ -1022,68 +1108,36 @@ export default function LiveTrackingTab({
             </div>
           )}
 
-          <div className="flex-1 relative bg-slate-100">
-            <LiveFloorMap 
-              people={displayedPeople}
-              assets={assets}
-              vehicles={vehicles}
-              cameras={cameras}
-              envSensors={sensors}
-              readers={MOCK_READERS}
-              gates={MOCK_GATES}
-              materials={MOCK_MATERIALS}
-              zones={activeZones}
-              highlightedPersonId={selectedEntity?.type === 'person' ? selectedEntity.data.id : highlightedPersonId}
-              initialFocusZone={focusZone}
-              floorplanUrl={projectMeta?.floorplanUrl || localProjectProps?.floorplanUrl || currentProject.floorplanUrl}
-              onSelectEntity={(entity) => setSelectedEntity(entity)}
-              customZones={activeZones}
-              projectId={projectMeta?.id || currentProject.id}
-              projectName={projectMeta?.name || currentProject.name}
-              contractor={projectMeta?.contractor || currentProject.contractor}
-              dimensions={projectMeta?.dimensions || currentProject.dimensions}
-              mode={mapMode}
-              visibleLayers={visibleLayers}
-              zoneCapacities={zoneCapacities}
-              emergencySosState={emergencySosState}
-              isDrawingGeofence={isDrawingGeofence}
-              onSaveCustomGeofence={handleSaveCustomGeofence}
-              onCancelDrawing={() => setIsDrawingGeofence(false)}
-            />
-          </div>
-
-          {/* BOTTOM TELEMETRY DRAWER */}
-          <div className="h-40 border-t border-slate-200 bg-white flex overflow-hidden">
-             <div className="w-1/3 border-r border-slate-100 flex flex-col">
-                <div className="px-4 py-2 border-b border-slate-50 bg-slate-50 flex items-center gap-2">
-                   <Terminal className="w-3 h-3 text-slate-500" />
-                   <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Live RFID Event Stream</span>
-                </div>
-                <div className="flex-1 overflow-y-auto p-3 font-mono text-[9px] space-y-1">
-                   <div className="text-slate-400">[{new Date().toLocaleTimeString()}] <span className="text-sky-600 font-bold">RFID_READ:</span> Tag #RFID-4029 detected at Core Shaft Reader</div>
-                   <div className="text-slate-400">[{new Date().toLocaleTimeString()}] <span className="text-amber-600 font-bold">ZONE_ENTRY:</span> Worker W-102 entered Restricted Zone B</div>
-                   <div className="text-slate-400">[{new Date().toLocaleTimeString()}] <span className="text-emerald-600 font-bold">HEALTH_OK:</span> West Gate Reader heartbeat verified</div>
-                   <div className="text-slate-400">[{new Date().toLocaleTimeString()}] <span className="text-indigo-600 font-bold">ASSET_MVMT:</span> Excavator-01 speed at 4km/h</div>
-                </div>
-             </div>
-             <div className="flex-1 flex flex-col">
-                <div className="px-4 py-2 border-b border-slate-50 bg-slate-50 flex items-center justify-between">
-                   <div className="flex items-center gap-2">
-                      <Activity className="w-3 h-3 text-sky-500" />
-                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Site Activity Heat Profile</span>
-                   </div>
-                   <div className="flex gap-2">
-                      <div className="flex items-center gap-1 text-[8px] font-bold"><div className="w-1.5 h-1.5 rounded-full bg-sky-500" /> Low</div>
-                      <div className="flex items-center gap-1 text-[8px] font-bold"><div className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Med</div>
-                      <div className="flex items-center gap-1 text-[8px] font-bold"><div className="w-1.5 h-1.5 rounded-full bg-rose-500" /> High</div>
-                   </div>
-                </div>
-                <div className="flex-1 p-4 flex items-end gap-1 overflow-hidden">
-                   {Array.from({ length: 48 }).map((_, i) => (
-                      <div key={i} className="flex-1 bg-sky-500/20 rounded-t-sm" style={{ height: `${20 + Math.random() * 80}%` }} />
-                   ))}
-                </div>
-             </div>
+          <div className="flex-1 relative bg-slate-100 flex flex-col xl:flex-row gap-4 items-stretch overflow-hidden p-2">
+            <div className="flex-1 relative h-full rounded-2xl overflow-hidden shadow-inner border border-slate-200 bg-white">
+              <LiveFloorMap 
+                people={displayedPeople}
+                assets={assets}
+                vehicles={vehicles}
+                cameras={cameras}
+                envSensors={sensors}
+                readers={readers}
+                gates={MOCK_GATES}
+                materials={MOCK_MATERIALS}
+                zones={activeZones}
+                highlightedPersonId={selectedEntity?.type === 'person' ? selectedEntity.data.id : highlightedPersonId}
+                initialFocusZone={focusZone}
+                floorplanUrl={projectMeta?.floorplanUrl || localProjectProps?.floorplanUrl || currentProject.floorplanUrl}
+                onSelectEntity={(entity) => setSelectedEntity(entity)}
+                customZones={activeZones}
+                projectId={projectMeta?.id || currentProject.id}
+                projectName={projectMeta?.name || currentProject.name}
+                contractor={projectMeta?.contractor || currentProject.contractor}
+                dimensions={projectMeta?.dimensions || currentProject.dimensions}
+                mode={mapMode}
+                visibleLayers={visibleLayers}
+                zoneCapacities={zoneCapacities}
+                emergencySosState={emergencySosState}
+                isDrawingGeofence={isDrawingGeofence}
+                onSaveCustomGeofence={handleSaveCustomGeofence}
+                onCancelDrawing={() => setIsDrawingGeofence(false)}
+              />
+            </div>
           </div>
         </div>
       </div>
