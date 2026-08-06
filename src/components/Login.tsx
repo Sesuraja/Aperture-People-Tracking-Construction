@@ -51,8 +51,38 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           createdAt: new Date().toISOString()
         }, { merge: true });
 
+        // Synchronize with backend API and store JWT
+        try {
+          const apiRes = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, name: fullName, role })
+          });
+          const apiData = await apiRes.json();
+          if (apiData.token) {
+            localStorage.setItem('gao_jwt_token', apiData.token);
+          }
+        } catch (apiErr) {
+          console.warn('API auth sync error:', apiErr);
+        }
+
       } else {
         await signInWithEmailAndPassword(auth, email, password);
+
+        // Synchronize with backend API and store JWT
+        try {
+          const apiRes = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          const apiData = await apiRes.json();
+          if (apiData.token) {
+            localStorage.setItem('gao_jwt_token', apiData.token);
+          }
+        } catch (apiErr) {
+          console.warn('API auth login error:', apiErr);
+        }
       }
       onLoginSuccess('real');
     } catch (err: any) {

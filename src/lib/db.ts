@@ -165,7 +165,7 @@ export async function setDoc(docRef: any, data: any, options?: any): Promise<voi
     try {
       const response = await fetch(`/api/data/${colName}/${docId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data)
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -180,8 +180,22 @@ export async function setDoc(docRef: any, data: any, options?: any): Promise<voi
   return fbSetDoc(docRef, data);
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('gao_jwt_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 async function safeJsonFetch(url: string, options?: RequestInit): Promise<any> {
-  const response = await fetch(url, options);
+  const customOptions = options || {};
+  customOptions.headers = {
+    ...getAuthHeaders(),
+    ...(customOptions.headers || {})
+  };
+  const response = await fetch(url, customOptions);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const text = await response.text();
   try {
@@ -249,7 +263,7 @@ export async function deleteDoc(docRef: any): Promise<void> {
   if (isMongoActive()) {
     const { colName, docId } = getRefInfo(docRef);
     try {
-      await fetch(`/api/data/${colName}/${docId}`, { method: 'DELETE' });
+      await fetch(`/api/data/${colName}/${docId}`, { method: 'DELETE', headers: getAuthHeaders() });
     } catch (err) {
       console.warn(`deleteDoc MongoDB API error for ${colName}/${docId}:`, err);
     }

@@ -227,7 +227,10 @@ export default function SettingsTab() {
       }
 
       // Fetch user claim profiles from back-end
-      const usersRes = await fetch("/api/admin/users");
+      const token = localStorage.getItem("gao_jwt_token");
+      const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const usersRes = await fetch("/api/admin/users", { headers: authHeader });
       if (usersRes.ok) {
         const data = await usersRes.json();
         setUsers(data.users || []);
@@ -236,7 +239,7 @@ export default function SettingsTab() {
       }
 
       // Fetch dynamic role permissions from DB
-      const permRes = await fetch("/api/admin/permissions");
+      const permRes = await fetch("/api/admin/permissions", { headers: authHeader });
       if (permRes.ok) {
         const pData = await permRes.json();
         setRolePermissions(pData);
@@ -288,9 +291,15 @@ export default function SettingsTab() {
       }
 
       // 2. Proceed with backend sync for custom claims
+      const token = localStorage.getItem("gao_jwt_token");
+      const authHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
       const res = await fetch("/api/admin/set-user-role", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({ uid, role: newRole }),
       });
 
@@ -341,8 +350,15 @@ export default function SettingsTab() {
         return;
       }
 
+      const token = localStorage.getItem("gao_jwt_token");
+      const authHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
       const res = await fetch(`/api/admin/users/${uid}`, {
         method: "DELETE",
+        headers: authHeaders
       });
       if (res.ok) {
         setActionSuccessMessage(
@@ -376,10 +392,16 @@ export default function SettingsTab() {
         return;
       }
 
+      const token = localStorage.getItem("gao_jwt_token");
+      const authHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
       const res = await fetch("/api/admin/permissions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(rolePermissions),
+        headers: authHeaders,
+        body: JSON.stringify({ rolePermissions }),
       });
       if (res.ok) {
         setActionSuccessMessage(
@@ -467,13 +489,19 @@ export default function SettingsTab() {
         return;
       }
 
+      const token = localStorage.getItem("gao_jwt_token");
+      const authHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
       const res = await fetch("/api/admin/create-user", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           email: createEmail,
           password: createPassword,
-          displayName: createDisplayName,
+          name: createDisplayName,
           role: createRole,
         }),
       });

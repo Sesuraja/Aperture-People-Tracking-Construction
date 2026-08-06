@@ -139,6 +139,55 @@
         "isOverstayed": { "type": "boolean" }
       },
       "required": ["id", "name", "company", "status"]
+    },
+    "VisitorAccessToken": {
+      "title": "Visitor Access Token",
+      "description": "Temporary access token generated for guest QR code validation",
+      "type": "object",
+      "properties": {
+        "tokenId": { "type": "string" },
+        "visitorId": { "type": "string" },
+        "visitorName": { "type": "string" },
+        "company": { "type": "string" },
+        "host": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "allowedZones": { "type": "array" },
+        "maxUsages": { "type": "number" },
+        "scanCount": { "type": "number" }
+      },
+      "required": ["tokenId", "visitorId", "status", "expiresAt"]
+    },
+    "VisitorSecurityItem": {
+      "title": "Visitor Security List Item",
+      "description": "Blacklist and whitelist entry for visitor real-time validation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "company": { "type": "string" },
+        "type": { "type": "string" },
+        "reason": { "type": "string" },
+        "addedBy": { "type": "string" },
+        "addedDate": { "type": "string" },
+        "riskLevel": { "type": "string" }
+      },
+      "required": ["id", "name", "type", "reason"]
+    },
+    "VisitorAccessLog": {
+      "title": "Visitor Access Log",
+      "description": "Scan and entry validation log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tokenId": { "type": "string" },
+        "visitorName": { "type": "string" },
+        "gate": { "type": "string" },
+        "status": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "tokenId", "status"]
     }
   },
   "firestore": {
@@ -181,6 +230,18 @@
     "/visitors/{visitorId}": {
       "schema": "Visitor",
       "description": "Pre-registered and active visitors"
+    },
+    "/visitor_security_list/{itemId}": {
+      "schema": "VisitorSecurityItem",
+      "description": "Visitor blacklist and whitelist directory"
+    },
+    "/visitor_access_tokens/{tokenId}": {
+      "schema": "VisitorAccessToken",
+      "description": "Guest temporary QR access tokens"
+    },
+    "/visitor_access_logs/{logId}": {
+      "schema": "VisitorAccessLog",
+      "description": "Logs of scanner token validations"
     }
   }
 }

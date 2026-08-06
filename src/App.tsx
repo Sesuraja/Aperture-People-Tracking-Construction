@@ -348,7 +348,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <nav className="flex flex-col gap-1 px-3 flex-1 overflow-y-auto min-h-0">
-          {(permissions[userRole]?.dashboard ?? true) && <NavItem to="/" icon={<LayoutDashboard size={20}/>} label="Dashboard" />}
+          {(permissions[userRole]?.dashboard ?? true) && <NavItem to="/dashboard" icon={<LayoutDashboard size={20}/>} label="Dashboard" />}
           {(permissions[userRole]?.live ?? true) && <NavItem to="/live" icon={<Map size={20}/>} label="Live Tracking" />}
           {(permissions[userRole]?.live ?? true) && <NavItem to="/custom-map" icon={<MapIcon size={20}/>} label="Custom Map & Assets" />}
           {(permissions[userRole]?.playback ?? true) && <NavItem to="/playback" icon={<PlayCircle size={20}/>} label="Playback History" />}
@@ -357,7 +357,6 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
           {(permissions[userRole]?.attendance ?? true) && <NavItem to="/attendance" icon={<Clock size={20}/>} label="Attendance" />}
           {(permissions[userRole]?.alerts ?? true) && <NavItem to="/alerts" icon={<Bell size={20}/>} label="Alerts" hasNotification={alerts.some(a => a.type === 'security')} />}
           {(permissions[userRole]?.incidents ?? true) && <NavItem to="/incidents" icon={<ShieldAlert size={20}/>} label="Incidents" />}
-          {(permissions[userRole]?.digitalTwin ?? true) && <NavItem to="/digital-twin" icon={<Box size={20}/>} label="Digital Twin" />}
           {(permissions[userRole]?.analytics ?? true) && <NavItem to="/analytics" icon={<BarChart3 size={20}/>} label="Analytics" />}
           {(permissions[userRole]?.aiInsights ?? true) && <NavItem to="/ai-insights" icon={<Sparkles size={20}/>} label="AI Insights" />}
           {(permissions[userRole]?.devices ?? true) && <NavItem to="/devices" icon={<Radio size={20}/>} label="Devices" />}
@@ -403,6 +402,15 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
           <div className="min-h-full flex flex-col w-full flex-1">
             <Routes>
               <Route path="/" element={
+                 <ProtectedRoute 
+                   element={<DigitalTwinTab />}
+                   userRole={userRole}
+                   permissionKey="digitalTwin"
+                   permissions={permissions}
+                   featureName="3D Digital Twin spatial simulation"
+                 />
+              } />
+              <Route path="/dashboard" element={
                  <ProtectedRoute 
                    element={<DashboardTab people={people} alerts={alerts} zones={ZONES} highlightedPersonId={highlightedPersonId}  />}
                    userRole={userRole}

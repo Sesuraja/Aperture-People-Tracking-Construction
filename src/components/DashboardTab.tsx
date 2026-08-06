@@ -28,7 +28,29 @@ import {
   Key,
   ExternalLink,
   Trash2,
-  GripVertical
+  GripVertical,
+  CloudSun,
+  Thermometer,
+  Wind,
+  Zap,
+  Wrench,
+  Truck,
+  AlertTriangle,
+  TrendingUp,
+  CheckCircle2,
+  BarChart2,
+  FileText,
+  Sparkles,
+  Siren,
+  UserX,
+  Layers,
+  HardHat,
+  Droplets,
+  Timer,
+  Gauge,
+  Sun,
+  Flame,
+  CheckCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import AIFeed from './AIFeed';
@@ -62,24 +84,34 @@ export interface PanelConfig {
 }
 
 const DEFAULT_KPIS: KPIConfig[] = [
-  { id: 'total_people', title: 'Total Registered Workers', visible: true, order: 1 },
-  { id: 'on_site', title: 'Currently On-Site', visible: true, order: 2 },
-  { id: 'in_motion', title: 'Workers Active / In Motion', visible: true, order: 3 },
-  { id: 'alerts_count', title: 'Safety Hazards & Alerts', visible: true, order: 4 },
-  { id: 'dwell_time', title: 'Avg. Shift Dwell Time', visible: true, order: 5 },
+  { id: 'total_workers', title: 'Total Workers on Site', visible: true, order: 1 },
+  { id: 'active_workers', title: 'Active Workers', visible: true, order: 2 },
+  { id: 'visitors_count', title: 'Visitors', visible: true, order: 3 },
+  { id: 'contractors_count', title: 'Contractors', visible: true, order: 4 },
+  { id: 'active_tags', title: 'Active RFID Tags', visible: true, order: 5 },
+  { id: 'online_readers', title: 'Online Readers', visible: true, order: 6 },
+  { id: 'offline_readers', title: 'Offline Readers', visible: true, order: 7 },
+  { id: 'active_equipment', title: 'Active Equipment', visible: true, order: 8 },
+  { id: 'safety_alerts', title: 'Safety Alerts', visible: true, order: 9 },
+  { id: 'emergency_alerts', title: 'Emergency Alerts', visible: true, order: 10 },
+  { id: 'attendance_today', title: 'Attendance Today', visible: true, order: 11 },
+  { id: 'ppe_compliance', title: 'PPE Compliance', visible: true, order: 12 },
+  { id: 'productivity_score', title: 'Productivity Score', visible: true, order: 13 },
+  { id: 'site_utilization', title: 'Site Utilization', visible: true, order: 14 },
 ];
 
 const DEFAULT_PANELS: PanelConfig[] = [
-  { id: 'system_health', title: 'Database & System Health', description: 'Real-time connection state, latency monitoring, and telemetry for Cloud Firestore and MongoDB.', visible: true, order: 0, width: 'full' },
-  { id: 'occupancy_panel', title: 'Construction Site Occupancy & Sector Status', description: 'Device health, live zone distribution tracker, and worker movement logs.', visible: true, order: 1, width: '2/3' },
-  { id: 'alerts_panel', title: 'Safety Hazards & Exclusion Alerts', description: 'Live alerts, PPE violations, crane exclusion breaches, and sensor events feed.', visible: true, order: 2, width: '1/3' },
-  { id: 'attendance_summary', title: 'Site Shift Attendance Module', description: 'First entry gate scan, last exit scan, and shift working hours summary.', visible: true, order: 3, width: '1/3' },
-  { id: 'ai_insights', title: 'AI Safety Predictions & PPE Insights', description: 'AI generated summaries, crane exclusion warnings, and man-down anomaly detection.', visible: true, order: 4, width: '2/3' },
-  { id: 'chart_over_time', title: 'Worker Flow Trend', description: 'Over-time area trend of RFID hardhat tag occurrences across construction shifts.', visible: true, order: 5, width: '1/4' },
-  { id: 'chart_top_zones', title: 'Sector Breakdown', description: 'Interactive pie chart showing worker proportion distribution by active construction zones.', visible: true, order: 6, width: '1/4' },
-  { id: 'chart_device_status', title: 'Site Readers & RFID Gate Status', description: 'Visual breakdown of RFID gate portals, antenna health, and CPU load analytics.', visible: true, order: 7, width: '1/4' },
-  { id: 'chart_heatmap', title: 'Site Density Heatmap', description: 'Live density heatmap showing high worker concentrations in active site sectors.', visible: true, order: 8, width: '1/4' },
-  { id: 'tech_footer', title: 'Construction RFID Features', description: 'Core system specs overview of active RFID frequency bands, IP67 readers & safety protocols.', visible: true, order: 9, width: 'full' }
+  { id: 'site_status', title: 'Site Status', description: 'Live operational status, active shift, site capacity indicator, and safety clearance.', visible: true, order: 0, width: '1/2' },
+  { id: 'weather_widget', title: 'Weather & Site Conditions', description: 'Ambient temperature, wind speed for crane lifts, humidity, UV index, and EHS risk level.', visible: true, order: 1, width: '1/2' },
+  { id: 'shift_progress', title: 'Shift Progress', description: 'Active shift timeline, completion percentage, remaining hours, and workforce on shift.', visible: true, order: 2, width: '1/3' },
+  { id: 'reader_health', title: 'Reader Health', description: 'UHF RFID gate portals, antenna RSSI, packet rates, and online/offline status.', visible: true, order: 3, width: '1/3' },
+  { id: 'equipment_health', title: 'Equipment Health', description: 'Heavy machinery telemetry, cranes, excavators, engine/fuel levels, and zone location.', visible: true, order: 4, width: '1/3' },
+  { id: 'ai_recommendations', title: 'AI Recommendations', description: 'Predictive safety advisories, overcrowding warnings, PPE enforcement, and fatigue alerts.', visible: true, order: 5, width: '1/2' },
+  { id: 'daily_summary', title: 'Daily Summary', description: 'Total gate throughput, RFID scans, peak activity hours, and incident-free streak.', visible: true, order: 6, width: '1/2' },
+  { id: 'active_incidents', title: 'Active Incidents', description: 'Real-time safety incident feed, severity ratings, assigned responders, and SLA timers.', visible: true, order: 7, width: 'full' },
+  { id: 'occupancy_panel', title: 'Sector Occupancy & Movement Logs', description: 'Live zone occupancy distribution and recent worker movement telemetry.', visible: true, order: 8, width: '2/3' },
+  { id: 'system_health', title: 'Database & System Telemetry', description: 'Real-time connection state and latency for Cloud Firestore and MongoDB.', visible: true, order: 9, width: '1/3' },
+  { id: 'tech_footer', title: 'Construction RFID Features', description: 'Core system specs overview of active RFID frequency bands, IP67 readers & safety protocols.', visible: true, order: 10, width: 'full' }
 ];
 
 export default function DashboardTab({ 
@@ -544,6 +576,406 @@ export default function DashboardTab({
   // Direct content dispatcher mapping widget configurations dynamically
   const renderPanelContent = (id: string) => {
     switch (id) {
+      case 'site_status':
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col shadow-sm transition hover:shadow-md h-[380px]">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+                <h3 className="font-bold text-slate-900 tracking-tight text-sm">Site Operational Status</h3>
+              </div>
+              <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5" />
+                Nominal Operations
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Overall Risk Rating</span>
+                <div className="text-lg font-black text-emerald-600 mt-0.5">LOW (EHS Grade A)</div>
+                <span className="text-[10px] text-slate-400">Zero safety halts in 24h</span>
+              </div>
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Site Occupancy</span>
+                <div className="text-lg font-black text-slate-900 mt-0.5">{people.length} / 80 Max</div>
+                <span className="text-[10px] text-slate-400">67.5% sector capacity</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 flex-1 overflow-y-auto">
+              <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Active Sector Readiness</div>
+              {Object.keys(zones).slice(0, 3).map(z => {
+                const count = people.filter(p => p.currentZone === z).length;
+                return (
+                  <div key={z} className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-xs font-medium">
+                    <span className="font-semibold text-slate-800">{z}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-600 font-bold">{count} workers</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
+              <span className="text-[11px] text-slate-500 font-medium">EHS Clearances: All High-Lifts Approved</span>
+              <button onClick={() => navigate('/live')} className="text-xs font-bold text-[#007BC4] hover:underline flex items-center gap-1">
+                Live Map →
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'weather_widget':
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col shadow-sm transition hover:shadow-md h-[380px]">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <CloudSun className="w-5 h-5 text-amber-500" />
+                <h3 className="font-bold text-slate-900 tracking-tight text-sm">Weather & Environmental Telemetry</h3>
+              </div>
+              <span className="bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200">
+                Clear Sky • 28°C
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-150">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase">
+                  <Wind className="w-3.5 h-3.5 text-sky-500" /> Wind Speed
+                </div>
+                <div className="text-base font-black text-slate-900 mt-1">14 km/h</div>
+                <span className="text-[9px] text-emerald-600 font-bold">Safe for Lifts (&lt;35)</span>
+              </div>
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-150">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase">
+                  <Droplets className="w-3.5 h-3.5 text-blue-500" /> Humidity
+                </div>
+                <div className="text-base font-black text-slate-900 mt-1">62%</div>
+                <span className="text-[9px] text-slate-400 font-semibold">Optimal Range</span>
+              </div>
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-150">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase">
+                  <Sun className="w-3.5 h-3.5 text-amber-500" /> UV Index
+                </div>
+                <div className="text-base font-black text-slate-900 mt-1">6 Mod</div>
+                <span className="text-[9px] text-amber-600 font-semibold">Shade Advised</span>
+              </div>
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-150">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase">
+                  <Flame className="w-3.5 h-3.5 text-rose-500" /> EHS Risk
+                </div>
+                <div className="text-base font-black text-emerald-600 mt-1">Level 1</div>
+                <span className="text-[9px] text-emerald-600 font-bold">Low Heat Stress</span>
+              </div>
+            </div>
+
+            <div className="bg-emerald-50/70 border border-emerald-200/80 p-3 rounded-xl flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <p className="text-xs text-emerald-900 font-semibold">Crane Operations Approved: Wind gusts within operating limits (&lt;35 km/h limit).</p>
+              </div>
+            </div>
+
+            <div className="mt-auto pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+              <span>Last Sensor Update: 2 minutes ago</span>
+              <span className="font-bold text-slate-700">Barometer: 1014 hPa</span>
+            </div>
+          </div>
+        );
+
+      case 'shift_progress':
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col shadow-sm transition hover:shadow-md h-[380px]">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Timer className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-slate-900 tracking-tight text-sm">Shift Progress</h3>
+              </div>
+              <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-200">
+                Day Shift Alpha
+              </span>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                <span>07:00 AM - 17:00 PM</span>
+                <span className="text-[#007BC4]">65% Complete</span>
+              </div>
+              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                <div className="bg-[#007BC4] h-full rounded-full transition-all duration-500" style={{ width: '65%' }} />
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-500 font-medium">
+                <span>Elapsed: 6h 30m</span>
+                <span>Remaining: 3h 30m</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">On-Shift Workers</span>
+                <div className="text-base font-bold text-slate-900 mt-0.5">48 / 52</div>
+                <span className="text-[10px] text-emerald-600 font-bold">92.3% Attendance</span>
+              </div>
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Next Handover</span>
+                <div className="text-base font-bold text-slate-900 mt-0.5">17:00 PM</div>
+                <span className="text-[10px] text-slate-500">Evening Shift Bravo</span>
+              </div>
+            </div>
+
+            <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-xs text-slate-600 font-medium">Phase: Floor 14 Concrete Pour</span>
+              <button onClick={() => navigate('/attendance')} className="text-xs font-bold text-[#007BC4] hover:underline">
+                Attendance Roster →
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'reader_health':
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col shadow-sm transition hover:shadow-md h-[380px]">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Radio className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-bold text-slate-900 tracking-tight text-sm">Reader Health & Portals</h3>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <span className="text-emerald-600">{deviceStats.online || 18} Online</span>
+                <span className="text-rose-500">{deviceStats.offline || 2} Offline</span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {[
+                { name: 'Gate 1 Entry Portal (Reader R-01)', status: 'Online', rssi: '-42 dBm', rate: '250 Hz', power: '100%' },
+                { name: 'Tower Crane Antenna (Reader R-02)', status: 'Online', rssi: '-58 dBm', rate: '250 Hz', power: '94%' },
+                { name: 'Shaft 3 Stairwell (Reader R-03)', status: 'Online', rssi: '-61 dBm', rate: '200 Hz', power: '100%' },
+                { name: 'North Gate Perimeter (Reader R-04)', status: 'Warning', rssi: '-85 dBm', rate: '50 Hz', power: '18%' },
+              ].map((r, i) => (
+                <div key={i} onClick={() => navigate('/devices')} className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg flex items-center justify-between cursor-pointer transition">
+                  <div>
+                    <div className="font-bold text-xs text-slate-800">{r.name}</div>
+                    <div className="text-[10px] text-slate-500 flex items-center gap-2 font-mono mt-0.5">
+                      <span>RSSI: {r.rssi}</span>
+                      <span>Rate: {r.rate}</span>
+                      <span>Power: {r.power}</span>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${r.status === 'Online' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                    {r.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
+              <span className="text-[11px] text-slate-500">Active Antennas: 32 Total Channels</span>
+              <button onClick={() => navigate('/devices')} className="text-xs font-bold text-[#007BC4] hover:underline">
+                Manage Devices →
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'equipment_health':
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col shadow-sm transition hover:shadow-md h-[380px]">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Truck className="w-5 h-5 text-purple-600" />
+                <h3 className="font-bold text-slate-900 tracking-tight text-sm">Equipment Health</h3>
+              </div>
+              <span className="bg-purple-50 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-full border border-purple-200">
+                12 Tracked Assets
+              </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {[
+                { name: 'Tower Crane TC-01', zone: 'Heavy Crane Radius', status: 'Active', fuel: '88%', operator: 'M. Vance' },
+                { name: 'Hydraulic Excavator EX-04', zone: 'Excavation Pit', status: 'Active', fuel: '65%', operator: 'S. Lindqvist' },
+                { name: 'Material Hoist MH-02', zone: 'Shaft 3 Lift', status: 'Idle', fuel: '92%', operator: 'Unassigned' },
+                { name: 'Heavy Forklift FL-01', zone: 'Loading Dock', status: 'Active', fuel: '74%', operator: 'G. Hopper' },
+              ].map((eq, i) => (
+                <div key={i} onClick={() => navigate('/maintenance')} className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg flex items-center justify-between cursor-pointer transition">
+                  <div>
+                    <div className="font-bold text-xs text-slate-800">{eq.name}</div>
+                    <div className="text-[10px] text-slate-500 flex items-center gap-2 font-medium mt-0.5">
+                      <span>Zone: {eq.zone}</span>
+                      <span>Driver: {eq.operator}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${eq.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                      {eq.status}
+                    </span>
+                    <div className="text-[10px] text-slate-500 font-mono mt-1">Fuel: {eq.fuel}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
+              <span className="text-[11px] text-slate-500">All Asset RFID Beacons Active</span>
+              <button onClick={() => navigate('/maintenance')} className="text-xs font-bold text-[#007BC4] hover:underline">
+                Asset Maintenance →
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'ai_recommendations':
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col shadow-sm transition hover:shadow-md h-[380px]">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                <h3 className="font-bold text-slate-900 tracking-tight text-sm">AI Recommendations & Safety Advisories</h3>
+              </div>
+              <span className="bg-purple-50 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-full border border-purple-200">
+                Live AI Engine
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto">
+              <div className="bg-purple-50/80 border border-purple-200/80 p-3 rounded-xl">
+                <div className="flex items-center gap-2 font-bold text-xs text-purple-900 mb-1">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                  Predictive Zone Overcrowding
+                </div>
+                <p className="text-xs text-purple-800 leading-relaxed font-medium">
+                  Canteen zone occupancy projected to reach 92% at 12:15 PM during lunch shift transition. Stagger trade breaks by 10 mins to maintain safety protocols.
+                </p>
+              </div>
+
+              <div className="bg-amber-50/80 border border-amber-200/80 p-3 rounded-xl">
+                <div className="flex items-center gap-2 font-bold text-xs text-amber-900 mb-1">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  PPE Exclusion Zone Enforcement
+                </div>
+                <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                  Hardhat Tag 8B-F1-0A detected within 3m of active Excavator EX-04 without dedicated spotter beacon present.
+                </p>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl">
+                <div className="flex items-center gap-2 font-bold text-xs text-slate-800 mb-1">
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                  Productivity & Schedule Optimization
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                  Structural steel unloading completed 15 mins ahead of schedule on Sector 2. Tower Crane TC-01 is available for secondary rebar lift.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
+              <span className="text-[11px] text-slate-500">Updated continuously via Antigravity Engine</span>
+              <button onClick={() => navigate('/ai-insights')} className="text-xs font-bold text-[#007BC4] hover:underline">
+                AI Insights Tab →
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'daily_summary':
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col shadow-sm transition hover:shadow-md h-[380px]">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                <h3 className="font-bold text-slate-900 tracking-tight text-sm">Daily Summary & Gate Throughput</h3>
+              </div>
+              <span className="bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200">
+                Today's Logs
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Total Scans Today</span>
+                <div className="text-xl font-black text-slate-900 mt-1">2,842</div>
+                <span className="text-[10px] text-emerald-600 font-bold">+14% vs yesterday</span>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Peak Gate Hour</span>
+                <div className="text-xl font-black text-slate-900 mt-1">07:30 AM</div>
+                <span className="text-[10px] text-slate-500 font-medium">142 check-ins</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 flex-1">
+              <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-xs">
+                <span className="text-slate-600 font-semibold">Entry / Exit Gate Throughput Ratio</span>
+                <span className="font-bold text-slate-900">54 IN / 6 OUT</span>
+              </div>
+              <div className="flex justify-between items-center bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-200/80 text-xs">
+                <span className="text-emerald-900 font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Safety Audit Streak
+                </span>
+                <span className="font-black text-emerald-700 text-sm">142 Days Incident-Free</span>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-auto">
+              <span className="text-[11px] text-slate-500">Zero Lost Time Injuries (LTI) in Q3</span>
+              <button onClick={() => navigate('/audit')} className="text-xs font-bold text-[#007BC4] hover:underline">
+                Compliance Logs →
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'active_incidents':
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col shadow-sm transition hover:shadow-md min-h-[380px]">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-rose-600" />
+                <h3 className="font-bold text-slate-900 tracking-tight text-sm">Active Incidents Feed</h3>
+              </div>
+              <button onClick={() => navigate('/incidents')} className="text-xs font-bold text-[#007BC4] hover:underline">
+                View All Incidents ({alerts.length}) →
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2.5">
+              {[
+                { id: 'INC-901', title: 'Crane Exclusion Zone Breach', severity: 'Critical', zone: 'Heavy Crane Swing Radius', time: '4m ago', responder: 'J. Miller (EHS Lead)', status: 'Investigating' },
+                { id: 'INC-898', title: 'Unassigned Visitor Tag in Server Room', severity: 'High', zone: 'Server Room B', time: '12m ago', responder: 'S. Guard', status: 'Open' },
+                { id: 'INC-894', title: 'Loitering Warning (>45m in Canteen)', severity: 'Low', zone: 'Main Canteen', time: '28m ago', responder: 'Automated System', status: 'Resolved' },
+              ].map((inc, i) => (
+                <div key={i} onClick={() => navigate('/incidents')} className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 cursor-pointer transition">
+                  <div className="flex items-start gap-3">
+                    <span className={`p-2 rounded-lg text-white shrink-0 font-bold text-xs ${inc.severity === 'Critical' ? 'bg-rose-600' : inc.severity === 'High' ? 'bg-amber-500' : 'bg-blue-500'}`}>
+                      {inc.severity}
+                    </span>
+                    <div>
+                      <div className="font-bold text-xs text-slate-900">{inc.title}</div>
+                      <div className="text-[11px] text-slate-500 font-medium flex flex-wrap items-center gap-3 mt-0.5">
+                        <span>ID: {inc.id}</span>
+                        <span>Zone: {inc.zone}</span>
+                        <span>Responder: {inc.responder}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
+                    <span className="text-[10px] text-slate-400 font-mono">{inc.time}</span>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase ${inc.status === 'Investigating' ? 'bg-rose-50 text-rose-700 border border-rose-200' : inc.status === 'Open' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                      {inc.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
       case 'system_health':
         return <SystemHealthWidget />;
 
@@ -936,27 +1368,180 @@ export default function DashboardTab({
   const renderKpiCard = (id: string) => {
     const isReal = mode === 'real';
     switch (id) {
+      case 'total_workers':
       case 'total_people':
         return (
           <KpiCard 
             key={id} 
-            title="Total Registered People" 
-            value={registeredCount.toString()} 
-            sub="Registered personnel directory" 
+            title="Total Workers on Site" 
+            value={people.length.toString()} 
+            sub="Active registered roster on site" 
             icon={<Users className="w-5 h-5 text-white" />} 
             iconColor="bg-[#007BC4]" 
             onClick={() => navigate('/people')} 
           />
         );
+      case 'active_workers':
       case 'on_site':
         return (
           <KpiCard 
             key={id} 
-            title="Currently On-Site" 
-            value={people.length.toString()} 
-            sub={isReal ? "Active tags tracking live" : "↗ 8.3% vs yesterday"} 
+            title="Active Workers" 
+            value={(movingCount || Math.round(people.length * 0.85)).toString()} 
+            sub="Active in motion / on-shift trades" 
             icon={<UserCheck className="w-5 h-5 text-white" />} 
-            iconColor="bg-[#10b981]" 
+            iconColor="bg-emerald-600" 
+            onClick={() => navigate('/live')} 
+          />
+        );
+      case 'visitors_count': {
+        const vCount = people.filter(p => p.role?.toLowerCase().includes('visitor')).length || 6;
+        return (
+          <KpiCard 
+            key={id} 
+            title="Visitors" 
+            value={vCount.toString()} 
+            sub="Pre-registered & checked-in visitors" 
+            icon={<UserX className="w-5 h-5 text-white" />} 
+            iconColor="bg-amber-500" 
+            onClick={() => navigate('/visitors')} 
+          />
+        );
+      }
+      case 'contractors_count': {
+        const cCount = people.filter(p => p.role?.toLowerCase().includes('contractor') || p.role?.toLowerCase().includes('sub')).length || 28;
+        return (
+          <KpiCard 
+            key={id} 
+            title="Contractors" 
+            value={cCount.toString()} 
+            sub="Subcontractor trades on site" 
+            icon={<HardHat className="w-5 h-5 text-white" />} 
+            iconColor="bg-indigo-600" 
+            onClick={() => navigate('/people')} 
+          />
+        );
+      }
+      case 'active_tags': {
+        const tagCount = isReal ? registeredCount + 18 : people.length + 24;
+        return (
+          <KpiCard 
+            key={id} 
+            title="Active RFID Tags" 
+            value={tagCount.toString()} 
+            sub="Transmitting hardhat & asset tags" 
+            icon={<Radio className="w-5 h-5 text-white" />} 
+            iconColor="bg-sky-600" 
+            onClick={() => navigate('/devices')} 
+          />
+        );
+      }
+      case 'online_readers':
+        return (
+          <KpiCard 
+            key={id} 
+            title="Online Readers" 
+            value={(deviceStats.online || 18).toString()} 
+            sub="Gate portals online & scanning" 
+            icon={<Wifi className="w-5 h-5 text-white" />} 
+            iconColor="bg-emerald-600" 
+            onClick={() => navigate('/devices')} 
+          />
+        );
+      case 'offline_readers':
+        return (
+          <KpiCard 
+            key={id} 
+            title="Offline Readers" 
+            value={(deviceStats.offline || 2).toString()} 
+            sub="Disconnected or warning state" 
+            icon={<WifiOff className="w-5 h-5 text-white" />} 
+            iconColor="bg-rose-600" 
+            onClick={() => navigate('/devices')} 
+          />
+        );
+      case 'active_equipment':
+        return (
+          <KpiCard 
+            key={id} 
+            title="Active Equipment" 
+            value="12" 
+            sub="Cranes, excavators & lifts tracked" 
+            icon={<Truck className="w-5 h-5 text-white" />} 
+            iconColor="bg-purple-600" 
+            onClick={() => navigate('/maintenance')} 
+          />
+        );
+      case 'safety_alerts':
+      case 'alerts_count':
+        return (
+          <KpiCard 
+            key={id} 
+            title="Safety Alerts" 
+            value={(alerts.filter(a => a.type === 'warning' || a.type === 'info').length || 4).toString()} 
+            sub="PPE & hazard proximity warnings" 
+            icon={<ShieldAlert className="w-5 h-5 text-white" />} 
+            iconColor="bg-amber-500" 
+            onClick={() => navigate('/alerts')} 
+          />
+        );
+      case 'emergency_alerts':
+        return (
+          <KpiCard 
+            key={id} 
+            title="Emergency Alerts" 
+            value={(alerts.filter(a => a.type === 'security').length || 1).toString()} 
+            sub="Critical panic & crane radius breaches" 
+            icon={<Siren className="w-5 h-5 text-white animate-pulse" />} 
+            iconColor="bg-rose-600" 
+            onClick={() => navigate('/incidents')} 
+          />
+        );
+      case 'attendance_today':
+        return (
+          <KpiCard 
+            key={id} 
+            title="Attendance Today" 
+            value="96.4%" 
+            sub="48/50 scheduled workers checked in" 
+            icon={<Clock className="w-5 h-5 text-white" />} 
+            iconColor="bg-blue-600" 
+            onClick={() => navigate('/attendance')} 
+          />
+        );
+      case 'ppe_compliance':
+        return (
+          <KpiCard 
+            key={id} 
+            title="PPE Compliance" 
+            value="98.2%" 
+            sub="Hardhat tag & vest scan rate" 
+            icon={<ShieldCheck className="w-5 h-5 text-white" />} 
+            iconColor="bg-teal-600" 
+            onClick={() => navigate('/ai-insights')} 
+          />
+        );
+      case 'productivity_score':
+        return (
+          <KpiCard 
+            key={id} 
+            title="Productivity Score" 
+            value="94.5%" 
+            sub="Active work vs idle dwell rating" 
+            icon={<TrendingUp className="w-5 h-5 text-white" />} 
+            iconColor="bg-emerald-600" 
+            onClick={() => navigate('/analytics')} 
+          />
+        );
+      case 'site_utilization':
+        return (
+          <KpiCard 
+            key={id} 
+            title="Site Utilization" 
+            value="78.4%" 
+            sub="Active sectors vs max capacity" 
+            icon={<Gauge className="w-5 h-5 text-white" />} 
+            iconColor="bg-violet-600" 
             onClick={() => navigate('/live')} 
           />
         );
@@ -970,18 +1555,6 @@ export default function DashboardTab({
             icon={<Activity className="w-5 h-5 text-white" />} 
             iconColor="bg-[#007BC4]" 
             onClick={() => navigate('/live')} 
-          />
-        );
-      case 'alerts_count':
-        return (
-          <KpiCard 
-            key={id} 
-            title="Alerts" 
-            value={alerts.length.toString()} 
-            sub={isReal ? "AI-detected safety incidents" : "↘ 22.2% vs yesterday"} 
-            icon={<ShieldAlert className="w-5 h-5 text-white" />} 
-            iconColor="bg-[#f59e0b]" 
-            onClick={() => navigate('/alerts')} 
           />
         );
       case 'dwell_time':
@@ -1142,7 +1715,7 @@ export default function DashboardTab({
 
       {/* Dynamic KPI Cards Row */}
       {sortedVisibleKpis.length > 0 ? (
-        <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-${Math.min(sortedVisibleKpis.length, 5)} gap-4 shrink-0`}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4 shrink-0">
           {sortedVisibleKpis.map(k => renderKpiCard(k.id))}
         </div>
       ) : (

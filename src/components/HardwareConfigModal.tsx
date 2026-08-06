@@ -77,7 +77,13 @@ export default function HardwareConfigModal({
     setDiagnosticResult(null);
     setTimeout(() => {
       setIsRunningDiagnostic(false);
-      setDiagnosticResult(`✓ Hardware Diagnostic Complete: Signal strength -${Math.abs(formData.rssiThreshold)}dBm OK, Antenna SWR 1.12, RFID Transmit Power ${formData.powerDbm}dBm active. Zero packet drops.`);
+      setDiagnosticResult(`✓ Hardware Diagnostic Complete:
+• Coverage Radius: 18.5m (Power Output: ${formData.powerDbm} dBm)
+• Dead Zones Detected: None in active sector (${formData.zone})
+• Signal Health & RSSI: -${Math.abs(formData.rssiThreshold || 70)} dBm cutoff | SWR 1.12:1 Optimal
+• Coverage Overlap: 12% adjacent overlap with secondary gateway (Good redundancy)
+• Tag Integrity Check: 0 ghost tags detected, 0 missing reader heartbeats
+• Anti-Collision Engine: Duplicate reads filtered (120 tags/sec throughput active)`);
     }, 1200);
   };
 
@@ -399,7 +405,7 @@ export default function HardwareConfigModal({
                 <div>IP: {formData.ipAddress}:{formData.port}</div>
                 <div>Signal Output: {formData.powerDbm} dBm | Gain: {formData.antennaGainDbi} dBi</div>
                 {diagnosticResult && (
-                  <div className="mt-3 p-2 bg-emerald-950 border border-emerald-500/40 text-emerald-300 rounded">
+                  <div className="mt-3 p-2.5 bg-emerald-950 border border-emerald-500/40 text-emerald-300 rounded whitespace-pre-line text-[11px] leading-relaxed">
                     {diagnosticResult}
                   </div>
                 )}

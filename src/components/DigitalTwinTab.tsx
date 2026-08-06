@@ -1,840 +1,1517 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Box, Compass, Layers, User, Zap, Navigation, MapPin, 
-  RotateCw, RotateCcw, Eye, Play, Pause, RefreshCw, Search, 
-  Building, CheckCircle2, AlertTriangle, ShieldAlert, 
+  Box, Compass, Layers, User, Users, Zap, Navigation, MapPin, 
+  RotateCw, RotateCcw, Eye, EyeOff, Play, Pause, RefreshCw, Search, 
+  Building, Building2, CheckCircle2, AlertTriangle, ShieldAlert, 
   ArrowRight, Clock, Footprints, Shield, Radio, Activity,
-  Upload, Building2, Image as ImageIcon
+  Upload, Image as ImageIcon, Grid, Maximize2, Minimize2, Ruler, 
+  Lock, Unlock, Copy, Undo2, Redo2, Sliders, Sun, CloudRain, 
+  Wind, Thermometer, Flame, HardHat, Truck, Video, Gauge, Volume2, 
+  Sparkles, Plus, Trash2, Edit3, Filter, Layers2, FileCode2, 
+  Download, Check, ChevronRight, X, MousePointer, Move, Crop, Group, Ungroup, FileSpreadsheet
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { exportToCSV } from '../lib/exportUtils';
 
-interface IndoorTarget {
-  id: string;
-  facilityId: string;
-  name: string;
-  type: 'visitor' | 'staff' | 'room' | 'safety' | 'amenity';
-  floor: 'Level 1' | 'Level 2' | 'Level 3';
-  zoneName: string;
-  coords2D: { x: number; y: number };
-  distanceMeters: number;
-  estTime: string;
-  requiredAccess: string;
-  status?: string;
-  tagId?: string;
-  description: string;
-  steps: Array<{
-    stepNumber: number;
-    text: string;
-    distance: string;
-    icon: 'straight' | 'turn-left' | 'turn-right' | 'elevator' | 'destination';
-  }>;
-}
+// --- TYPES & INTERFACES ---
 
-interface FacilityRoom {
+export type EntityType = 
+  | 'worker' 
+  | 'visitor' 
+  | 'contractor' 
+  | 'reader' 
+  | 'ble_gateway' 
+  | 'gps_beacon' 
+  | 'iot_sensor' 
+  | 'equipment' 
+  | 'vehicle' 
+  | 'camera' 
+  | 'env_sensor' 
+  | 'emergency' 
+  | 'hazard';
+
+export interface TwinEntity {
   id: string;
-  facilityId: string;
-  level: 'Level 1' | 'Level 2' | 'Level 3';
   name: string;
-  subtitle: string;
-  code: string;
-  x: number;
-  y: number;
+  type: EntityType;
+  siteId: string;
+  buildingId: string;
+  floorId: string;
+  x: number; // percentage or grid coord (0-100)
+  y: number; // percentage or grid coord (0-100)
   width: number;
   height: number;
-  z?: number;
-  colorType: 'blue' | 'amber' | 'emerald' | 'purple' | 'slate' | 'rose';
+  rotation: number; // degrees
+  locked: boolean;
+  groupId?: string;
+  opacity: number;
+  
+  // Dynamic Telemetry
+  status: 'active' | 'warning' | 'critical' | 'idle' | 'offline';
+  tradeCompany?: string;
+  tagId?: string;
+  battery?: number;
+  temperature?: number;
+  gasLevel?: number;
+  rssi?: number;
+  speed?: number;
+  details?: string;
+  lastUpdated?: string;
 }
 
-const FACILITIES = [
-  { id: 'metro', name: 'Metro Tower & Deep Excavation Site', levels: ['Level 1', 'Level 2', 'Level 3'] },
-  { id: 'highway', name: 'Highway Bridge Span Site', levels: ['Level 1', 'Level 2'] },
-  { id: 'highrise', name: 'High-Rise Commercial Tower Site', levels: ['Level 1', 'Level 2', 'Level 3'] },
-  { id: 'substation', name: 'Industrial Energy Substation Site', levels: ['Level 1', 'Level 2'] }
-];
+export interface Site {
+  id: string;
+  name: string;
+  code: string;
+  address: string;
+  buildings: BuildingData[];
+}
 
-const START_LOCATIONS = [
-  { id: 'GATE1', name: 'Gate 1 - Main Turnstile RFID Portal (Level 1)', coords: { x: 15, y: 15 } },
-  { id: 'OFFICE_TRAILER', name: 'Site Office & Welfare Container (Level 1)', coords: { x: 50, y: 20 } },
-  { id: 'CRANE_HOIST', name: 'Heavy Crane Hoist Base (Level 1)', coords: { x: 10, y: 80 } },
-  { id: 'SCAFFOLD_STAIR', name: 'Scaffold Access Tower Stairwell (Level 2)', coords: { x: 25, y: 35 } }
-];
+export interface BuildingData {
+  id: string;
+  name: string;
+  floors: FloorData[];
+}
 
-const FACILITY_ROOMS: FacilityRoom[] = [
-  // --- Metro Tower & Deep Excavation Site (metro) ---
-  { id: 'm-l1-gate', facilityId: 'metro', level: 'Level 1', name: 'Gate 1 Access Turnstile', subtitle: 'Main Entry RFID Portal', code: 'GATE-1', x: 5, y: 5, width: 40, height: 40, z: 15, colorType: 'slate' },
-  { id: 'm-l1-pit', facilityId: 'metro', level: 'Level 1', name: 'Excavation & Foundation Pit', subtitle: 'Deep Dig Ground Sector', code: 'PIT-1', x: 5, y: 52, width: 40, height: 42, z: 20, colorType: 'blue' },
-  { id: 'm-l1-office', facilityId: 'metro', level: 'Level 1', name: 'Site Office & Welfare', subtitle: 'Superintendent Container', code: 'OFF-1', x: 50, y: 5, width: 45, height: 40, z: 15, colorType: 'purple' },
-  { id: 'm-l1-med', facilityId: 'metro', level: 'Level 1', name: 'First Aid & Safety Bunker', subtitle: 'AED & Trauma Kit Kiosk', code: 'MED-1', x: 50, y: 52, width: 45, height: 42, z: 25, colorType: 'rose' },
+export interface FloorData {
+  id: string;
+  name: string;
+  elevation: string;
+  blueprintVersions: BlueprintVersion[];
+}
 
-  { id: 'm-l2-scaffold', facilityId: 'metro', level: 'Level 2', name: 'Structure & Scaffolding (L1-L4)', subtitle: 'Fall Protection Deck', code: 'SCAF-1', x: 50, y: 5, width: 45, height: 40, z: 25, colorType: 'blue' },
-  { id: 'm-l2-crane', facilityId: 'metro', level: 'Level 2', name: 'Heavy Crane Exclusion Area', subtitle: 'High Hazard Lifting Radius', code: 'CRN-1', x: 50, y: 52, width: 45, height: 42, z: 30, colorType: 'amber' },
-  { id: 'm-l2-tunnel', facilityId: 'metro', level: 'Level 2', name: 'Confined Shaft & Tunneling', subtitle: 'Underground Trench Zone', code: 'TUN-1', x: 5, y: 52, width: 40, height: 42, z: 20, colorType: 'emerald' },
-  { id: 'm-l2-muster', facilityId: 'metro', level: 'Level 2', name: 'Muster Point A (Emergency)', subtitle: 'Assembly & Evacuation Sector', code: 'MUST-1', x: 5, y: 5, width: 40, height: 40, z: 15, colorType: 'rose' },
+export interface BlueprintVersion {
+  id: string;
+  versionNumber: string;
+  title: string;
+  format: 'SVG CAD' | 'DXF / DWG' | 'Vector PDF' | 'Raster PNG';
+  uploadedAt: string;
+  uploadedBy: string;
+  url?: string;
+  active: boolean;
+}
 
-  { id: 'm-l3-crane-cab', facilityId: 'metro', level: 'Level 3', name: 'Tower Crane Operator Cab', subtitle: 'Heavy Lift Controls', code: 'CAB-1', x: 5, y: 5, width: 42, height: 42, z: 25, colorType: 'amber' },
-  { id: 'm-l3-deck', facilityId: 'metro', level: 'Level 3', name: 'High-Rise Steel Decking', subtitle: 'Level 4 Frame Assembly', code: 'DECK-4', x: 52, y: 5, width: 43, height: 42, z: 30, colorType: 'blue' },
+// --- MOCK HIERARCHY DATA ---
 
-  // --- Highway Bridge Span Site (highway) ---
-  { id: 'hw-l1-pier', facilityId: 'highway', level: 'Level 1', name: 'Abutment North Pier', subtitle: 'Foundation Concrete', code: 'PIER-N', x: 5, y: 5, width: 42, height: 42, z: 20, colorType: 'amber' },
-  { id: 'hw-l1-crane', facilityId: 'highway', level: 'Level 1', name: 'Riverbank Heavy Crane Sector', subtitle: '150-Ton Crawler Crane', code: 'CRN-R', x: 52, y: 5, width: 43, height: 42, z: 30, colorType: 'blue' },
-  { id: 'hw-l1-batch', facilityId: 'highway', level: 'Level 1', name: 'Concrete Batching & Laydown', subtitle: 'Rebar & Gravel Staging', code: 'BATCH-1', x: 5, y: 52, width: 42, height: 42, z: 22, colorType: 'purple' },
-
-  { id: 'hw-l2-deck', facilityId: 'highway', level: 'Level 2', name: 'Deck Formwork & Rebar', subtitle: 'Bridge Span Decking', code: 'DECK-1', x: 5, y: 5, width: 90, height: 42, z: 25, colorType: 'blue' },
-
-  // --- High-Rise Commercial Tower Site (highrise) ---
-  { id: 'hr-l1-ground', facilityId: 'highrise', level: 'Level 1', name: 'Ground Access & Delivery', subtitle: 'Material Truck Unloading', code: 'GRD-1', x: 5, y: 5, width: 42, height: 42, z: 25, colorType: 'purple' },
-  { id: 'hr-l1-parking', facilityId: 'highrise', level: 'Level 1', name: 'Basement Parking Slab', subtitle: 'Concrete Pour Sector', code: 'BASE-1', x: 52, y: 5, width: 43, height: 42, z: 20, colorType: 'blue' },
-
-  { id: 'hr-l2-frame', facilityId: 'highrise', level: 'Level 2', name: 'Structural Steel Frame (L1-L5)', subtitle: 'Ironworker Columns', code: 'FRM-1', x: 5, y: 5, width: 90, height: 42, z: 28, colorType: 'blue' },
-
-  { id: 'hr-l3-crane', facilityId: 'highrise', level: 'Level 3', name: 'Tower Crane Alpha Swing', subtitle: 'High Elevation Radius', code: 'CRN-A', x: 15, y: 5, width: 70, height: 42, z: 32, colorType: 'amber' },
-
-  // --- Industrial Energy Substation Site (substation) ---
-  { id: 'sub-l1-trench', facilityId: 'substation', level: 'Level 1', name: 'Cable Trenching Shaft', subtitle: 'High Voltage Conduit', code: 'TRNCH-1', x: 5, y: 5, width: 42, height: 42, z: 25, colorType: 'amber' },
-  { id: 'sub-l1-loto', facilityId: 'substation', level: 'Level 1', name: 'High Voltage Enclosure', subtitle: 'LOTO Lockout Zone', code: 'LOTO-1', x: 52, y: 5, width: 43, height: 42, z: 30, colorType: 'rose' },
-  { id: 'sub-l2-ctrl', facilityId: 'substation', level: 'Level 2', name: 'Control Building Deck', subtitle: 'Electrical Relay Frame', code: 'CTRL-1', x: 5, y: 5, width: 90, height: 42, z: 25, colorType: 'blue' }
-];
-
-const INDOOR_TARGETS: IndoorTarget[] = [
-  // --- Metro Tower Construction Targets ---
+const MULTI_SITE_DATA: Site[] = [
   {
-    id: 'w-elena',
-    facilityId: 'metro',
-    name: 'Elena Rostova (Safety Officer EHS)',
-    type: 'staff',
-    floor: 'Level 2',
-    zoneName: 'Structure & Scaffolding (L1-L4)',
-    coords2D: { x: 70, y: 25 },
-    distanceMeters: 85,
-    estTime: '1 min 10 sec',
-    requiredAccess: 'EHS Supervisor Hardhat Tag',
-    status: 'Inspecting Scaffold L2 Anchor',
-    tagId: 'HH-1044',
-    description: 'BuildCorp EHS Officer performing daily harness and scaffold clip-on safety audit.',
-    steps: [
-      { stepNumber: 1, text: 'Start at Gate 1 Main Turnstile', distance: '0m', icon: 'straight' },
-      { stepNumber: 2, text: 'Walk past Site Office Container', distance: '25m', icon: 'straight' },
-      { stepNumber: 3, text: 'Ascend Scaffold Access Tower Stairwell to Level 2', distance: '20m', icon: 'elevator' },
-      { stepNumber: 4, text: 'Head East along North Scaffold Decking', distance: '40m', icon: 'turn-right' },
-      { stepNumber: 5, text: 'Arrive at Elena Rostova (HH-1044)', distance: '0m', icon: 'destination' }
+    id: 'site-metro',
+    name: 'Metro Expansion & Excavation Hub',
+    code: 'METRO-EXP-01',
+    address: 'Sector 4, Central Urban Rapid Transit Corridor',
+    buildings: [
+      {
+        id: 'bldg-tower-alpha',
+        name: 'Tower Alpha & Core Shaft',
+        floors: [
+          {
+            id: 'fl-l3',
+            name: 'Level 3 - Tower Crane & Deck (+28m)',
+            elevation: '+28.0m',
+            blueprintVersions: [
+              { id: 'v-3.4', versionNumber: 'v3.4', title: 'As-Built Crane Radii Cadastral', format: 'SVG CAD', uploadedAt: '2026-08-01', uploadedBy: 'EHS Cadastral Unit', active: true },
+              { id: 'v-3.1', versionNumber: 'v3.1', title: 'Formwork Structural Layout', format: 'DXF / DWG', uploadedAt: '2026-07-15', uploadedBy: 'Civil Design Group', active: false }
+            ]
+          },
+          {
+            id: 'fl-l2',
+            name: 'Level 2 - Scaffold & Structural Frame (+12m)',
+            elevation: '+12.0m',
+            blueprintVersions: [
+              { id: 'v-2.2', versionNumber: 'v2.2', title: 'Scaffolding & Fall Deck Rev 2', format: 'SVG CAD', uploadedAt: '2026-07-28', uploadedBy: 'BuildCorp EHS', active: true }
+            ]
+          },
+          {
+            id: 'fl-l1',
+            name: 'Level 1 - Ground Turnstile & Laydown (0m)',
+            elevation: '0.0m',
+            blueprintVersions: [
+              { id: 'v-1.0', versionNumber: 'v1.0', title: 'Ground Access & Logistics Plan', format: 'SVG CAD', uploadedAt: '2026-06-10', uploadedBy: 'Master Site Architect', active: true }
+            ]
+          },
+          {
+            id: 'fl-b1',
+            name: 'Sub-Basement B1 - Trench & Shaft (-10m)',
+            elevation: '-10.0m',
+            blueprintVersions: [
+              { id: 'v-b1', versionNumber: 'v1.2', title: 'Underground Trench & Power Conduit', format: 'Vector PDF', uploadedAt: '2026-05-20', uploadedBy: 'VoltCraft Substation Dept', active: true }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'bldg-site-office',
+        name: 'Site Welfare & Command Complex',
+        floors: [
+          {
+            id: 'fl-off-g',
+            name: 'Ground Floor - Command Center (0m)',
+            elevation: '0.0m',
+            blueprintVersions: [
+              { id: 'v-off-1', versionNumber: 'v1.0', title: 'Welfare & Operations Layout', format: 'SVG CAD', uploadedAt: '2026-06-01', uploadedBy: 'Site Facilities Lead', active: true }
+            ]
+          }
+        ]
+      }
     ]
   },
   {
-    id: 'w-jake',
-    facilityId: 'metro',
-    name: 'Jake Miller (Heavy Crane Operator)',
-    type: 'staff',
-    floor: 'Level 2',
-    zoneName: 'Heavy Crane Exclusion Area',
-    coords2D: { x: 72, y: 72 },
-    distanceMeters: 140,
-    estTime: '1 min 45 sec',
-    requiredAccess: 'Crane Operator Cert & Tag HH-3392',
-    status: 'Active Heavy Lift Operations',
-    tagId: 'HH-3392',
-    description: 'Titan Heavy Machinery Operator managing steel girder hoisting in Crane Exclusion Zone.',
-    steps: [
-      { stepNumber: 1, text: 'Start at Gate 1 Main Turnstile', distance: '0m', icon: 'straight' },
-      { stepNumber: 2, text: 'Proceed East past Material Laydown Area', distance: '60m', icon: 'straight' },
-      { stepNumber: 3, text: 'Enter Crane Exclusion Zone Warning Perimeter', distance: '40m', icon: 'turn-right' },
-      { stepNumber: 4, text: 'Arrive at Crane Base Platform (HH-3392)', distance: '40m', icon: 'destination' }
-    ]
-  },
-  {
-    id: 'w-carlos',
-    facilityId: 'metro',
-    name: 'Carlos Mendez (Subcontractor Electrician)',
-    type: 'staff',
-    floor: 'Level 2',
-    zoneName: 'Confined Shaft & Tunneling',
-    coords2D: { x: 20, y: 70 },
-    distanceMeters: 110,
-    estTime: '1 min 25 sec',
-    requiredAccess: 'Confined Space Permit & LOTO Badge',
-    status: 'In Shaft Trench B-3',
-    tagId: 'HH-4011',
-    description: 'VoltCraft Master Electrician installing temporary power conduits in underground trench.',
-    steps: [
-      { stepNumber: 1, text: 'Start at Gate 1 Main Turnstile', distance: '0m', icon: 'straight' },
-      { stepNumber: 2, text: 'Walk South towards Confined Shaft Entrance', distance: '50m', icon: 'straight' },
-      { stepNumber: 3, text: 'Descend Shaft Portal Access Stairs', distance: '25m', icon: 'elevator' },
-      { stepNumber: 4, text: 'Locate Carlos Mendez in Shaft Section B-3', distance: '35m', icon: 'destination' }
-    ]
-  },
-  {
-    id: 'vis-sven',
-    facilityId: 'metro',
-    name: 'Sven Lindqvist (City Structural Inspector)',
-    type: 'visitor',
-    floor: 'Level 1',
-    zoneName: 'Gate 1 Access Turnstile',
-    coords2D: { x: 20, y: 20 },
-    distanceMeters: 30,
-    estTime: '25 sec',
-    requiredAccess: 'Visitor Temp Hardhat & Escort',
-    status: 'Checked-in at Gatehouse',
-    tagId: 'HH-8812',
-    description: 'City Building Code Inspector conducting foundation concrete pour verification.',
-    steps: [
-      { stepNumber: 1, text: 'Start at Gate 1 Main Turnstile', distance: '0m', icon: 'straight' },
-      { stepNumber: 2, text: 'Proceed to Gatehouse Safety Briefing Area', distance: '30m', icon: 'destination' }
-    ]
-  },
-  {
-    id: 'zone-crane',
-    facilityId: 'metro',
-    name: 'Heavy Crane Exclusion Area (High Hazard)',
-    type: 'safety',
-    floor: 'Level 2',
-    zoneName: 'Heavy Crane Exclusion Area',
-    coords2D: { x: 72, y: 72 },
-    distanceMeters: 130,
-    estTime: '1 min 30 sec',
-    requiredAccess: 'Certified Rigger / Operator Clearance Only',
-    description: 'Restricted 30-meter swing radius around 150-ton mobile crane.',
-    steps: [
-      { stepNumber: 1, text: 'Start at Gate 1 Turnstile', distance: '0m', icon: 'straight' },
-      { stepNumber: 2, text: 'Follow Red Warning Stanchions East', distance: '80m', icon: 'straight' },
-      { stepNumber: 3, text: 'Stop at High-Visibility Warning Barrier', distance: '50m', icon: 'destination' }
-    ]
-  },
-  {
-    id: 'zone-muster',
-    facilityId: 'metro',
-    name: 'Muster Point A (Emergency Assembly)',
-    type: 'safety',
-    floor: 'Level 1',
-    zoneName: 'Muster Point A (Emergency)',
-    coords2D: { x: 85, y: 10 },
-    distanceMeters: 90,
-    estTime: '1 min',
-    requiredAccess: 'All Site Personnel Open Access',
-    description: 'Primary emergency evacuation assembly yard with active RFID roll-call scanner.',
-    steps: [
-      { stepNumber: 1, text: 'Follow Green Evacuation Arrows', distance: '0m', icon: 'straight' },
-      { stepNumber: 2, text: 'Exit via Gate 1 Perimeter Route', distance: '60m', icon: 'straight' },
-      { stepNumber: 3, text: 'Assemble in Marked Muster Bay A', distance: '30m', icon: 'destination' }
+    id: 'site-bridge',
+    name: 'Highway River Span Project',
+    code: 'HWY-SPAN-02',
+    address: 'North River Crossing Pier 1-4',
+    buildings: [
+      {
+        id: 'bldg-north-pier',
+        name: 'Abutment North Pier 1',
+        floors: [
+          {
+            id: 'fl-deck-1',
+            name: 'Level 1 - Riverbank Decking (0m)',
+            elevation: '0.0m',
+            blueprintVersions: [
+              { id: 'v-p1', versionNumber: 'v2.0', title: 'Pier Rebar & Concrete Pour Blueprint', format: 'SVG CAD', uploadedAt: '2026-07-10', uploadedBy: 'Infrastructure Eng', active: true }
+            ]
+          }
+        ]
+      }
     ]
   }
 ];
 
+// INITIAL TWIN ENTITIES ON DIGITAL CANVAS
+const INITIAL_ENTITIES: TwinEntity[] = [
+  // Workers & Personnel
+  { id: 'ent-w1', name: 'Marcus Vance (EHS Director)', type: 'worker', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l2', x: 22, y: 28, width: 8, height: 8, rotation: 0, locked: false, opacity: 1, status: 'active', tradeCompany: 'BuildCorp Safety', tagId: 'HH-1001', battery: 94, details: 'Conducting Level 2 Scaffold Anchor Inspection', lastUpdated: '10s ago' },
+  { id: 'ent-w2', name: 'Carlos Mendez (Rigging Supervisor)', type: 'worker', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l2', x: 68, y: 32, width: 8, height: 8, rotation: 0, locked: false, opacity: 1, status: 'warning', tradeCompany: 'Apex Rigging Co.', tagId: 'HH-2041', battery: 82, details: 'Near Crane TC-01 Load Swing Area', lastUpdated: '2s ago' },
+  { id: 'ent-c1', name: 'VoltCraft Electrical Crew (4 Workers)', type: 'contractor', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-b1', x: 45, y: 65, width: 12, height: 10, rotation: 0, locked: false, opacity: 1, status: 'active', tradeCompany: 'VoltCraft Subcontracting', tagId: 'TAG-VC-90', battery: 88, details: 'Pulling 11kV Feeder Cable in Sub-Basement Trench', lastUpdated: 'Just now' },
+  { id: 'ent-v1', name: 'Sven Lindqvist (City Building Inspector)', type: 'visitor', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l1', x: 15, y: 20, width: 8, height: 8, rotation: 0, locked: false, opacity: 1, status: 'active', tradeCompany: 'Municipal Code Authority', tagId: 'VIS-409', battery: 100, details: 'Escorted by EHS Specialist at Gatehouse', lastUpdated: '1m ago' },
+
+  // Command Office Entities
+  { id: 'ent-off-1', name: 'Operations Command Workstation', type: 'reader', siteId: 'site-metro', buildingId: 'bldg-site-office', floorId: 'fl-off-g', x: 30, y: 30, width: 10, height: 10, rotation: 0, locked: true, opacity: 1, status: 'active', details: 'Central UHF RFID Portal & Telemetry Relay', rssi: -38, lastUpdated: 'Realtime' },
+  { id: 'ent-off-2', name: 'Sarah Connor (Dispatch Officer)', type: 'worker', siteId: 'site-metro', buildingId: 'bldg-site-office', floorId: 'fl-off-g', x: 50, y: 40, width: 8, height: 8, rotation: 0, locked: false, opacity: 1, status: 'active', tradeCompany: 'Site Ops Command', tagId: 'HH-3012', battery: 98, details: 'Monitoring Live RFID Telemetry', lastUpdated: 'Just now' },
+
+  // Highway River Span Project Entities
+  { id: 'ent-br-1', name: 'River Bridge Crane BC-01', type: 'equipment', siteId: 'site-bridge', buildingId: 'bldg-north-pier', floorId: 'fl-deck-1', x: 40, y: 50, width: 16, height: 16, rotation: 25, locked: false, opacity: 1, status: 'active', details: '75-Ton Hydraulic Gantry Crane on River Pier 1', lastUpdated: '1s ago' },
+  { id: 'ent-br-2', name: 'Deck Concrete Crew (6 Workers)', type: 'contractor', siteId: 'site-bridge', buildingId: 'bldg-north-pier', floorId: 'fl-deck-1', x: 60, y: 45, width: 12, height: 10, rotation: 0, locked: false, opacity: 1, status: 'active', tradeCompany: 'River Span Structural', tagId: 'TAG-[#007BC4]', battery: 91, details: 'Rebar Placement on North Pier Deck', lastUpdated: 'Realtime' },
+  { id: 'ent-br-3', name: 'Environmental Anemometer Pier 1', type: 'env_sensor', siteId: 'site-bridge', buildingId: 'bldg-north-pier', floorId: 'fl-deck-1', x: 20, y: 20, width: 8, height: 8, rotation: 0, locked: true, opacity: 1, status: 'active', temperature: 26, details: 'Wind speed 18 km/h • River Humidity 72%', lastUpdated: 'Live' },
+
+  // Readers & Wireless Infrastructure
+  { id: 'ent-r1', name: 'Gate 1 Turnstile Active RFID Portal', type: 'reader', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l1', x: 10, y: 15, width: 10, height: 10, rotation: 0, locked: true, opacity: 1, status: 'active', details: 'UHF RFID Reader • 915 MHz • 140 Tags/sec Scan Rate', rssi: -42, lastUpdated: 'Realtime' },
+  { id: 'ent-ble1', name: 'Scaffold Tower BLE Triangulation Gateway', type: 'ble_gateway', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l2', x: 50, y: 18, width: 8, height: 8, rotation: 0, locked: true, opacity: 1, status: 'active', details: 'Bluetooth 5.3 AoA Direction Finder Gateway', rssi: -55, lastUpdated: 'Realtime' },
+  { id: 'ent-gps1', name: 'RTK GPS Base Station Alpha', type: 'gps_beacon', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l3', x: 80, y: 10, width: 8, height: 8, rotation: 0, locked: true, opacity: 1, status: 'active', details: '1cm Precision Differential GPS Base Unit', lastUpdated: 'Realtime' },
+
+  // Equipment & Machinery
+  { id: 'ent-eq1', name: 'Tower Crane TC-01 (150-Ton Capacity)', type: 'equipment', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l3', x: 65, y: 55, width: 18, height: 18, rotation: 45, locked: false, opacity: 1, status: 'warning', details: 'Anemometer Wind Speed Alarm: 32 km/h • Load 8.4T', battery: 100, lastUpdated: '1s ago' },
+  { id: 'ent-veh1', name: 'CAT 336 Heavy Excavator EX-04', type: 'vehicle', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l1', x: 75, y: 70, width: 16, height: 12, rotation: 90, locked: false, opacity: 1, status: 'active', speed: 4, details: 'Operating at Excavation Sector B', lastUpdated: '3s ago' },
+
+  // Cameras & Sensors
+  { id: 'ent-cam1', name: 'PTZ Dome Camera CAM-TC01-BOOM', type: 'camera', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l3', x: 60, y: 48, width: 8, height: 8, rotation: 135, locked: false, opacity: 1, status: 'active', details: '4K Optical Zoom • AI Vision Safety Helmet Detect', lastUpdated: 'Live Feed' },
+  { id: 'ent-sensor1', name: 'Confined Space Multi-Gas Sensor GS-02', type: 'env_sensor', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-b1', x: 40, y: 70, width: 8, height: 8, rotation: 0, locked: false, opacity: 1, status: 'active', temperature: 24, gasLevel: 12, details: 'O2: 20.9% • H2S: 0.0 ppm • CO: 2 ppm • Temp 24°C', lastUpdated: 'Live' },
+
+  // Emergency & Hazards
+  { id: 'ent-em1', name: 'AED Trauma & First Aid Kiosk #1', type: 'emergency', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l1', x: 48, y: 15, width: 8, height: 8, rotation: 0, locked: true, opacity: 1, status: 'active', details: 'AED Battery 100% • Sealed Medical Kit Inspected', lastUpdated: 'OK' },
+  { id: 'ent-hz1', name: 'Heavy Crane Swing Exclusion Radius Zone', type: 'hazard', siteId: 'site-metro', buildingId: 'bldg-tower-alpha', floorId: 'fl-l2', x: 60, y: 50, width: 30, height: 30, rotation: 0, locked: true, opacity: 0.8, status: 'critical', details: 'High-Potential Overhead Lifting Exclusion Zone', lastUpdated: 'Active Warning' }
+];
+
 export default function DigitalTwinTab() {
-  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
-  const [selectedFacility, setSelectedFacility] = useState<string>('metro');
-  const [customFloorplanUrl, setCustomFloorplanUrl] = useState<string | null>(null);
-  const [selectedStart, setSelectedStart] = useState<string>('GATE1');
-  const [selectedTargetId, setSelectedTargetId] = useState<string>('w-elena');
-  const [targetFilter, setTargetFilter] = useState<'All' | 'People' | 'Rooms' | 'Safety'>('All');
-  const [selectedLevel, setSelectedLevel] = useState<'Level 1' | 'Level 2' | 'Level 3'>('Level 2');
+  // --- STATE MANAGEMENT ---
+  const [sites, setSites] = useState<Site[]>(MULTI_SITE_DATA);
+  const [selectedSiteId, setSelectedSiteId] = useState<string>('site-metro');
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('bldg-tower-alpha');
+  const [selectedFloorId, setSelectedFloorId] = useState<string>('fl-l2');
+
+  // Blueprint Versioning
+  const [selectedVersionId, setSelectedVersionId] = useState<string>('v-2.2');
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [newBlueprintTitle, setNewBlueprintTitle] = useState('');
+  const [newBlueprintFormat, setNewBlueprintFormat] = useState<'SVG CAD' | 'DXF / DWG' | 'Vector PDF' | 'Raster PNG'>('SVG CAD');
+
+  // Viewport & Mode Settings
+  const [viewMode, setViewMode] = useState<'3d' | '2d' | 'split'>('3d');
+  const [gridEnabled, setGridEnabled] = useState(true);
+  const [gridStyle, setGridStyle] = useState<'isometric' | 'square' | 'dots'>('isometric');
+  const [gridSize, setGridSize] = useState<number>(20); // 20px
+  const [scaleFactor, setScaleFactor] = useState<string>('1:100 (10px = 1m)');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [miniMapOpen, setMiniMapOpen] = useState(true);
   
-  // 3D Controls
-  const [rotationAngle, setRotationAngle] = useState<number>(30);
-  const [tiltAngle, setTiltAngle] = useState<number>(45);
-  const [zoomLevel, setZoomLevel] = useState<number>(100);
+  // 3D Canvas Controls
+  const [rotationAngle, setRotationAngle] = useState(30); // deg
+  const [tiltAngle, setTiltAngle] = useState(45); // deg
+  const [zoomLevel, setZoomLevel] = useState(100); // %
 
-  // Simulation State
-  const [isSimulating, setIsSimulating] = useState<boolean>(false);
-  const [simProgress, setSimProgress] = useState<number>(0);
-
-  const activeFacility = FACILITIES.find(f => f.id === selectedFacility) || FACILITIES[0];
-  const facilityTargets = INDOOR_TARGETS.filter(t => t.facilityId === selectedFacility);
-
-  const filteredTargets = facilityTargets.filter(t => {
-    if (targetFilter === 'People') return t.type === 'visitor' || t.type === 'staff';
-    if (targetFilter === 'Rooms') return t.type === 'room' || t.type === 'amenity';
-    if (targetFilter === 'Safety') return t.type === 'safety';
-    return true;
+  // Layer Manager Toggles
+  const [layers, setLayers] = useState({
+    workers: true,
+    visitors: true,
+    contractors: true,
+    readers: true,
+    bleGps: true,
+    equipment: true,
+    vehicles: true,
+    cameras: true,
+    sensors: true,
+    emergency: true,
+    hazards: true,
+    weather: true,
+    heatmaps: false,
+    cadLayers: {
+      architectural: true,
+      structural: true,
+      electrical: true,
+      hvac: true,
+      safety: true
+    }
   });
 
-  const selectedTarget = INDOOR_TARGETS.find(t => t.id === selectedTargetId) || facilityTargets[0] || INDOOR_TARGETS[0];
+  const [heatmapMode, setHeatmapMode] = useState<'density' | 'rssi' | 'hazard'>('density');
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setCustomFloorplanUrl(url);
+  // Entities & Selection
+  const [entities, setEntities] = useState<TwinEntity[]>(INITIAL_ENTITIES);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>('ent-w1');
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  
+  // Search & Filter
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'warning' | 'critical'>('all');
+
+  // Measurement Tool State
+  const [activeTool, setActiveTool] = useState<'select' | 'measure_ruler' | 'measure_area' | 'add_entity'>('select');
+  const [rulerPoints, setRulerPoints] = useState<{ x: number; y: number }[]>([]);
+  const [measuredDistance, setMeasuredDistance] = useState<number | null>(null);
+
+  // Undo / Redo History Stack
+  const [history, setHistory] = useState<TwinEntity[][]>([INITIAL_ENTITIES]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  // Time Scrubbing & Playback
+  const [isPlaybackRunning, setIsPlaybackRunning] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [playbackProgress, setPlaybackProgress] = useState<number>(100); // 100% = Live
+  const [playbackTimeLabel, setPlaybackTimeLabel] = useState<string>('LIVE Realtime Feed');
+
+  // Live Simulation Telemetry Toggle
+  const [liveTelemetry, setLiveTelemetry] = useState(true);
+
+  // References
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // --- DERIVED HIERARCHY ---
+  const currentSite = useMemo(() => sites.find(s => s.id === selectedSiteId) || sites[0], [sites, selectedSiteId]);
+  const currentBuilding = useMemo(() => currentSite.buildings.find(b => b.id === selectedBuildingId) || currentSite.buildings[0], [currentSite, selectedBuildingId]);
+  const currentFloor = useMemo(() => currentBuilding.floors.find(f => f.id === selectedFloorId) || currentBuilding.floors[0], [currentBuilding, selectedFloorId]);
+
+  // Sync selection defaults when site/building changes
+  useEffect(() => {
+    if (currentSite.buildings.length > 0) {
+      if (!currentSite.buildings.some(b => b.id === selectedBuildingId)) {
+        setSelectedBuildingId(currentSite.buildings[0].id);
+      }
+    }
+  }, [selectedSiteId, currentSite]);
+
+  useEffect(() => {
+    if (currentBuilding.floors.length > 0) {
+      if (!currentBuilding.floors.some(f => f.id === selectedFloorId)) {
+        setSelectedFloorId(currentBuilding.floors[0].id);
+      }
+    }
+  }, [selectedBuildingId, currentBuilding]);
+
+  // Sync blueprint version when selectedFloor changes
+  useEffect(() => {
+    if (currentFloor?.blueprintVersions && currentFloor.blueprintVersions.length > 0) {
+      if (!currentFloor.blueprintVersions.some(v => v.id === selectedVersionId)) {
+        setSelectedVersionId(currentFloor.blueprintVersions[0].id);
+      }
+    }
+  }, [selectedFloorId, currentFloor, selectedVersionId]);
+
+  // Push new state to undo history
+  const updateEntitiesWithHistory = (newEntities: TwinEntity[]) => {
+    const nextHistory = history.slice(0, historyIndex + 1);
+    nextHistory.push(newEntities);
+    setHistory(nextHistory);
+    setHistoryIndex(nextHistory.length - 1);
+    setEntities(newEntities);
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const prevIdx = historyIndex - 1;
+      setHistoryIndex(prevIdx);
+      setEntities(history[prevIdx]);
     }
   };
 
-  // Sync selected target when facility changes
-  useEffect(() => {
-    if (facilityTargets.length > 0) {
-      const exists = facilityTargets.some(t => t.id === selectedTargetId);
-      if (!exists) {
-        setSelectedTargetId(facilityTargets[0].id);
-      }
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const nextIdx = historyIndex + 1;
+      setHistoryIndex(nextIdx);
+      setEntities(history[nextIdx]);
     }
-  }, [selectedFacility]);
+  };
 
-  // Sync selected level when active facility changes or target changes
+  // --- LIVE TELEMETRY SIMULATION ---
   useEffect(() => {
-    if (activeFacility) {
-      if (!activeFacility.levels.includes(selectedLevel)) {
-        setSelectedLevel(activeFacility.levels[0] as any);
-      }
-    }
-  }, [selectedFacility]);
+    if (!liveTelemetry || playbackProgress < 100) return;
 
-  // Sync level when target changes
+    const interval = setInterval(() => {
+      setEntities(prevEntities => {
+        return prevEntities.map(ent => {
+          if (ent.locked) return ent;
+
+          // Minor organic jitter to simulate real live tracking
+          let deltaX = (Math.random() - 0.5) * 0.4;
+          let deltaY = (Math.random() - 0.5) * 0.4;
+
+          // Ensure entity stays within 5% - 95% bounds
+          const newX = Math.min(92, Math.max(8, ent.x + deltaX));
+          const newY = Math.min(92, Math.max(8, ent.y + deltaY));
+
+          return {
+            ...ent,
+            x: Number(newX.toFixed(2)),
+            y: Number(newY.toFixed(2)),
+            battery: ent.battery ? Math.max(10, ent.battery - (Math.random() > 0.95 ? 1 : 0)) : ent.battery
+          };
+        });
+      });
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [liveTelemetry, playbackProgress]);
+
+  // --- PLAYBACK TIMELINE ENGINE ---
   useEffect(() => {
-    if (selectedTarget) {
-      setSelectedLevel(selectedTarget.floor);
-    }
-  }, [selectedTargetId]);
-
-  const currentLevelRooms = FACILITY_ROOMS.filter(
-    r => r.facilityId === selectedFacility && r.level === selectedLevel
-  );
-
-  // Simulation loop
-  useEffect(() => {
-    let interval: any = null;
-    if (isSimulating) {
-      interval = setInterval(() => {
-        setSimProgress(prev => {
+    let timer: any = null;
+    if (isPlaybackRunning) {
+      timer = setInterval(() => {
+        setPlaybackProgress(prev => {
           if (prev >= 100) {
-            setIsSimulating(false);
+            setIsPlaybackRunning(false);
+            setPlaybackTimeLabel('LIVE Realtime Feed');
             return 100;
           }
-          return prev + 2;
+          const next = prev + 1;
+          const totalMins = Math.floor((next / 100) * 480); // 8-hour workday scale
+          const hour = 8 + Math.floor(totalMins / 60);
+          const min = totalMins % 60;
+          const formattedTime = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')} AM`;
+          setPlaybackTimeLabel(`Historical Replay - ${formattedTime}`);
+          return next;
         });
-      }, 100);
+      }, 200 / playbackSpeed);
     }
-    return () => clearInterval(interval);
-  }, [isSimulating]);
+    return () => clearInterval(timer);
+  }, [isPlaybackRunning, playbackSpeed]);
 
-  const handleStartSimulation = () => {
-    setSimProgress(0);
-    setIsSimulating(true);
+  // --- ENTITY MANIPULATION HANDLERS ---
+  const selectedEntity = useMemo(() => entities.find(e => e.id === selectedEntityId) || null, [entities, selectedEntityId]);
+
+  const handleDragEntity = (id: string, newX: number, newY: number) => {
+    const updated = entities.map(e => {
+      if (e.id === id && !e.locked) {
+        return { ...e, x: Math.min(95, Math.max(5, newX)), y: Math.min(95, Math.max(5, newY)) };
+      }
+      return e;
+    });
+    updateEntitiesWithHistory(updated);
+  };
+
+  const handleRotateEntity = (id: string, deltaAngle: number) => {
+    const updated = entities.map(e => {
+      if (e.id === id && !e.locked) {
+        return { ...e, rotation: (e.rotation + deltaAngle + 360) % 360 };
+      }
+      return e;
+    });
+    updateEntitiesWithHistory(updated);
+  };
+
+  const handleToggleLock = (id: string) => {
+    const updated = entities.map(e => {
+      if (e.id === id) {
+        return { ...e, locked: !e.locked };
+      }
+      return e;
+    });
+    updateEntitiesWithHistory(updated);
+  };
+
+  const handleDuplicateEntity = (id: string) => {
+    const target = entities.find(e => e.id === id);
+    if (!target) return;
+
+    const newId = `ent-copy-${Date.now()}`;
+    const copyObj: TwinEntity = {
+      ...target,
+      id: newId,
+      name: `${target.name} (Copy)`,
+      x: Math.min(90, target.x + 4),
+      y: Math.min(90, target.y + 4),
+      locked: false
+    };
+
+    updateEntitiesWithHistory([...entities, copyObj]);
+    setSelectedEntityId(newId);
+  };
+
+  const handleRenameEntity = (id: string, newName: string) => {
+    if (!newName.trim()) return;
+    const updated = entities.map(e => {
+      if (e.id === id) {
+        return { ...e, name: newName };
+      }
+      return e;
+    });
+    updateEntitiesWithHistory(updated);
+  };
+
+  const handleDeleteEntity = (id: string) => {
+    const updated = entities.filter(e => e.id !== id);
+    updateEntitiesWithHistory(updated);
+    if (selectedEntityId === id) setSelectedEntityId(null);
+  };
+
+  const handleAddNewEntity = (type: EntityType) => {
+    const newId = `ent-${Date.now()}`;
+    const newRecord: TwinEntity = {
+      id: newId,
+      name: `New ${type.toUpperCase().replace('_', ' ')}`,
+      type,
+      siteId: selectedSiteId,
+      buildingId: selectedBuildingId,
+      floorId: selectedFloorId,
+      x: 50,
+      y: 50,
+      width: 10,
+      height: 10,
+      rotation: 0,
+      locked: false,
+      opacity: 1,
+      status: 'active',
+      details: 'Newly added spatial object on Digital Twin canvas',
+      lastUpdated: 'Just now'
+    };
+
+    updateEntitiesWithHistory([...entities, newRecord]);
+    setSelectedEntityId(newId);
+  };
+
+  // --- FILTERED ENTITIES ON CANVAS ---
+  const filteredEntities = useMemo(() => {
+    return entities.filter(ent => {
+      // Check site/building/floor match
+      if (ent.siteId !== selectedSiteId || ent.buildingId !== selectedBuildingId || ent.floorId !== selectedFloorId) {
+        return false;
+      }
+
+      // Layer Filter Checks
+      if (ent.type === 'worker' && !layers.workers) return false;
+      if (ent.type === 'visitor' && !layers.visitors) return false;
+      if (ent.type === 'contractor' && !layers.contractors) return false;
+      if (ent.type === 'reader' && !layers.readers) return false;
+      if ((ent.type === 'ble_gateway' || ent.type === 'gps_beacon') && !layers.bleGps) return false;
+      if (ent.type === 'equipment' && !layers.equipment) return false;
+      if (ent.type === 'vehicle' && !layers.vehicles) return false;
+      if (ent.type === 'camera' && !layers.cameras) return false;
+      if (ent.type === 'env_sensor' && !layers.sensors) return false;
+      if (ent.type === 'emergency' && !layers.emergency) return false;
+      if (ent.type === 'hazard' && !layers.hazards) return false;
+
+      // Search Query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchName = ent.name.toLowerCase().includes(query);
+        const matchDetails = ent.details?.toLowerCase().includes(query) || false;
+        const matchTag = ent.tagId?.toLowerCase().includes(query) || false;
+        if (!matchName && !matchDetails && !matchTag) return false;
+      }
+
+      // Status Filter
+      if (statusFilter === 'warning' && ent.status !== 'warning') return false;
+      if (statusFilter === 'critical' && ent.status !== 'critical') return false;
+
+      return true;
+    });
+  }, [entities, selectedSiteId, selectedBuildingId, selectedFloorId, layers, searchQuery, statusFilter]);
+
+  // --- MEASUREMENT RULER HANDLER ---
+  const handleCanvasClickForMeasurement = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (activeTool !== 'measure_ruler' && activeTool !== 'measure_area') return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = ((e.clientX - rect.left) / rect.width) * 100;
+    const clickY = ((e.clientY - rect.top) / rect.height) * 100;
+
+    const newPts = [...rulerPoints, { x: clickX, y: clickY }];
+    setRulerPoints(newPts);
+
+    if (newPts.length >= 2) {
+      const dx = newPts[1].x - newPts[0].x;
+      const dy = newPts[1].y - newPts[0].y;
+      // Assume 1% canvas width = 1 meter approx for scale calculation
+      const distMeters = Math.sqrt(dx * dx + dy * dy) * 0.8;
+      setMeasuredDistance(Number(distMeters.toFixed(2)));
+    }
+  };
+
+  // Blueprint Upload Handler
+  const handleUploadBlueprint = () => {
+    const newVer: BlueprintVersion = {
+      id: `v-custom-${Date.now()}`,
+      versionNumber: `v${(currentFloor.blueprintVersions.length + 1).toFixed(1)}`,
+      title: newBlueprintTitle.trim() || 'Uploaded Custom Vector CAD Plan',
+      format: newBlueprintFormat,
+      uploadedAt: new Date().toISOString().split('T')[0],
+      uploadedBy: 'Operational Lead',
+      active: true
+    };
+
+    setSites(prev => prev.map(site => {
+      if (site.id !== selectedSiteId) return site;
+      return {
+        ...site,
+        buildings: site.buildings.map(bldg => {
+          if (bldg.id !== selectedBuildingId) return bldg;
+          return {
+            ...bldg,
+            floors: bldg.floors.map(fl => {
+              if (fl.id !== selectedFloorId) return fl;
+              return {
+                ...fl,
+                blueprintVersions: [newVer, ...fl.blueprintVersions]
+              };
+            })
+          };
+        })
+      };
+    }));
+
+    setSelectedVersionId(newVer.id);
+    setIsUploadModalOpen(false);
+    setNewBlueprintTitle('');
+  };
+
+  // Export Digital Twin Asset Inventory
+  const handleExportCSV = () => {
+    const rows = entities.map(e => ({
+      ID: e.id,
+      Name: e.name,
+      Type: e.type,
+      Site: e.siteId,
+      Building: e.buildingId,
+      Floor: e.floorId,
+      CoordX: e.x,
+      CoordY: e.y,
+      Status: e.status,
+      TagID: e.tagId || 'N/A',
+      Battery: e.battery ? `${e.battery}%` : 'N/A',
+      Details: e.details || ''
+    }));
+
+    exportToCSV('Digital_Twin_Entity_Inventory', rows, [
+      { key: 'ID', label: 'ENTITY ID' },
+      { key: 'Name', label: 'ENTITY NAME' },
+      { key: 'Type', label: 'CATEGORY' },
+      { key: 'Floor', label: 'FLOOR LEVEL' },
+      { key: 'CoordX', label: 'GRID X' },
+      { key: 'CoordY', label: 'GRID Y' },
+      { key: 'Status', label: 'STATUS' },
+      { key: 'TagID', label: 'HARDHAT / RFID TAG' },
+      { key: 'Battery', label: 'BATTERY %' },
+      { key: 'Details', label: 'TELEMETRY DETAILS' }
+    ]);
   };
 
   return (
-    <div className="w-full flex flex-col p-6 max-w-7xl mx-auto gap-6">
-      {/* Header Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shrink-0">
+    <div ref={containerRef} className="w-full flex flex-col p-4 md:p-6 max-w-7xl mx-auto space-y-5">
+      
+      {/* 1. TOP HEADER & OPERATIONAL CONTROL BAR */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <Box className="w-6 h-6 text-[#007BC4]" />
-            Digital Twin & Indoor Navigation
-          </h2>
-          <p className="text-slate-500 font-medium tracking-tight">
-            Real-time 3D spatial mapping, target location tracking, and turn-by-turn route guidance.
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+              <Box className="w-7 h-7 text-[#007BC4]" />
+              Digital Twin Operational Hub
+            </h2>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block mr-1 animate-pulse" />
+              Live CAD & Spatial Engine
+            </span>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-xs md:text-sm mt-0.5">
+            Multi-site, multi-building, multi-floor 3D CAD digital twin, IoT sensors, workers, equipment & spatial simulation
           </p>
         </div>
 
-        {/* View Mode Switcher */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200 shadow-sm">
-          <button 
-            onClick={() => setViewMode('3d')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-              viewMode === '3d' 
-                ? 'bg-[#007BC4] text-white shadow-md' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
+        {/* Global Toolbar Actions */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View Mode Switcher */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <button
+              onClick={() => setViewMode('3d')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                viewMode === '3d' ? 'bg-[#007BC4] text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Box size={14} /> 3D Spatial Twin
+            </button>
+            <button
+              onClick={() => setViewMode('2d')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                viewMode === '2d' ? 'bg-[#007BC4] text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Layers size={14} /> 2D CAD Blueprint
+            </button>
+            <button
+              onClick={() => setViewMode('split')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                viewMode === 'split' ? 'bg-[#007BC4] text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Layers2 size={14} /> Dual View Mode
+            </button>
+          </div>
+
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 transition flex items-center gap-1.5"
           >
-            <Box className="w-4 h-4" />
-            3D Isometric Twin
+            <Upload size={14} className="text-[#007BC4]" /> Upload Blueprint / CAD
           </button>
-          <button 
-            onClick={() => setViewMode('2d')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-              viewMode === '2d' 
-                ? 'bg-[#007BC4] text-white shadow-md' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
+
+          <button
+            onClick={handleExportCSV}
+            className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 transition shadow-sm"
+            title="Export Digital Twin Inventory CSV"
           >
-            <Layers className="w-4 h-4" />
-            2D Floor Plan
+            <FileSpreadsheet size={15} />
           </button>
         </div>
       </div>
 
-      {/* Main Grid: Left Navigation Control Panel, Right 3D/2D Canvas */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[640px]">
-        {/* Left Panel - Target Selection & Directions (4 Cols) */}
-        <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl shadow-sm p-5 flex flex-col gap-5">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
-              <Navigation className="w-5 h-5 text-[#007BC4]" />
-              Indoor Navigation Control
-            </h3>
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-mono text-[10px]">
-              GPS / RFID SYNCED
-            </Badge>
-          </div>
-
-          {/* Quick Target Category Filters */}
+      {/* 2. MULTI-SITE, MULTI-BUILDING, MULTI-FLOOR SELECTOR STRIP */}
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          
+          {/* Site Selector */}
           <div>
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Select Facility & Floor Plan</label>
-            <div className="space-y-2">
-              <div className="relative">
-                <Building2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#007BC4]" />
-                <select
-                  value={selectedFacility}
-                  onChange={e => setSelectedFacility(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#007BC4]/20"
-                >
-                  {FACILITIES.map(fac => (
-                    <option key={fac.id} value={fac.id}>{fac.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Upload Custom Floorplan Button */}
-              <div className="flex items-center gap-2">
-                <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-pointer transition">
-                  <Upload className="w-4 h-4 text-[#007BC4]" />
-                  {customFloorplanUrl ? 'Change Floorplan Image' : 'Upload Floorplan Image'}
-                  <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                </label>
-                {customFloorplanUrl && (
-                  <button 
-                    onClick={() => setCustomFloorplanUrl(null)}
-                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition"
-                    title="Remove custom floor plan"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Target Filter</label>
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-              {(['All', 'People', 'Rooms', 'Safety'] as const).map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setTargetFilter(cat)}
-                  className={`flex-1 py-1 rounded text-xs font-bold transition ${
-                    targetFilter === cat ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Start Location */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Starting Point</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Select Site Location</label>
             <div className="relative">
-              <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#007BC4]" />
               <select
-                value={selectedStart}
-                onChange={e => setSelectedStart(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#007BC4]/20"
+                value={selectedSiteId}
+                onChange={e => setSelectedSiteId(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#007BC4]"
               >
-                {START_LOCATIONS.map(loc => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                {sites.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Target Location Select */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Target Destination / Person</label>
+          {/* Building Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Building Structure</label>
             <div className="relative">
-              <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#007BC4]" />
+              <Building size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#007BC4]" />
               <select
-                value={selectedTargetId}
-                onChange={e => setSelectedTargetId(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#007BC4]/20"
+                value={selectedBuildingId}
+                onChange={e => setSelectedBuildingId(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#007BC4]"
               >
-                {filteredTargets.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.floor})
-                  </option>
+                {currentSite.buildings.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Target Info Summary Box */}
-          {selectedTarget && (
-            <div className="bg-[#007BC4]/5 border border-[#007BC4]/20 rounded-xl p-3 text-xs space-y-2">
-              <div className="flex items-center justify-between font-bold text-slate-900">
-                <span className="flex items-center gap-1.5 text-[#007BC4]">
-                  <Activity className="w-3.5 h-3.5" />
-                  {selectedTarget.zoneName}
-                </span>
-                <Badge className="bg-[#007BC4] text-white text-[10px]">{selectedTarget.floor}</Badge>
-              </div>
-              <p className="text-slate-600">{selectedTarget.description}</p>
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#007BC4]/10 text-slate-700 font-semibold">
-                <div>Distance: <span className="font-mono text-slate-900">{selectedTarget.distanceMeters}m</span></div>
-                <div>Walk Time: <span className="font-mono text-slate-900">{selectedTarget.estTime}</span></div>
-                <div className="col-span-2 text-[11px] text-slate-500">Access: <span className="text-slate-800">{selectedTarget.requiredAccess}</span></div>
-              </div>
+          {/* Floor Elevation Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Floor Level Elevation</label>
+            <div className="relative">
+              <Layers size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#007BC4]" />
+              <select
+                value={selectedFloorId}
+                onChange={e => setSelectedFloorId(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#007BC4]"
+              >
+                {currentBuilding.floors.map(f => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
             </div>
-          )}
-
-          {/* Action Simulation Controls */}
-          <div className="flex gap-2">
-            <button 
-              onClick={handleStartSimulation}
-              disabled={isSimulating}
-              className="flex-1 bg-[#007BC4] hover:bg-[#006aa9] text-white py-2.5 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSimulating ? <Pause className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {isSimulating ? 'Navigating...' : 'Simulate Walkthrough'}
-            </button>
-            <button 
-              onClick={() => setSimProgress(0)}
-              className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition"
-              title="Reset Route"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
           </div>
 
-          {/* Simulation Progress Bar */}
-          {simProgress > 0 && (
-            <div className="space-y-1">
-              <div className="flex justify-between text-[10px] font-bold text-slate-600">
-                <span>Route Progress</span>
-                <span>{simProgress}%</span>
-              </div>
-              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-[#007BC4] transition-all duration-300"
-                  style={{ width: `${simProgress}%` }}
-                />
-              </div>
+          {/* Blueprint Cadastral Version Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Cadastral Map Version</label>
+            <div className="relative">
+              <FileCode2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#007BC4]" />
+              <select
+                value={selectedVersionId}
+                onChange={e => setSelectedVersionId(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#007BC4]"
+              >
+                {currentFloor.blueprintVersions.map(v => (
+                  <option key={v.id} value={v.id}>{v.versionNumber} - {v.title} ({v.format})</option>
+                ))}
+              </select>
             </div>
-          )}
+          </div>
 
-          {/* Turn-by-Turn Navigation Steps */}
-          {selectedTarget && (
-            <div className="flex-1 overflow-y-auto max-h-[220px] pr-1 space-y-3 pt-2 border-t border-slate-100">
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Turn-by-turn Directions</h4>
-              <div className="space-y-3 relative before:absolute before:inset-0 before:ml-[11px] before:h-full before:w-0.5 before:bg-slate-200">
-                {selectedTarget.steps.map((step, idx) => {
-                  const stepThreshold = ((idx + 1) / selectedTarget.steps.length) * 100;
-                  const isCompletedStep = simProgress >= stepThreshold;
-                  return (
-                    <div key={idx} className="relative flex items-start gap-3">
-                      <div className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center z-10 shrink-0 text-[10px] font-bold ${
-                        isCompletedStep 
-                          ? 'bg-emerald-500 text-white shadow-sm' 
-                          : idx === selectedTarget.steps.length - 1 
-                            ? 'bg-[#007BC4] text-white shadow-sm' 
-                            : 'bg-slate-200 text-slate-700'
-                      }`}>
-                        {isCompletedStep ? '✓' : step.stepNumber}
-                      </div>
-                      <div className="pt-0.5">
-                        <div className={`text-xs ${isCompletedStep ? 'font-bold text-emerald-800' : 'font-medium text-slate-800'}`}>
-                          {step.text}
-                        </div>
-                        <span className="text-[10px] font-mono text-slate-400">{step.distance}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Right Canvas - 3D / 2D Viewport (8 Cols) */}
-        <div className="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 shadow-inner relative overflow-hidden flex flex-col">
-          {/* Top Canvas Bar Controls */}
-          <div className="p-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 z-20">
-            <div className="flex items-center gap-2">
-              <Badge className="bg-slate-800 text-emerald-400 border-slate-700 font-mono text-xs">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse mr-1.5 inline-block"/>
-                LIVE TWIN ENGINE
-              </Badge>
-              <span className="text-slate-400 text-xs font-mono font-bold hidden sm:inline">{activeFacility.name}</span>
+        {/* Ambient Weather & Live Telemetry Strip */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300">
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="font-bold flex items-center gap-1 text-amber-600 dark:text-amber-400">
+              <Sun size={14} /> Clear 28°C
+            </span>
+            <span className="flex items-center gap-1">
+              <Wind size={14} className="text-blue-500" /> Wind Shear: 32 km/h SSE
+            </span>
+            <span className="flex items-center gap-1">
+              <Thermometer size={14} className="text-rose-500" /> Ground Heat Index: 30°C
+            </span>
+            <span className="flex items-center gap-1">
+              <CloudRain size={14} className="text-teal-500" /> Precip: 0%
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none font-bold text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                checked={liveTelemetry}
+                onChange={e => setLiveTelemetry(e.target.checked)}
+                className="rounded accent-[#007BC4]"
+              />
+              Live Telemetry Feed
+            </label>
+
+            <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 font-mono text-[10px] text-slate-500">
+              Scale: {scaleFactor}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. MAIN WORKSPACE GRID: LEFT LAYER MANAGER & TOOLBAR (3 cols) + RIGHT CANVAS WORKSPACE (9 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[620px]">
+        
+        {/* LEFT COLUMN: Layer Manager, Manipulation Tool Palette, Object Inspector */}
+        <div className="lg:col-span-3 space-y-4">
+          
+          {/* Manipulation Tool Palette */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm space-y-3">
+            <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center justify-between">
+              <span>Canvas Tools</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleUndo}
+                  disabled={historyIndex <= 0}
+                  className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 text-slate-600 dark:text-slate-300"
+                  title="Undo (Ctrl+Z)"
+                >
+                  <Undo2 size={13} />
+                </button>
+                <button
+                  onClick={handleRedo}
+                  disabled={historyIndex >= history.length - 1}
+                  className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 text-slate-600 dark:text-slate-300"
+                  title="Redo (Ctrl+Y)"
+                >
+                  <Redo2 size={13} />
+                </button>
+              </div>
+            </h3>
+
+            {/* Tool Modes */}
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={() => setActiveTool('select')}
+                className={`p-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
+                  activeTool === 'select'
+                    ? 'bg-[#007BC4] text-white border-[#007BC4] shadow-sm'
+                    : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <MousePointer size={13} /> Select / Move
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTool('measure_ruler');
+                  setRulerPoints([]);
+                  setMeasuredDistance(null);
+                }}
+                className={`p-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
+                  activeTool === 'measure_ruler'
+                    ? 'bg-[#007BC4] text-white border-[#007BC4] shadow-sm'
+                    : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <Ruler size={13} /> Measure Ruler
+              </button>
             </div>
 
-            {/* Level Selector Buttons */}
-            <div className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700">
-              {activeFacility.levels.map(lvl => (
-                <button
-                  key={lvl}
-                  onClick={() => setSelectedLevel(lvl as any)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                    selectedLevel === lvl 
-                      ? 'bg-[#007BC4] text-white shadow-sm' 
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {lvl}
-                </button>
+            {measuredDistance !== null && (
+              <div className="p-2 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-bold text-blue-900 dark:text-blue-200 flex justify-between items-center">
+                <span>Ruler Distance:</span>
+                <span className="font-mono text-sm">{measuredDistance} meters</span>
+              </div>
+            )}
+
+            {/* Entity Insertion Quick Action Buttons */}
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Insert Spatial Entity</span>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { type: 'worker', label: 'Worker', icon: HardHat },
+                  { type: 'equipment', label: 'Crane', icon: Box },
+                  { type: 'camera', label: 'CCTV', icon: Video },
+                  { type: 'reader', label: 'RFID', icon: Radio },
+                  { type: 'env_sensor', label: 'Sensor', icon: Gauge },
+                  { type: 'hazard', label: 'Hazard', icon: AlertTriangle }
+                ].map(item => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.type}
+                      onClick={() => handleAddNewEntity(item.type as EntityType)}
+                      className="p-1.5 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-300 flex flex-col items-center gap-1 transition"
+                    >
+                      <Icon size={12} className="text-[#007BC4]" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Layer Manager Accordion */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm space-y-3">
+            <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Layers size={14} className="text-[#007BC4]" /> Layer Manager
+              </span>
+              <Badge variant="outline" className="text-[9px]">12 Layers Active</Badge>
+            </h3>
+
+            <div className="space-y-1.5 text-xs max-h-60 overflow-y-auto pr-1">
+              {[
+                { key: 'workers', label: 'Workers & Personnel', count: entities.filter(e => e.type === 'worker').length, color: 'text-blue-600' },
+                { key: 'visitors', label: 'Visitors & Inspectors', count: entities.filter(e => e.type === 'visitor').length, color: 'text-purple-600' },
+                { key: 'contractors', label: 'Subcontractor Teams', count: entities.filter(e => e.type === 'contractor').length, color: 'text-indigo-600' },
+                { key: 'readers', label: 'Fixed RFID Portals', count: entities.filter(e => e.type === 'reader').length, color: 'text-emerald-600' },
+                { key: 'bleGps', label: 'BLE & GPS Gateways', count: entities.filter(e => e.type === 'ble_gateway' || e.type === 'gps_beacon').length, color: 'text-teal-600' },
+                { key: 'equipment', label: 'Heavy Equipment & Cranes', count: entities.filter(e => e.type === 'equipment').length, color: 'text-amber-600' },
+                { key: 'vehicles', label: 'Site Vehicles & Haulers', count: entities.filter(e => e.type === 'vehicle').length, color: 'text-orange-600' },
+                { key: 'cameras', label: 'CCTV & Thermal Cameras', count: entities.filter(e => e.type === 'camera').length, color: 'text-rose-600' },
+                { key: 'sensors', label: 'Gas / Noise IoT Sensors', count: entities.filter(e => e.type === 'env_sensor').length, color: 'text-violet-600' },
+                { key: 'emergency', label: 'Emergency First Aid / AED', count: entities.filter(e => e.type === 'emergency').length, color: 'text-rose-700' },
+                { key: 'hazards', label: 'High Hazard Exclusion Zones', count: entities.filter(e => e.type === 'hazard').length, color: 'text-red-600' }
+              ].map(layer => (
+                <div key={layer.key} className="flex items-center justify-between p-1.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 dark:text-slate-200 select-none">
+                    <input
+                      type="checkbox"
+                      checked={(layers as any)[layer.key]}
+                      onChange={e => setLayers({ ...layers, [layer.key]: e.target.checked })}
+                      className="rounded accent-[#007BC4]"
+                    />
+                    <span className={layer.color}>{layer.label}</span>
+                  </label>
+                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    {layer.count}
+                  </span>
+                </div>
               ))}
             </div>
 
-            {/* 3D Rotation Controls */}
-            {viewMode === '3d' && (
-              <div className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700">
-                <button 
-                  onClick={() => setRotationAngle(r => r - 45)}
-                  className="p-1.5 text-slate-300 hover:text-white transition"
-                  title="Rotate Left"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => setRotationAngle(0)}
-                  className="px-2 text-xs font-bold text-slate-300 hover:text-white transition"
-                  title="Reset Angle"
-                >
-                  Reset
-                </button>
-                <button 
-                  onClick={() => setRotationAngle(r => r + 45)}
-                  className="p-1.5 text-slate-300 hover:text-white transition"
-                  title="Rotate Right"
-                >
-                  <RotateCw className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
+            {/* Heatmap Overlay Toggle */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-1.5">
+              <label className="flex items-center justify-between cursor-pointer font-bold text-xs text-slate-800 dark:text-slate-200 select-none">
+                <span className="flex items-center gap-1.5 text-amber-600">
+                  <Flame size={13} /> Spatial Heatmaps
+                </span>
+                <input
+                  type="checkbox"
+                  checked={layers.heatmaps}
+                  onChange={e => setLayers({ ...layers, heatmaps: e.target.checked })}
+                  className="rounded accent-amber-500"
+                />
+              </label>
 
-          {/* Viewport Render Area */}
-          <div className="flex-1 relative flex items-center justify-center p-6 min-h-[460px] overflow-hidden select-none">
-            {/* Background 3D Grid Pattern */}
-            <div 
-              className="absolute inset-0 opacity-20 pointer-events-none transition-all duration-500" 
-              style={{
-                backgroundImage: 'linear-gradient(#007BC4 1px, transparent 1px), linear-gradient(90deg, #007BC4 1px, transparent 1px)',
-                backgroundSize: '40px 40px',
-                transform: viewMode === '3d' ? `perspective(800px) rotateX(${tiltAngle}deg) rotateZ(${rotationAngle}deg) scale(${zoomLevel / 100})` : 'scale(1)',
-              }} 
-            />
-
-            {/* 3D VIEW MODE */}
-            {viewMode === '3d' && (
-              <div 
-                className="relative w-[520px] h-[360px] border-2 border-slate-700/60 rounded-3xl bg-slate-900/60 shadow-[0_20px_60px_rgba(0,0,0,0.8)] transition-all duration-700 flex flex-col justify-between p-6 overflow-hidden"
-                style={{
-                  transform: `perspective(900px) rotateX(${tiltAngle}deg) rotateZ(${rotationAngle}deg) scale(${zoomLevel / 100})`,
-                  transformStyle: 'preserve-3d',
-                }}
-              >
-                {/* Dynamic 3D Room Blocks for Active Facility & Level */}
-                {currentLevelRooms.map(room => {
-                  const isTargetRoom = selectedTarget && (
-                    selectedTarget.zoneName.toLowerCase().includes(room.name.toLowerCase()) || 
-                    room.name.toLowerCase().includes(selectedTarget.zoneName.toLowerCase())
-                  );
-
-                  return (
-                    <div 
-                      key={room.id}
-                      onClick={() => {
-                        const matchingTarget = facilityTargets.find(
-                          t => t.zoneName.toLowerCase().includes(room.name.toLowerCase()) || room.name.toLowerCase().includes(t.zoneName.toLowerCase())
-                        );
-                        if (matchingTarget) setSelectedTargetId(matchingTarget.id);
-                      }}
-                      className={`absolute rounded-2xl p-3 shadow-lg border-2 backdrop-blur-md cursor-pointer transition-all duration-300 flex flex-col justify-between ${
-                        isTargetRoom 
-                          ? 'ring-4 ring-[#007BC4] scale-105 z-20 bg-[#007BC4]/40 border-[#007BC4] shadow-[0_0_30px_rgba(0,123,196,0.6)]' 
-                          : room.colorType === 'blue' ? 'bg-[#007BC4]/20 border-[#007BC4] hover:bg-[#007BC4]/30'
-                          : room.colorType === 'amber' ? 'bg-amber-500/20 border-amber-500/80 hover:bg-amber-500/30'
-                          : room.colorType === 'emerald' ? 'bg-emerald-500/20 border-emerald-500/80 hover:bg-emerald-500/30'
-                          : room.colorType === 'purple' ? 'bg-purple-500/20 border-purple-500/80 hover:bg-purple-500/30'
-                          : room.colorType === 'rose' ? 'bg-rose-500/20 border-rose-500/80 hover:bg-rose-500/30'
-                          : 'bg-slate-800/80 border-slate-600 hover:bg-slate-700/80'
-                      }`}
-                      style={{
-                        left: `${room.x}%`,
-                        top: `${room.y}%`,
-                        width: `${room.width}%`,
-                        height: `${room.height}%`,
-                        transform: `translateZ(${room.z || 20}px)`
-                      }}
-                    >
-                      <div className="text-[11px] font-bold text-slate-100 flex items-center justify-between gap-1">
-                        <span className="truncate">{room.name}</span>
-                        <Badge className={`text-[9px] font-bold shrink-0 ${
-                          isTargetRoom ? 'bg-[#007BC4] text-white' : 'bg-slate-800 text-slate-200 border-slate-600'
-                        }`}>{room.code}</Badge>
-                      </div>
-                      <div className="text-[10px] text-slate-300 font-mono truncate">{room.subtitle}</div>
-                    </div>
-                  );
-                })}
-
-                {/* Glowing 3D Navigation Path Overlay */}
-                {selectedTarget && (
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" style={{ transform: 'translateZ(35px)' }}>
-                    <line 
-                      x1="120" y1="80" 
-                      x2="260" y2="180" 
-                      stroke="#007BC4" strokeWidth="4" strokeDasharray="6 6"
-                      className="animate-pulse"
-                    />
-                    <line 
-                      x1="260" y1="180" 
-                      x2={selectedTarget.coords2D.x * 5} y2={selectedTarget.coords2D.y * 3.4} 
-                      stroke="#007BC4" strokeWidth="4" strokeDasharray="6 6"
-                      className="animate-pulse"
-                    />
-
-                    {/* Animated Simulated Walker Dot */}
-                    {simProgress > 0 && (
-                      <circle 
-                        cx={120 + ((selectedTarget.coords2D.x * 5 - 120) * (simProgress / 100))} 
-                        cy={80 + ((selectedTarget.coords2D.y * 3.4 - 80) * (simProgress / 100))} 
-                        r="7" 
-                        fill="#38bdf8" 
-                        className="shadow-[0_0_20px_#38bdf8] animate-bounce"
-                      />
-                    )}
-                  </svg>
-                )}
-
-                {/* Target Marker Pin */}
-                {selectedTarget && (
-                  <div 
-                    className="absolute z-20 transition-all duration-500 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
-                    style={{
-                      left: `${selectedTarget.coords2D.x}%`,
-                      top: `${selectedTarget.coords2D.y}%`,
-                      transform: 'translateZ(45px)'
-                    }}
-                  >
-                    <div className="bg-[#007BC4] text-white p-2 rounded-full border-2 border-white shadow-[0_0_25px_#007BC4] animate-bounce">
-                      <MapPin className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="bg-slate-900/90 text-white font-bold text-[10px] px-2 py-0.5 rounded shadow-md mt-1 border border-slate-700 whitespace-nowrap">
-                      {selectedTarget.name}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 2D VIEW MODE */}
-            {viewMode === '2d' && (
-              <div className="relative w-full max-w-xl h-[380px] bg-slate-900 border-2 border-slate-800 rounded-2xl shadow-2xl p-6 overflow-hidden flex flex-col justify-between">
-                <div className="absolute top-3 left-4 z-20 text-xs font-mono font-bold text-slate-200 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-700 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-[#007BC4]" />
-                  {activeFacility.name} • {selectedLevel} {customFloorplanUrl ? '(Custom Uploaded Map)' : '(Vector Blueprint)'}
-                </div>
-
-                {customFloorplanUrl ? (
-                  <div className="absolute inset-0 z-0">
-                    <img 
-                      src={customFloorplanUrl} 
-                      alt="Uploaded Floorplan" 
-                      className="w-full h-full object-cover opacity-70"
-                    />
-                    <div className="absolute inset-0 bg-slate-950/40" />
-                  </div>
-                ) : (
-                  /* Vector Grid Blueprint SVG */
-                  <svg className="absolute inset-0 w-full h-full p-4 pointer-events-none z-0" viewBox="0 0 500 350">
-                    {/* Grid Lines */}
-                    <defs>
-                      <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse">
-                        <path d="M 25 0 L 0 0 0 25" fill="none" stroke="#1e293b" strokeWidth="1" />
-                      </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#grid)" />
-
-                    {/* Dynamic Room Outlines for Selected Facility & Level */}
-                    {currentLevelRooms.map(r => {
-                      const isTargetRoom = selectedTarget && (
-                        selectedTarget.zoneName.toLowerCase().includes(r.name.toLowerCase()) || 
-                        r.name.toLowerCase().includes(selectedTarget.zoneName.toLowerCase())
-                      );
-
-                      return (
-                        <g key={r.id}>
-                          <rect 
-                            x={r.x * 4.6 + 10} 
-                            y={r.y * 3.1 + 10} 
-                            width={r.width * 4.6} 
-                            height={r.height * 3.1} 
-                            fill={isTargetRoom ? "#007BC4" : "#0f172a"} 
-                            stroke={isTargetRoom ? "#38bdf8" : r.colorType === 'amber' ? '#f59e0b' : r.colorType === 'emerald' ? '#10b981' : r.colorType === 'purple' ? '#a855f7' : r.colorType === 'rose' ? '#f43f5e' : '#007BC4'} 
-                            strokeWidth={isTargetRoom ? "3" : "2"} 
-                            rx="8" 
-                          />
-                          <text 
-                            x={r.x * 4.6 + 20} 
-                            y={r.y * 3.1 + 32} 
-                            fill={isTargetRoom ? "#ffffff" : "#94a3b8"} 
-                            fontSize="10" 
-                            fontWeight="bold"
-                          >
-                            {r.name.toUpperCase()}
-                          </text>
-                        </g>
-                      );
-                    })}
-
-                    {/* Navigation Path Line */}
-                    {selectedTarget && (
-                      <path 
-                        d={`M 90 85 L 230 85 L ${selectedTarget.coords2D.x * 4.8} ${selectedTarget.coords2D.y * 3.2}`} 
-                        fill="none" 
-                        stroke="#007BC4" 
-                        strokeWidth="3" 
-                        strokeDasharray="6 6"
-                      />
-                    )}
-
-                    {/* Animated Simulated Walker Dot */}
-                    {simProgress > 0 && selectedTarget && (
-                      <circle 
-                        cx={90 + ((selectedTarget.coords2D.x * 4.8 - 90) * (simProgress / 100))} 
-                        cy={85 + ((selectedTarget.coords2D.y * 3.2 - 85) * (simProgress / 100))} 
-                        r="6" 
-                        fill="#38bdf8" 
-                      />
-                    )}
-                  </svg>
-                )}
-
-                {/* Clickable Target Waypoints on 2D Map filtered by facility & level */}
-                <div className="relative w-full h-full z-10">
-                  {facilityTargets.filter(t => t.floor === selectedLevel).map(t => (
+              {layers.heatmaps && (
+                <div className="flex gap-1 pt-1">
+                  {(['density', 'rssi', 'hazard'] as const).map(mode => (
                     <button
-                      key={t.id}
-                      onClick={() => setSelectedTargetId(t.id)}
-                      className={`absolute -translate-x-1/2 -translate-y-1/2 p-1.5 rounded-full border-2 transition-all duration-300 ${
-                        selectedTargetId === t.id 
-                          ? 'bg-[#007BC4] border-white scale-125 z-20 shadow-[0_0_20px_#007BC4]' 
-                          : 'bg-slate-800 border-slate-600 hover:scale-110 z-10'
+                      key={mode}
+                      onClick={() => setHeatmapMode(mode)}
+                      className={`flex-1 py-1 text-[10px] font-bold rounded uppercase ${
+                        heatmapMode === mode ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                       }`}
-                      style={{ left: `${t.coords2D.x}%`, top: `${t.coords2D.y}%` }}
-                      title={`${t.name} (${t.zoneName})`}
                     >
-                      <MapPin className="w-3.5 h-3.5 text-white" />
+                      {mode}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Bottom Control Dock */}
-          <div className="p-4 bg-slate-900/90 border-t border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-4">
-            <div className="flex items-center gap-4">
-              <span className="font-bold text-slate-400">Selected Route:</span>
-              <span className="font-semibold text-white">{START_LOCATIONS.find(s => s.id === selectedStart)?.name.split(' - ')[0]} → {selectedTarget?.name || 'Destination'}</span>
+          {/* Selected Entity Inspector Panel */}
+          {selectedEntity && (
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700">
+                <h4 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Sliders size={13} className="text-[#007BC4]" /> Inspector
+                </h4>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleToggleLock(selectedEntity.id)}
+                    className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
+                    title={selectedEntity.locked ? 'Unlock Element' : 'Lock Element'}
+                  >
+                    {selectedEntity.locked ? <Lock size={13} className="text-rose-500" /> : <Unlock size={13} />}
+                  </button>
+                  <button
+                    onClick={() => handleDuplicateEntity(selectedEntity.id)}
+                    className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
+                    title="Duplicate Element"
+                  >
+                    <Copy size={13} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteEntity(selectedEntity.id)}
+                    className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-rose-500"
+                    title="Delete Element"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Entity Label</label>
+                  <input
+                    type="text"
+                    value={selectedEntity.name}
+                    onChange={e => handleRenameEntity(selectedEntity.id, e.target.value)}
+                    className="w-full mt-0.5 px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                  <div className="p-1.5 bg-slate-50 dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-400 text-[9px] block">GRID COORD X</span>
+                    <strong>{selectedEntity.x}%</strong>
+                  </div>
+                  <div className="p-1.5 bg-slate-50 dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-400 text-[9px] block">GRID COORD Y</span>
+                    <strong>{selectedEntity.y}%</strong>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="font-bold text-slate-500">Rotation Angle:</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleRotateEntity(selectedEntity.id, -15)}
+                      className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded font-bold hover:bg-slate-200"
+                    >
+                      -15°
+                    </button>
+                    <span className="font-mono font-bold px-1">{selectedEntity.rotation}°</span>
+                    <button
+                      onClick={() => handleRotateEntity(selectedEntity.id, 15)}
+                      className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded font-bold hover:bg-slate-200"
+                    >
+                      +15°
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-slate-600 dark:text-slate-400 text-[11px] bg-slate-50 dark:bg-slate-900 p-2 rounded border border-slate-200 dark:border-slate-800">
+                  {selectedEntity.details}
+                </p>
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* RIGHT COLUMN: CANVAS WORKSPACE WITH 3D / 2D VIEWPORTS, COMPASS, MINI MAP, GRID & PLAYBACK */}
+        <div className="lg:col-span-9 bg-slate-950 border border-slate-800 rounded-2xl shadow-inner relative flex flex-col overflow-hidden min-h-[580px]">
+          
+          {/* Top Canvas HUD Overlay Header */}
+          <div className="p-3 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 z-20">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search spatial entities..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-8 pr-3 py-1 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-200 outline-none focus:border-[#007BC4] w-44 sm:w-56"
+                />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value as any)}
+                className="py-1 px-2.5 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-300 outline-none"
+              >
+                <option value="all">All Statuses</option>
+                <option value="warning">Warnings Only</option>
+                <option value="critical">Critical Alarms</option>
+              </select>
             </div>
 
-            {selectedTarget && (
-              <div className="flex items-center gap-6 font-mono text-[11px]">
-                <div>Distance: <span className="text-[#007BC4] font-bold">{selectedTarget.distanceMeters}m</span></div>
-                <div>ETA: <span className="text-emerald-400 font-bold">{selectedTarget.estTime}</span></div>
-                <div>Steps: <span className="text-slate-200 font-bold">{selectedTarget.steps.length} Waypoints</span></div>
+            {/* Canvas Controls: Grid, Compass Alignment, Zoom */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setGridEnabled(!gridEnabled)}
+                className={`p-1.5 rounded-lg text-xs font-bold border ${
+                  gridEnabled ? 'bg-[#007BC4] text-white border-[#007BC4]' : 'bg-slate-800 border-slate-700 text-slate-400'
+                }`}
+                title="Toggle Spatial Grid"
+              >
+                <Grid size={15} />
+              </button>
+
+              {viewMode === '3d' && (
+                <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+                  <button
+                    onClick={() => setRotationAngle(r => (r - 45 + 360) % 360)}
+                    className="p-1 text-slate-300 hover:text-white"
+                    title="Rotate Left"
+                  >
+                    <RotateCcw size={14} />
+                  </button>
+                  <span className="text-[10px] font-mono text-slate-300 px-1">{rotationAngle}°</span>
+                  <button
+                    onClick={() => setRotationAngle(r => (r + 45) % 360)}
+                    className="p-1 text-slate-300 hover:text-white"
+                    title="Rotate Right"
+                  >
+                    <RotateCw size={14} />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700 text-xs text-slate-300 font-bold">
+                <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="px-1.5 hover:text-white">-</button>
+                <span className="font-mono text-[10px]">{zoomLevel}%</span>
+                <button onClick={() => setZoomLevel(z => Math.min(200, z + 10))} className="px-1.5 hover:text-white">+</button>
+              </div>
+            </div>
+          </div>
+
+          {/* MAIN VIEWPORT RENDER AREA */}
+          <div
+            onClick={handleCanvasClickForMeasurement}
+            className="flex-1 relative flex items-center justify-center p-6 overflow-hidden select-none min-h-[440px]"
+          >
+            
+            {/* Interactive Grid Background */}
+            {gridEnabled && (
+              <div
+                className="absolute inset-0 pointer-events-none opacity-20 transition-all duration-300"
+                style={{
+                  backgroundImage: gridStyle === 'dots'
+                    ? 'radial-gradient(#007BC4 1.5px, transparent 1.5px)'
+                    : 'linear-gradient(#007BC4 1px, transparent 1px), linear-gradient(90deg, #007BC4 1px, transparent 1px)',
+                  backgroundSize: `${gridSize}px ${gridSize}px`,
+                  transform: viewMode === '3d'
+                    ? `perspective(800px) rotateX(${tiltAngle}deg) rotateZ(${rotationAngle}deg) scale(${zoomLevel / 100})`
+                    : `scale(${zoomLevel / 100})`
+                }}
+              />
+            )}
+
+            {/* Heatmap Layer Effect */}
+            {layers.heatmaps && (
+              <div className="absolute inset-0 pointer-events-none z-10 opacity-35 mix-blend-screen bg-gradient-to-tr from-rose-600 via-amber-500 to-emerald-400 blur-2xl animate-pulse" />
+            )}
+
+            {/* VIEW MODE 1: 3D SPATIAL TWIN */}
+            {(viewMode === '3d' || viewMode === 'split') && (
+              <div
+                className={`relative border-2 border-slate-700/80 rounded-3xl bg-slate-900/70 shadow-[0_25px_60px_rgba(0,0,0,0.8)] transition-all duration-500 p-6 overflow-hidden ${
+                  viewMode === 'split' ? 'w-[48%] h-[360px]' : 'w-[560px] h-[400px]'
+                }`}
+                style={{
+                  transform: `perspective(900px) rotateX(${tiltAngle}deg) rotateZ(${rotationAngle}deg) scale(${zoomLevel / 100})`,
+                  transformStyle: 'preserve-3d'
+                }}
+              >
+                {/* 3D Blueprint CAD Baseplate */}
+                <div className="absolute inset-0 border border-slate-700/50 rounded-2xl pointer-events-none flex items-center justify-center">
+                  <span className="text-[10px] font-mono font-black text-slate-700 uppercase tracking-widest">
+                    {currentBuilding.name} • {currentFloor.name} CAD BASEPLATE
+                  </span>
+                </div>
+
+                {/* Filtered Spatial Entities Rendered in 3D */}
+                {filteredEntities.map(ent => {
+                  const isSelected = selectedEntityId === ent.id;
+
+                  return (
+                    <div
+                      key={ent.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedEntityId(ent.id);
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        if (activeTool === 'select' && !ent.locked) {
+                          const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+                          if (!rect) return;
+
+                          const onMouseMove = (moveEv: MouseEvent) => {
+                            const newX = ((moveEv.clientX - rect.left) / rect.width) * 100;
+                            const newY = ((moveEv.clientY - rect.top) / rect.height) * 100;
+                            handleDragEntity(ent.id, newX, newY);
+                          };
+
+                          const onMouseUp = () => {
+                            window.removeEventListener('mousemove', onMouseMove);
+                            window.removeEventListener('mouseup', onMouseUp);
+                          };
+
+                          window.addEventListener('mousemove', onMouseMove);
+                          window.addEventListener('mouseup', onMouseUp);
+                        }
+                      }}
+                      className={`absolute rounded-2xl p-2.5 shadow-xl border-2 backdrop-blur-md cursor-pointer transition-all duration-200 flex flex-col justify-between ${
+                        isSelected
+                          ? 'ring-4 ring-[#007BC4] scale-110 z-30 bg-[#007BC4]/40 border-[#007BC4] shadow-[0_0_30px_#007BC4]'
+                          : ent.status === 'critical'
+                          ? 'bg-rose-500/30 border-rose-500 shadow-[0_0_20px_#f43f5e]'
+                          : ent.status === 'warning'
+                          ? 'bg-amber-500/30 border-amber-500 shadow-[0_0_20px_#f59e0b]'
+                          : 'bg-slate-900/80 border-slate-600 hover:border-slate-400'
+                      }`}
+                      style={{
+                        left: `${ent.x}%`,
+                        top: `${ent.y}%`,
+                        width: `${ent.width * 4.5}px`,
+                        height: `${ent.height * 4.5}px`,
+                        transform: `translateZ(25px) rotate(${ent.rotation}deg)`,
+                        opacity: ent.opacity
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-1 text-[10px] font-bold text-white">
+                        <span className="truncate">{ent.name}</span>
+                        {ent.locked && <Lock size={10} className="text-amber-400 shrink-0" />}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[9px] font-mono text-slate-300">
+                        <span>{ent.type.toUpperCase()}</span>
+                        {ent.battery && <span className="text-emerald-400">{ent.battery}%</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
+
+            {/* VIEW MODE 2: 2D CAD BLUEPRINT */}
+            {(viewMode === '2d' || viewMode === 'split') && (
+              <div className={`relative border-2 border-slate-800 rounded-2xl bg-slate-900 shadow-2xl p-4 overflow-hidden flex flex-col justify-between ${
+                viewMode === 'split' ? 'w-[48%] h-[360px]' : 'w-[580px] h-[400px]'
+              }`}>
+                
+                {/* Blueprint Header Label */}
+                <div className="absolute top-3 left-4 z-20 text-xs font-mono font-bold text-slate-200 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-700 flex items-center gap-2">
+                  <FileCode2 size={14} className="text-[#007BC4]" />
+                  {currentFloor.name} CAD Vector Blueprint ({currentFloor.blueprintVersions.find(v => v.id === selectedVersionId)?.versionNumber || 'v3.4'})
+                </div>
+
+                {/* SVG Vector Map Rendering */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 500 350">
+                  <defs>
+                    <pattern id="cadGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e293b" strokeWidth="1" />
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#cadGrid)" />
+
+                  {/* CAD Layers (Architectural, Structural, Electrical) */}
+                  {layers.cadLayers.architectural && (
+                    <g stroke="#334155" strokeWidth="2" fill="none">
+                      <rect x="20" y="20" width="460" height="310" rx="12" />
+                      <line x1="160" y1="20" x2="160" y2="330" />
+                      <line x1="320" y1="20" x2="320" y2="330" />
+                      <line x1="20" y1="180" x2="480" y2="180" />
+                    </g>
+                  )}
+
+                  {layers.cadLayers.electrical && (
+                    <g stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 4" fill="none">
+                      <path d="M 40 40 L 150 40 L 150 160 L 300 160" />
+                    </g>
+                  )}
+
+                  {/* Measurement Ruler Tool Line */}
+                  {rulerPoints.length >= 2 && (
+                    <g>
+                      <line
+                        x1={rulerPoints[0].x * 5}
+                        y1={rulerPoints[0].y * 3.5}
+                        x2={rulerPoints[1].x * 5}
+                        y2={rulerPoints[1].y * 3.5}
+                        stroke="#007BC4"
+                        strokeWidth="3"
+                        strokeDasharray="4 4"
+                      />
+                      <circle cx={rulerPoints[0].x * 5} cy={rulerPoints[0].y * 3.5} r="5" fill="#007BC4" />
+                      <circle cx={rulerPoints[1].x * 5} cy={rulerPoints[1].y * 3.5} r="5" fill="#007BC4" />
+                    </g>
+                  )}
+                </svg>
+
+                {/* 2D Interactive Entity Nodes */}
+                <div className="relative w-full h-full z-10">
+                  {filteredEntities.map(ent => {
+                    const isSelected = selectedEntityId === ent.id;
+
+                    return (
+                      <button
+                        key={ent.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedEntityId(ent.id);
+                        }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          if (activeTool === 'select' && !ent.locked) {
+                            const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+                            if (!rect) return;
+
+                            const onMouseMove = (moveEv: MouseEvent) => {
+                              const newX = ((moveEv.clientX - rect.left) / rect.width) * 100;
+                              const newY = ((moveEv.clientY - rect.top) / rect.height) * 100;
+                              handleDragEntity(ent.id, newX, newY);
+                            };
+
+                            const onMouseUp = () => {
+                              window.removeEventListener('mousemove', onMouseMove);
+                              window.removeEventListener('mouseup', onMouseUp);
+                            };
+
+                            window.addEventListener('mousemove', onMouseMove);
+                            window.addEventListener('mouseup', onMouseUp);
+                          }
+                        }}
+                        className={`absolute -translate-x-1/2 -translate-y-1/2 p-2 rounded-xl border-2 transition-all duration-200 font-bold flex items-center gap-1.5 cursor-grab active:cursor-grabbing ${
+                          isSelected
+                            ? 'bg-[#007BC4] border-white text-white scale-110 z-20 shadow-[0_0_20px_#007BC4]'
+                            : ent.status === 'critical'
+                            ? 'bg-rose-600 border-rose-300 text-white'
+                            : ent.status === 'warning'
+                            ? 'bg-amber-500 border-amber-200 text-white'
+                            : 'bg-slate-800 border-slate-600 text-slate-200 hover:scale-105'
+                        }`}
+                        style={{ left: `${ent.x}%`, top: `${ent.y}%` }}
+                      >
+                        <MapPin size={12} />
+                        <span className="text-[10px] font-mono">{ent.name.split(' ')[0]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+              </div>
+            )}
+
+            {/* FLOATING COMPASS ROSE OVERLAY */}
+            <div className="absolute top-4 right-4 z-20 bg-slate-900/90 border border-slate-800 rounded-2xl p-2.5 shadow-xl flex flex-col items-center gap-1">
+              <Compass size={24} className="text-[#007BC4] animate-spin-slow" />
+              <span className="text-[9px] font-mono font-bold text-slate-300">NORTH 0°</span>
+              <div className="grid grid-cols-3 gap-0.5 mt-1 text-[8px] font-black">
+                <button onClick={() => setRotationAngle(0)} className="px-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded">N</button>
+                <button onClick={() => setRotationAngle(90)} className="px-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded">E</button>
+                <button onClick={() => setRotationAngle(180)} className="px-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded">S</button>
+              </div>
+            </div>
+
+            {/* COLLAPSIBLE PIP MINI MAP OVERLAY */}
+            {miniMapOpen && (
+              <div className="absolute bottom-4 right-4 z-20 w-44 h-32 bg-slate-900/95 border-2 border-slate-700 rounded-2xl p-2 shadow-2xl flex flex-col justify-between">
+                <div className="flex justify-between items-center text-[9px] font-bold text-slate-400">
+                  <span>SITE MAP OVERVIEW</span>
+                  <button onClick={() => setMiniMapOpen(false)} className="hover:text-white">
+                    <X size={12} />
+                  </button>
+                </div>
+
+                <div className="relative flex-1 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden my-1">
+                  {/* Viewport Bounds Box */}
+                  <div className="absolute inset-2 border-2 border-[#007BC4] rounded bg-[#007BC4]/10 pointer-events-none" />
+                  {filteredEntities.map(e => (
+                    <div key={e.id} className="absolute w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ left: `${e.x}%`, top: `${e.y}%` }} />
+                  ))}
+                </div>
+
+                <span className="text-[8px] font-mono text-slate-500 text-center">{currentSite.name}</span>
+              </div>
+            )}
+
+            {!miniMapOpen && (
+              <button
+                onClick={() => setMiniMapOpen(true)}
+                className="absolute bottom-4 right-4 z-20 px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[10px] font-bold text-slate-300 hover:bg-slate-800"
+              >
+                Show Mini Map
+              </button>
+            )}
+
+          </div>
+
+          {/* BOTTOM TIMELINE SCRUBBER & PLAYBACK CONTROL DOCK */}
+          <div className="p-3 bg-slate-900/95 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-slate-300">
+            
+            {/* Playback Controls */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsPlaybackRunning(!isPlaybackRunning)}
+                className="p-2 bg-[#007BC4] hover:bg-blue-600 text-white rounded-xl font-bold shadow-md transition"
+              >
+                {isPlaybackRunning ? <Pause size={14} /> : <Play size={14} />}
+              </button>
+
+              <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700 text-[10px] font-bold">
+                {[1, 2, 5, 10].map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setPlaybackSpeed(s)}
+                    className={`px-2 py-0.5 rounded ${playbackSpeed === s ? 'bg-[#007BC4] text-white' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    {s}x
+                  </button>
+                ))}
+              </div>
+
+              <span className="font-mono text-xs font-bold text-emerald-400 pl-2">{playbackTimeLabel}</span>
+            </div>
+
+            {/* Time Scrubber Slider */}
+            <div className="flex-1 w-full flex items-center gap-2">
+              <span className="text-[10px] font-mono text-slate-500">08:00 AM</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={playbackProgress}
+                onChange={e => {
+                  setPlaybackProgress(Number(e.target.value));
+                  if (Number(e.target.value) < 100) {
+                    const totalMins = Math.floor((Number(e.target.value) / 100) * 480);
+                    const hour = 8 + Math.floor(totalMins / 60);
+                    const min = totalMins % 60;
+                    setPlaybackTimeLabel(`Historical Replay - ${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')} AM`);
+                  } else {
+                    setPlaybackTimeLabel('LIVE Realtime Feed');
+                  }
+                }}
+                className="w-full accent-[#007BC4] bg-slate-800 h-1.5 rounded-lg cursor-pointer"
+              />
+              <span className="text-[10px] font-mono text-emerald-400 font-bold">LIVE</span>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* 4. BLUEPRINT UPLOAD MODAL */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-700">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                <Upload size={18} className="text-[#007BC4]" /> Upload Spatial CAD / SVG Blueprint
+              </h3>
+              <button onClick={() => setIsUploadModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Import architectural vector files (<strong>.svg, .dxf, .dwg, .pdf</strong>) or floorplan images for {currentBuilding.name} - {currentFloor.name}.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Blueprint Title / CAD Descriptor</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Level 2 Structural Rebar & Conduit CAD"
+                  value={newBlueprintTitle}
+                  onChange={e => setNewBlueprintTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#007BC4]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">CAD Vector Format</label>
+                <select
+                  value={newBlueprintFormat}
+                  onChange={e => setNewBlueprintFormat(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#007BC4]"
+                >
+                  <option value="SVG CAD">SVG Vector CAD (.svg)</option>
+                  <option value="DXF / DWG">Autodesk CAD (.dxf / .dwg)</option>
+                  <option value="Vector PDF">Vector Architectural PDF (.pdf)</option>
+                  <option value="Raster PNG">High-Res Spatial Raster (.png)</option>
+                </select>
+              </div>
+
+              <div 
+                onClick={handleUploadBlueprint}
+                className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-5 flex flex-col items-center justify-center text-center space-y-1.5 hover:border-[#007BC4] transition cursor-pointer bg-slate-50 dark:bg-slate-900"
+              >
+                <FileCode2 size={28} className="text-[#007BC4]" />
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Click or drop file to select CAD dataset
+                </div>
+                <span className="text-[10px] text-slate-400">Supports SVG, DXF, DWG, High-Res PNG up to 50MB</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                onClick={() => setIsUploadModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadBlueprint}
+                className="px-4 py-2 bg-[#007BC4] text-white rounded-xl text-xs font-bold shadow-md hover:bg-blue-600 transition"
+              >
+                Import CAD Layers
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
     </div>
   );
 }
