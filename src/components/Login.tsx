@@ -125,10 +125,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     Aperture
   </h1>
 
-  {/* Company Description */}
-  <p className="relative mt-2 text-sm tracking-[0.25em] uppercase text-sky-100 font-semibold">
-    Construction Intelligence
-  </p>
 
   {/* Divider */}
   <div className="relative flex justify-center my-6">
@@ -137,7 +133,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
   {/* Product */}
   <h2 className="relative text-2xl font-bold text-white">
-    People Tracking System
+    People Tracking in Construction
   </h2>
 
   {/* Tagline */}
