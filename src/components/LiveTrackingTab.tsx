@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Person, Asset, Vehicle, CameraDevice, EnvSensor } from '../types';
 import LiveFloorMap, { MapMode, ReaderDevice, AccessGate, MaterialAsset, VisibleLayers } from './LiveFloorMap';
 import LiveTrackingContextDrawer, { SelectedEntity } from './LiveTrackingContextDrawer';
@@ -8,7 +8,7 @@ import {
   Radio, Navigation, Eye, EyeOff, Map as MapIcon, Layout, ShieldAlert, Activity,
   Database, Info, Terminal, Zap, ChevronDown, Filter, Settings, Bell, Flame,
   Box, Warehouse, MoreVertical, SlidersHorizontal, Trash2, BarChart3, ShieldCheck, Check,
-  FileText, PenTool, Volume2, BellRing
+  FileText, PenTool, Volume2, BellRing, Wifi, WifiOff
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import ManageWorkforceModal from './ManageWorkforceModal';
@@ -16,6 +16,7 @@ import { db, collection, onSnapshot, doc } from '../lib/db';
 import { ZoneBounds } from './MapEditorModal';
 import { HardwareDevice } from './HardwareConfigModal';
 import { generatePDFReport } from '../lib/exportUtils';
+import { useWebSocket } from '../lib/useWebSocket';
 
 // Mock additional entities for enterprise view
 const MOCK_READERS: ReaderDevice[] = [
@@ -197,6 +198,24 @@ export default function LiveTrackingTab({
     x?: number;
     y?: number;
   } | null>(null);
+
+  // Real-time WebSocket listener for Live Tracking & Zero-Latency Safety Feeds
+  const handleLiveTrackingWSMessage = useCallback((msg: any) => {
+    if (msg.type === 'safety_alert' || msg.type === 'trigger_safety_alert') {
+      playEmergencyAudioAlarm();
+      const p = msg.payload || {};
+      setEmergencySosState({
+        active: true,
+        workerName: p.title || 'WS Safety SOS Alert',
+        zone: p.location || 'Site Perimeter',
+        timestamp: new Date().toLocaleTimeString()
+      });
+      setIsEmergencyMode(true);
+      setMapMode('evacuation');
+    }
+  }, []);
+
+  const { isConnected: isWsConnected, triggerSafetyAlert: wsTriggerSafetyAlert, broadcastTagMovement } = useWebSocket(handleLiveTrackingWSMessage);
 
   const activeZones = useMemo(() => {
     return projectMeta?.customZones || localProjectProps?.customZones || currentProject.customZones || customZonesState;
@@ -510,6 +529,15 @@ export default function LiveTrackingTab({
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
+          <span className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border shadow-sm ${
+            isWsConnected 
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+          }`}>
+            {isWsConnected ? <Wifi className="w-3.5 h-3.5 text-emerald-500 animate-pulse" /> : <WifiOff className="w-3.5 h-3.5 text-amber-500" />}
+            <span className="hidden lg:inline">{isWsConnected ? 'WS 0ms Live' : 'WS Reconnecting...'}</span>
+          </span>
+
           <button 
             onClick={handleExportAttendancePDF}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold shadow-sm transition"
@@ -533,7 +561,14 @@ export default function LiveTrackingTab({
           </button>
 
           <button
-            onClick={handleToggleEmergencySOS}
+            onClick={() => {
+              wsTriggerSafetyAlert(
+                '🚨 REAL-TIME EMERGENCY SOS: Hardhat Fall / Panic Triggered',
+                'Zone B - Scaffold L3',
+                'critical'
+              );
+              handleToggleEmergencySOS();
+            }}
             className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg ${
               emergencySosState?.active || isEmergencyMode 
                 ? 'bg-rose-600 text-white ring-4 ring-rose-400 animate-pulse' 

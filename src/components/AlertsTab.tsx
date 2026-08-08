@@ -1,18 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { AIAlert, AlertCategory, AlertPriority, AlertStatus, AlertComment } from '../types';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { AIAlert, AlertCategory, AlertPriority, AlertStatus, AlertComment, AlertRule, EmergencyBroadcast } from '../types';
 import { 
   BellRing, AlertTriangle, ShieldAlert, Zap, Radio, HardHat, UserX, 
   Wrench, CloudLightning, Cpu, Search, Filter, CheckCircle2, Clock, 
   ArrowUpRight, UserCheck, MessageSquare, FileText, ChevronRight, X, 
   Plus, Download, Printer, RefreshCw, Send, ShieldCheck, Eye, Shield, 
   MapPin, Camera, Activity, AlertCircle, Info, Sparkles, Flame, Siren, 
-  CornerDownRight, Check, CheckSquare
+  Check, CheckSquare, Wifi, WifiOff, Volume2, VolumeX, BarChart2,
+  Sliders, Trash2, Layers, Users, SlidersHorizontal, Layers3, Play
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs } from '../lib/db';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs } from '../lib/db';
 import { db } from '../lib/firebase';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
+import { useWebSocket } from '../lib/useWebSocket';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 
 const CATEGORY_CONFIG: Record<AlertCategory, { icon: React.ElementType; color: string; bg: string; border: string }> = {
   Emergency: { icon: Siren, color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-950/40', border: 'border-rose-200 dark:border-rose-800' },
@@ -33,6 +36,15 @@ const CATEGORIES_LIST: AlertCategory[] = [
   'Weather', 'System'
 ];
 
+const OFFICERS_LIST = [
+  'Marcus Vance (EHS Director)',
+  'Elena Rostova (Field Safety Lead)',
+  'Frank Reynolds (Equipment Manager)',
+  'Gate 1 Security Lead',
+  'IT Network Systems Admin',
+  'Site Operations Duty Manager'
+];
+
 const INITIAL_ENTERPRISE_ALERTS: AIAlert[] = [
   {
     id: 'ALT-1001',
@@ -43,7 +55,7 @@ const INITIAL_ENTERPRISE_ALERTS: AIAlert[] = [
     title: 'Confined Tunnel Gas Sensor High CO Hazard',
     message: 'Gas Monitor SENS-09 detected 48ppm Carbon Monoxide spike in Shaft L3 Shaft Tunnel.',
     timestamp: new Date(Date.now() - 12 * 60 * 1000),
-    assignedTo: 'Marcus Vance',
+    assignedTo: 'Marcus Vance (EHS Director)',
     assignedRole: 'EHS Lead Officer',
     assignedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
     aiSummary: {
@@ -93,7 +105,7 @@ const INITIAL_ENTERPRISE_ALERTS: AIAlert[] = [
     title: 'High-Elevation Scaffold Zone Non-Compliant PPE',
     message: 'CCTV Camera CAM-L2-SCAFFOLD detected 2 workers on Level 3 scaffolding without secondary safety harness attached.',
     timestamp: new Date(Date.now() - 28 * 60 * 1000),
-    assignedTo: 'Elena Rostova',
+    assignedTo: 'Elena Rostova (Field Safety Lead)',
     assignedRole: 'Field Safety Officer',
     assignedAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
     aiSummary: {
@@ -186,7 +198,7 @@ const INITIAL_ENTERPRISE_ALERTS: AIAlert[] = [
     title: 'Main Tower Crane TC-01 Hydraulic Pressure Drop',
     message: 'Telematics sensor on Tower Crane TC-01 logged hydraulic fluid pressure drop below 180 bar operating threshold.',
     timestamp: new Date(Date.now() - 60 * 60 * 1000),
-    assignedTo: 'Frank Reynolds',
+    assignedTo: 'Frank Reynolds (Equipment Manager)',
     assignedRole: 'Heavy Machinery Lead Tech',
     assignedAt: new Date(Date.now() - 55 * 60 * 1000).toISOString(),
     aiSummary: {
@@ -206,8 +218,7 @@ const INITIAL_ENTERPRISE_ALERTS: AIAlert[] = [
       { id: 'c1', author: 'Frank Reynolds', role: 'Machinery Tech', timestamp: '09:55 AM', text: 'Inspecting hydraulic seals. Replacement hose prepped in laydown yard.' }
     ],
     timeline: [
-      { time: '09:45 AM', title: 'Telematics Warning', description: 'Pressure dropped below 180 bar.', actor: 'TC-01 Telematics Unit', type: 'trigger' },
-      { time: '09:50 AM', title: 'Assigned to Tech', description: 'Frank Reynolds dispatched.', actor: 'Dispatch System', type: 'assignment' }
+      { time: '09:45 AM', title: 'Telematics Warning', description: 'Pressure dropped below 180 bar.', actor: 'TC-01 Telematics Unit', type: 'trigger' }
     ],
     escalation: {
       level: 'Tier 1 (Gatehouse)',
@@ -223,187 +234,13 @@ const INITIAL_ENTERPRISE_ALERTS: AIAlert[] = [
   {
     id: 'ALT-1005',
     type: 'warning',
-    category: 'Reader',
-    priority: 'Medium',
-    status: 'In Progress',
-    title: 'RFID Gateway RD-GATE-04 Intermittent Offline',
-    message: 'Reader RD-GATE-04 missed 3 consecutive heartbeat ping intervals. RSSI signal dropped to -92dBm.',
-    timestamp: new Date(Date.now() - 90 * 60 * 1000),
-    assignedTo: 'Network Systems Admin',
-    assignedRole: 'IoT Infrastructure Tech',
-    assignedAt: new Date(Date.now() - 85 * 60 * 1000).toISOString(),
-    aiSummary: {
-      rootCause: 'PoE power supply voltage ripple or loose Ethernet RJ45 termination at Gate 4 enclosure.',
-      threatScore: 55,
-      recommendedActions: [
-        'Reboot gateway RD-GATE-04 remotely via SNMP controller.',
-        'Check physical PoE cable connection if reboot fails.'
-      ]
-    },
-    evidence: {
-      locationZone: 'Main Gate 1',
-      rfidReaderId: 'RD-GATE-04',
-      rssiDbm: -92,
-      telemetryLog: '[PING_LOST] Heartbeat Timeout (30s) | IP: 192.168.10.104 | MAC: 00:1B:44:11:3A:90'
-    },
-    comments: [
-      { id: 'c1', author: 'IT Helpdesk', role: 'IoT Tech', timestamp: '09:25 AM', text: 'Remote SNMP reset initiated. Ping restored temporarily.' }
-    ],
-    timeline: [
-      { time: '09:15 AM', title: 'Ping Failure', description: 'Lost 3 consecutive heartbeats.', actor: 'GAO RFID Health Service', type: 'trigger' }
-    ],
-    escalation: {
-      level: 'Tier 1 (Gatehouse)',
-      slaMinutes: 120,
-      elapsedMinutes: 90,
-      autoEscalateTarget: 'IT Infrastructure Director',
-      isEscalated: false
-    },
-    history: [
-      { timestamp: '09:15 AM', action: 'Created', user: 'IoT Service' }
-    ]
-  },
-  {
-    id: 'ALT-1006',
-    type: 'warning',
-    category: 'Worker',
-    priority: 'High',
-    status: 'Resolved',
-    title: 'Worker Lone-Worker Motion Inactivity Alert',
-    message: 'Hardhat Tag HH-4011 (Carlos Mendez) detected 15 minutes continuous zero-motion in Confined Shaft Tunnel L2.',
-    timestamp: new Date(Date.now() - 120 * 60 * 1000),
-    assignedTo: 'Marcus Vance',
-    assignedRole: 'EHS Lead',
-    assignedAt: new Date(Date.now() - 118 * 60 * 1000).toISOString(),
-    aiSummary: {
-      rootCause: 'Worker placed hardhat on workbench during scheduled lunch break inside tunnel break room.',
-      threatScore: 78,
-      recommendedActions: [
-        'Verify worker safety via two-way radio.',
-        'Confirm location via turnstile tag ping.'
-      ]
-    },
-    evidence: {
-      locationZone: 'Confined Shaft & Tunneling',
-      rfidTagId: 'HH-4011',
-      telemetryLog: '[ACCELEROMETER] Static 0.0g for 900 seconds | Battery: 88%'
-    },
-    comments: [
-      { id: 'c1', author: 'Marcus Vance', role: 'EHS Lead', timestamp: '08:50 AM', text: 'Contacted Carlos Mendez over radio. Confirmed worker safe in tunnel break area.' }
-    ],
-    timeline: [
-      { time: '08:45 AM', title: 'Inactivity Triggered', description: 'Tag HH-4011 motionless for 15 mins.', actor: 'Smart Hardhat Sensor', type: 'trigger' },
-      { time: '08:52 AM', title: 'Issue Resolved', description: 'Worker safety verified. Alert cleared.', actor: 'Marcus Vance', type: 'resolution' }
-    ],
-    escalation: {
-      level: 'Tier 1 (Gatehouse)',
-      slaMinutes: 15,
-      elapsedMinutes: 7,
-      autoEscalateTarget: 'EHS Director',
-      isEscalated: false
-    },
-    resolution: {
-      resolvedBy: 'Marcus Vance (EHS Director)',
-      resolvedAt: new Date(Date.now() - 110 * 60 * 1000).toISOString(),
-      rootCause: 'False Alarm - Hardhat removed during scheduled lunch break in tunnel rest enclave.',
-      correctiveAction: 'Instructed worker to maintain hardhat attachment or log break status on mobile app.',
-      verificationOfficer: 'Marcus Vance'
-    },
-    history: [
-      { timestamp: '08:45 AM', action: 'Created', user: 'Hardhat Telematics' },
-      { timestamp: '08:52 AM', action: 'Resolved', user: 'Marcus Vance' }
-    ]
-  },
-  {
-    id: 'ALT-1007',
-    type: 'warning',
-    category: 'Visitor',
-    priority: 'Medium',
-    status: 'In Progress',
-    title: 'Visitor Overstayed Authorized Site Time Limit',
-    message: 'Visitor Frank Reynolds (Titan Heavy Machinery) exceeded 4-hour authorized visit duration by 70 minutes.',
-    timestamp: new Date(Date.now() - 150 * 60 * 1000),
-    assignedTo: 'Gatehouse Reception Officer',
-    assignedRole: 'Visitor Access Controller',
-    assignedAt: new Date(Date.now() - 140 * 60 * 1000).toISOString(),
-    aiSummary: {
-      rootCause: 'Overstayed due to extended hydraulic troubleshooting on Crane TC-01 with site mechanics.',
-      threatScore: 62,
-      recommendedActions: [
-        'Contact host officer (Jake Miller) to request pass extension.',
-        'Update visitor stay duration in Visitor Management Portal.'
-      ]
-    },
-    evidence: {
-      locationZone: 'Heavy Crane & Exclusion Area',
-      rfidTagId: 'HH-9921 (Visitor Pass)',
-      telemetryLog: '[VISITOR_PASS] Issued: 06:15 AM | Expired: 10:15 AM | Current Location: Crane Yard'
-    },
-    comments: [
-      { id: 'c1', author: 'Gatehouse', role: 'Security Officer', timestamp: '08:20 AM', text: 'Host Jake Miller confirmed extension approved for crane repairs.' }
-    ],
-    timeline: [
-      { time: '10:15 AM', title: 'Pass Expiration', description: '4-hour duration elapsed without checkout.', actor: 'Visitor Engine', type: 'trigger' }
-    ],
-    escalation: {
-      level: 'Tier 1 (Gatehouse)',
-      slaMinutes: 60,
-      elapsedMinutes: 70,
-      autoEscalateTarget: 'Security Lead',
-      isEscalated: false
-    },
-    history: [
-      { timestamp: '10:15 AM', action: 'Overstay Flagged', user: 'Visitor System' }
-    ]
-  },
-  {
-    id: 'ALT-1008',
-    type: 'info',
-    category: 'Maintenance',
-    priority: 'Low',
-    status: 'New',
-    title: 'Site Diesel Generator GEN-02 Scheduled Filter Service Due',
-    message: 'Generator GEN-02 reached 500 operating hours threshold. Preventive oil & air filter maintenance required.',
-    timestamp: new Date(Date.now() - 200 * 60 * 1000),
-    assignedTo: 'Maintenance Dispatch',
-    assignedRole: 'Facilities Engineer',
-    aiSummary: {
-      rootCause: 'Routine preventive maintenance schedule milestone reached.',
-      threatScore: 30,
-      recommendedActions: [
-        'Schedule filter replacement during non-peak hours (18:00 - 20:00).',
-        'Issue work order to Mechanical Maintenance Unit.'
-      ]
-    },
-    evidence: {
-      locationZone: 'Laydown Yard & Material Staging',
-      telemetryLog: '[GEN-02] Hours: 500.4 hrs | Fuel: 72% | Temp: 74°C'
-    },
-    comments: [],
-    timeline: [
-      { time: '07:25 AM', title: 'Hours Threshold Reached', description: 'GEN-02 crossed 500 operating hours.', actor: 'Generator Telematics', type: 'trigger' }
-    ],
-    escalation: {
-      level: 'Tier 1 (Gatehouse)',
-      slaMinutes: 480,
-      elapsedMinutes: 200,
-      autoEscalateTarget: 'Maintenance Manager',
-      isEscalated: false
-    },
-    history: [
-      { timestamp: '07:25 AM', action: 'Created', user: 'System Telematics' }
-    ]
-  },
-  {
-    id: 'ALT-1009',
-    type: 'warning',
     category: 'Weather',
     priority: 'High',
     status: 'In Progress',
     title: 'High Wind Gust Alert > 48 km/h - Tower Crane Halt Advised',
     message: 'Anemometer SENS-WIND-01 registered sustained wind gusts of 52 km/h at 45m elevation on Tower Crane TC-01.',
     timestamp: new Date(Date.now() - 35 * 60 * 1000),
-    assignedTo: 'Site EHS Weather Desk',
+    assignedTo: 'Marcus Vance (EHS Director)',
     assignedRole: 'EHS Safety Controller',
     assignedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
     aiSummary: {
@@ -434,67 +271,105 @@ const INITIAL_ENTERPRISE_ALERTS: AIAlert[] = [
     history: [
       { timestamp: '10:10 AM', action: 'Created', user: 'Anemometer System' }
     ]
-  },
-  {
-    id: 'ALT-1010',
-    type: 'info',
-    category: 'System',
-    priority: 'Low',
-    status: 'Resolved',
-    title: 'Edge AI Video Server Sync Latency Normalised',
-    message: 'Edge Server EDGE-CAM-01 video buffer synchronization recovered. Buffer delay returned to < 120ms.',
-    timestamp: new Date(Date.now() - 300 * 60 * 1000),
-    assignedTo: 'IT Network Ops',
-    assignedRole: 'System Administrator',
-    aiSummary: {
-      rootCause: 'Temporary network congestion during scheduled 05:00 AM cloud database backup sync.',
-      threatScore: 25,
-      recommendedActions: [
-        'Adjust backup batch window to 02:00 AM off-peak hours.'
-      ]
-    },
-    evidence: {
-      locationZone: 'Site Office & Welcome Center',
-      telemetryLog: '[EDGE-CAM-01] Buffer Delay: 112ms (Peak was 1,840ms) | Status: OPTIMAL'
-    },
-    comments: [],
-    timeline: [
-      { time: '05:45 AM', title: 'Buffer Normalized', description: 'Latency dropped back to 112ms.', actor: 'Health Monitor', type: 'system' }
-    ],
-    escalation: {
-      level: 'Tier 1 (Gatehouse)',
-      slaMinutes: 300,
-      elapsedMinutes: 300,
-      autoEscalateTarget: 'IT Director',
-      isEscalated: false
-    },
-    resolution: {
-      resolvedBy: 'Auto-Recovery Service',
-      resolvedAt: new Date(Date.now() - 290 * 60 * 1000).toISOString(),
-      rootCause: 'Temporary bandwidth constriction during database backup.',
-      correctiveAction: 'Rescheduled automated backups to 02:00 AM.',
-      verificationOfficer: 'IT System Admin'
-    },
-    history: [
-      { timestamp: '05:45 AM', action: 'Resolved automatically', user: 'System Health' }
-    ]
   }
 ];
 
-export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
+const INITIAL_RULES: AlertRule[] = [
+  {
+    id: 'RULE-101',
+    name: 'Critical Gas Hazard Auto-Evacuate & Dispatch',
+    category: 'Emergency',
+    priorityThreshold: 'Critical',
+    targetZone: 'Confined Shaft & Tunneling',
+    slaMinutes: 10,
+    autoAssignOfficer: 'Marcus Vance (EHS Director)',
+    autoEscalateTier: 'Tier 2 (EHS Director)',
+    triggerSiren: true,
+    notifySmsEmail: true,
+    enabled: true,
+    triggerCount: 14,
+    lastTriggered: '10:33 AM Today'
+  },
+  {
+    id: 'RULE-102',
+    name: 'High-Elevation Fall Risk Safety Stand-Down',
+    category: 'Safety',
+    priorityThreshold: 'High',
+    targetZone: 'Structure & Scaffolding (L1-L4)',
+    slaMinutes: 20,
+    autoAssignOfficer: 'Elena Rostova (Field Safety Lead)',
+    autoEscalateTier: 'Tier 1 (Gatehouse)',
+    triggerSiren: false,
+    notifySmsEmail: true,
+    enabled: true,
+    triggerCount: 8,
+    lastTriggered: '10:17 AM Today'
+  },
+  {
+    id: 'RULE-103',
+    name: 'Turnstile Blacklist Intercept & Lockdown',
+    category: 'Security',
+    priorityThreshold: 'Critical',
+    targetZone: 'Gate 1 Gatehouse',
+    slaMinutes: 15,
+    autoAssignOfficer: 'Gate 1 Security Lead',
+    autoEscalateTier: 'Tier 2 (EHS Director)',
+    triggerSiren: false,
+    notifySmsEmail: true,
+    enabled: true,
+    triggerCount: 5,
+    lastTriggered: '10:00 AM Today'
+  }
+];
+
+const INITIAL_BROADCASTS: EmergencyBroadcast[] = [
+  {
+    id: 'BC-2001',
+    title: 'Confined Shaft L3 CO Gas Spike Evacuation Order',
+    zone: 'Confined Shaft & Tunneling',
+    type: 'Evacuation Order',
+    activatedBy: 'Marcus Vance (EHS Director)',
+    timestamp: '10:34 AM',
+    musterTarget: 20,
+    musterAccounted: 18,
+    status: 'ACTIVE'
+  },
+  {
+    id: 'BC-2002',
+    title: 'Scaffolding L3 Wind Gust Work Suspension',
+    zone: 'Heavy Crane & Exclusion Area',
+    type: 'Weather Lockout',
+    activatedBy: 'System Weather Telematics',
+    timestamp: '10:12 AM',
+    musterTarget: 15,
+    musterAccounted: 15,
+    status: 'CLEARED'
+  }
+];
+
+export default function AlertsTab({ alerts: _propAlerts }: { alerts?: AIAlert[] }) {
+  const [activeSubTab, setActiveSubTab] = useState<'feed' | 'rules' | 'broadcast' | 'heatmap' | 'analytics'>('feed');
+
+  // Filters & State
   const [selectedCategory, setSelectedCategory] = useState<AlertCategory | 'All'>('All');
   const [selectedPriority, setSelectedPriority] = useState<AlertPriority | 'All'>('All');
   const [selectedStatus, setSelectedStatus] = useState<AlertStatus | 'All'>('All');
+  const [selectedZone, setSelectedZone] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Data lists synced to DB
   const [alertList, setAlertList] = useState<AIAlert[]>([]);
+  const [ruleList, setRuleList] = useState<AlertRule[]>([]);
+  const [broadcastList, setBroadcastList] = useState<EmergencyBroadcast[]>([]);
+
+  // Selection & Modals
   const [selectedAlert, setSelectedAlert] = useState<AIAlert | null>(null);
-  
-  // Modals
+  const [selectedAlertIds, setSelectedAlertIds] = useState<string[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateRuleModalOpen, setIsCreateRuleModalOpen] = useState(false);
   const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<'ai_summary' | 'evidence' | 'timeline' | 'resolution' | 'comments'>('ai_summary');
-  
+
   // New Alert Form State
   const [newAlert, setNewAlert] = useState<{
     category: AlertCategory;
@@ -510,10 +385,33 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
     priority: 'High',
     title: '',
     message: '',
-    assignedTo: 'Marcus Vance (EHS Director)',
+    assignedTo: OFFICERS_LIST[0],
     locationZone: 'Main Gate 1',
     cctvCameraId: 'CAM-GATE-1A',
     rfidReaderId: 'RD-GATE-01-TURNSTILE'
+  });
+
+  // New Rule Form State
+  const [newRule, setNewRule] = useState<{
+    name: string;
+    category: AlertCategory | 'All';
+    priorityThreshold: AlertPriority;
+    targetZone: string;
+    slaMinutes: number;
+    autoAssignOfficer: string;
+    autoEscalateTier: 'Tier 1 (Gatehouse)' | 'Tier 2 (EHS Director)' | 'Tier 3 (Site Operations VP)';
+    triggerSiren: boolean;
+    notifySmsEmail: boolean;
+  }>({
+    name: '',
+    category: 'All',
+    priorityThreshold: 'High',
+    targetZone: 'Confined Shaft & Tunneling',
+    slaMinutes: 15,
+    autoAssignOfficer: OFFICERS_LIST[0],
+    autoEscalateTier: 'Tier 2 (EHS Director)',
+    triggerSiren: true,
+    notifySmsEmail: true
   });
 
   // New Comment Input
@@ -523,20 +421,49 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
   const [resolutionData, setResolutionData] = useState({
     rootCause: '',
     correctiveAction: '',
-    verificationOfficer: 'Marcus Vance (EHS Lead)'
+    verificationOfficer: OFFICERS_LIST[0]
   });
 
   // Notification Toast
   const [notificationMsg, setNotificationMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
-  // Firestore Sync & Initial Seed
+  // Handle WebSocket messages
+  const handleWSMessage = useCallback((msg: any) => {
+    if (msg.type === 'safety_alert' || msg.type === 'trigger_safety_alert') {
+      const p = msg.payload || {};
+      const newWsAlert: AIAlert = {
+        id: p.id || `ALT-${Math.floor(Math.random() * 9000) + 1000}`,
+        type: p.severity === 'critical' ? 'security' : 'warning',
+        category: (p.category as AlertCategory) || 'Safety',
+        priority: p.severity === 'critical' ? 'Critical' : 'High',
+        status: 'New',
+        title: p.title || 'Zero-Latency WS Emergency Hazard Alert',
+        message: p.location ? `Real-time hazard triggered at ${p.location}` : 'Immediate worker safety response required.',
+        timestamp: new Date(),
+        assignedTo: OFFICERS_LIST[0],
+        evidence: { locationZone: p.location || 'Site Perimeter' }
+      };
+
+      setAlertList(prev => [newWsAlert, ...prev.filter(a => a.id !== newWsAlert.id)]);
+      setNotificationMsg({ type: 'error', text: `⚡ ZERO-LATENCY WS ALERT: ${newWsAlert.title}` });
+    } else if (msg.type === 'alert_acknowledged') {
+      const p = msg.payload || {};
+      setAlertList(prev => prev.map(a => a.id === p.alertId ? { ...a, status: 'In Progress' } : a));
+      setNotificationMsg({ type: 'info', text: `⚡ WS Alert ${p.alertId} acknowledged` });
+    }
+  }, []);
+
+  const { isConnected: isWsConnected, triggerSafetyAlert: wsTriggerSafetyAlert } = useWebSocket(handleWSMessage);
+
+  // MongoDB & Firestore Sync & Initial Seed
   useEffect(() => {
-    const seedAndSubscribe = async () => {
+    // 1. Sync Alerts
+    const seedAndSubscribeAlerts = async () => {
       try {
         const snap = await getDocs(collection(db, 'alerts_enterprise'));
         if (snap.empty) {
           for (const item of INITIAL_ENTERPRISE_ALERTS) {
-            await setDoc(doc(db, 'alerts_enterprise', item.id || `ALT-${Math.floor(Math.random() * 9000) + 1000}`), {
+            await setDoc(doc(db, 'alerts_enterprise', item.id!), {
               ...item,
               timestamp: item.timestamp.toISOString()
             });
@@ -547,9 +474,9 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
       }
     };
 
-    seedAndSubscribe();
+    seedAndSubscribeAlerts();
 
-    const unsub = onSnapshot(collection(db, 'alerts_enterprise'), (snapshot) => {
+    const unsubAlerts = onSnapshot(collection(db, 'alerts_enterprise'), (snapshot) => {
       const data = snapshot.docs.map(docSnap => {
         const d = docSnap.data();
         return {
@@ -558,12 +485,54 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
           timestamp: typeof d.timestamp === 'string' ? new Date(d.timestamp) : (d.timestamp?.toDate ? d.timestamp.toDate() : new Date())
         } as AIAlert;
       });
-
-      // Combine with props alerts if any unique ones
       setAlertList(data.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
     });
 
-    return () => unsub();
+    // 2. Sync Rules
+    const seedAndSubscribeRules = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'alert_rules'));
+        if (snap.empty) {
+          for (const r of INITIAL_RULES) {
+            await setDoc(doc(db, 'alert_rules', r.id), r);
+          }
+        }
+      } catch (err) {
+        console.error('Error seeding alert rules:', err);
+      }
+    };
+    seedAndSubscribeRules();
+
+    const unsubRules = onSnapshot(collection(db, 'alert_rules'), (snapshot) => {
+      const data = snapshot.docs.map(docSnap => docSnap.data() as AlertRule);
+      setRuleList(data);
+    });
+
+    // 3. Sync Broadcasts
+    const seedAndSubscribeBroadcasts = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'emergency_broadcasts'));
+        if (snap.empty) {
+          for (const b of INITIAL_BROADCASTS) {
+            await setDoc(doc(db, 'emergency_broadcasts', b.id), b);
+          }
+        }
+      } catch (err) {
+        console.error('Error seeding broadcasts:', err);
+      }
+    };
+    seedAndSubscribeBroadcasts();
+
+    const unsubBroadcasts = onSnapshot(collection(db, 'emergency_broadcasts'), (snapshot) => {
+      const data = snapshot.docs.map(docSnap => docSnap.data() as EmergencyBroadcast);
+      setBroadcastList(data);
+    });
+
+    return () => {
+      unsubAlerts();
+      unsubRules();
+      unsubBroadcasts();
+    };
   }, []);
 
   // Filtered Alert Roster
@@ -572,6 +541,7 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
       const matchesCategory = selectedCategory === 'All' || a.category === selectedCategory;
       const matchesPriority = selectedPriority === 'All' || a.priority === selectedPriority;
       const matchesStatus = selectedStatus === 'All' || a.status === selectedStatus;
+      const matchesZone = selectedZone === 'All' || (a.evidence?.locationZone && a.evidence.locationZone.includes(selectedZone));
       
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = !searchTerm ||
@@ -581,9 +551,9 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
         (a.assignedTo && a.assignedTo.toLowerCase().includes(searchLower)) ||
         (a.evidence?.locationZone && a.evidence.locationZone.toLowerCase().includes(searchLower));
 
-      return matchesCategory && matchesPriority && matchesStatus && matchesSearch;
+      return matchesCategory && matchesPriority && matchesStatus && matchesZone && matchesSearch;
     });
-  }, [alertList, selectedCategory, selectedPriority, selectedStatus, searchTerm]);
+  }, [alertList, selectedCategory, selectedPriority, selectedStatus, selectedZone, searchTerm]);
 
   // Key KPI Metrics
   const metrics = useMemo(() => {
@@ -596,6 +566,58 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
 
     return { total, critical, inProgress, escalated, resolved, emergencyCount };
   }, [alertList]);
+
+  // Handle Acknowledge Alert (New -> In Progress)
+  const handleAcknowledgeAlert = async (alert: AIAlert) => {
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const updatedHistory = [...(alert.history || []), {
+      timestamp: nowStr,
+      action: 'Acknowledged by EHS Control Officer',
+      user: 'EHS Controller'
+    }];
+    const updatedTimeline = [...(alert.timeline || []), {
+      time: nowStr,
+      title: 'Acknowledged',
+      description: 'Incident acknowledged and converted to In Progress state.',
+      actor: 'EHS Controller',
+      type: 'assignment' as const
+    }];
+
+    try {
+      await updateDoc(doc(db, 'alerts_enterprise', alert.id!), {
+        status: 'In Progress',
+        history: updatedHistory,
+        timeline: updatedTimeline
+      });
+      setNotificationMsg({ type: 'success', text: `Alert ${alert.id} acknowledged & set to IN PROGRESS!` });
+    } catch (err) {
+      console.error('Error acknowledging alert:', err);
+    }
+  };
+
+  // Handle Reassign Officer
+  const handleReassignOfficer = async (alert: AIAlert, newOfficer: string) => {
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const updatedHistory = [...(alert.history || []), {
+      timestamp: nowStr,
+      action: `Reassigned to ${newOfficer}`,
+      user: 'EHS Officer'
+    }];
+
+    try {
+      await updateDoc(doc(db, 'alerts_enterprise', alert.id!), {
+        assignedTo: newOfficer,
+        assignedAt: new Date().toISOString(),
+        history: updatedHistory
+      });
+      if (selectedAlert && selectedAlert.id === alert.id) {
+        setSelectedAlert({ ...selectedAlert, assignedTo: newOfficer, history: updatedHistory });
+      }
+      setNotificationMsg({ type: 'info', text: `Alert ${alert.id} reassigned to ${newOfficer}` });
+    } catch (err) {
+      console.error('Error reassigning alert:', err);
+    }
+  };
 
   // Handle Create New Alert
   const handleCreateAlertSubmit = async (e: React.FormEvent) => {
@@ -642,7 +664,7 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
         level: 'Tier 1 (Gatehouse)',
         slaMinutes: newAlert.priority === 'Critical' ? 15 : 60,
         elapsedMinutes: 0,
-        autoEscalateTarget: 'EHS Director (Marcus Vance)',
+        autoEscalateTarget: OFFICERS_LIST[0],
         isEscalated: false
       },
       history: [
@@ -655,14 +677,14 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
         ...createdRecord,
         timestamp: now.toISOString()
       });
-      setNotificationMsg({ type: 'success', text: `Enterprise Alert ${alertId} generated & dispatched!` });
+      setNotificationMsg({ type: 'success', text: `Enterprise Alert ${alertId} generated & persisted to MongoDB!` });
       setIsCreateModalOpen(false);
       setNewAlert({
         category: 'Safety',
         priority: 'High',
         title: '',
         message: '',
-        assignedTo: 'Marcus Vance (EHS Director)',
+        assignedTo: OFFICERS_LIST[0],
         locationZone: 'Main Gate 1',
         cctvCameraId: 'CAM-GATE-1A',
         rfidReaderId: 'RD-GATE-01-TURNSTILE'
@@ -703,7 +725,7 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
         history: updatedHistory
       });
       setNewCommentText('');
-      setNotificationMsg({ type: 'success', text: 'Comment added to activity thread.' });
+      setNotificationMsg({ type: 'success', text: 'Comment added to activity thread in MongoDB.' });
     } catch (err) {
       console.error('Error adding comment:', err);
     }
@@ -782,14 +804,138 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
       });
 
       setIsResolveModalOpen(false);
-      setNotificationMsg({ type: 'success', text: `Alert ${selectedAlert.id} marked RESOLVED with EHS sign-off!` });
+      setNotificationMsg({ type: 'success', text: `Alert ${selectedAlert.id} marked RESOLVED with EHS sign-off in MongoDB!` });
       setResolutionData({
         rootCause: '',
         correctiveAction: '',
-        verificationOfficer: 'Marcus Vance (EHS Lead)'
+        verificationOfficer: OFFICERS_LIST[0]
       });
     } catch (err) {
       console.error('Error resolving alert:', err);
+    }
+  };
+
+  // Bulk Operations
+  const handleBulkAcknowledge = async () => {
+    if (selectedAlertIds.length === 0) return;
+    try {
+      for (const id of selectedAlertIds) {
+        await updateDoc(doc(db, 'alerts_enterprise', id), {
+          status: 'In Progress'
+        });
+      }
+      setNotificationMsg({ type: 'success', text: `Bulk acknowledged ${selectedAlertIds.length} alerts.` });
+      setSelectedAlertIds([]);
+    } catch (err) {
+      console.error('Error in bulk acknowledge:', err);
+    }
+  };
+
+  const handleBulkEscalate = async () => {
+    if (selectedAlertIds.length === 0) return;
+    try {
+      for (const id of selectedAlertIds) {
+        await updateDoc(doc(db, 'alerts_enterprise', id), {
+          status: 'Escalated',
+          'escalation.isEscalated': true
+        });
+      }
+      setNotificationMsg({ type: 'error', text: `Bulk escalated ${selectedAlertIds.length} alerts to Tier 2!` });
+      setSelectedAlertIds([]);
+    } catch (err) {
+      console.error('Error in bulk escalate:', err);
+    }
+  };
+
+  // Create Escalation Rule
+  const handleCreateRuleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRule.name) return;
+
+    const ruleId = `RULE-${Math.floor(Math.random() * 899) + 100}`;
+    const ruleObj: AlertRule = {
+      id: ruleId,
+      ...newRule,
+      enabled: true,
+      triggerCount: 0,
+      lastTriggered: 'Never'
+    };
+
+    try {
+      await setDoc(doc(db, 'alert_rules', ruleId), ruleObj);
+      setNotificationMsg({ type: 'success', text: `Escalation Rule ${ruleId} created & saved to MongoDB!` });
+      setIsCreateRuleModalOpen(false);
+      setNewRule({
+        name: '',
+        category: 'All',
+        priorityThreshold: 'High',
+        targetZone: 'Confined Shaft & Tunneling',
+        slaMinutes: 15,
+        autoAssignOfficer: OFFICERS_LIST[0],
+        autoEscalateTier: 'Tier 2 (EHS Director)',
+        triggerSiren: true,
+        notifySmsEmail: true
+      });
+    } catch (err) {
+      console.error('Error creating rule:', err);
+    }
+  };
+
+  // Toggle Rule Enable/Disable
+  const handleToggleRule = async (rule: AlertRule) => {
+    try {
+      await updateDoc(doc(db, 'alert_rules', rule.id), {
+        enabled: !rule.enabled
+      });
+      setNotificationMsg({ type: 'info', text: `Rule ${rule.id} ${!rule.enabled ? 'Enabled' : 'Disabled'}` });
+    } catch (err) {
+      console.error('Error toggling rule:', err);
+    }
+  };
+
+  // Delete Rule
+  const handleDeleteRule = async (ruleId: string) => {
+    try {
+      await deleteDoc(doc(db, 'alert_rules', ruleId));
+      setNotificationMsg({ type: 'info', text: `Rule ${ruleId} deleted from database.` });
+    } catch (err) {
+      console.error('Error deleting rule:', err);
+    }
+  };
+
+  // Trigger Emergency Broadcast Siren
+  const handleTriggerBroadcast = async (zone: string, type: EmergencyBroadcast['type'], title: string) => {
+    const bcId = `BC-${Math.floor(Math.random() * 8999) + 1000}`;
+    const bcObj: EmergencyBroadcast = {
+      id: bcId,
+      title,
+      zone,
+      type,
+      activatedBy: 'Marcus Vance (EHS Director)',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      musterTarget: 25,
+      musterAccounted: 22,
+      status: 'ACTIVE'
+    };
+
+    try {
+      await setDoc(doc(db, 'emergency_broadcasts', bcId), bcObj);
+      wsTriggerSafetyAlert(`⚡ EMERGENCY SIREN: ${title}`, zone, 'critical');
+      setNotificationMsg({ type: 'error', text: `🚨 SIREN BROADCAST ACTIVATED FOR ${zone.toUpperCase()}!` });
+    } catch (err) {
+      console.error('Error triggering broadcast:', err);
+    }
+  };
+
+  // Clear Emergency Broadcast
+  const handleClearBroadcast = async (bcId: string) => {
+    try {
+      await updateDoc(doc(db, 'emergency_broadcasts', bcId), {
+        status: 'CLEARED'
+      });
+      setNotificationMsg({ type: 'success', text: `Broadcast ${bcId} marked CLEARED & siren deactivated.` });
+    } catch (err) {
+      console.error('Error clearing broadcast:', err);
     }
   };
 
@@ -854,32 +1000,76 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
     );
   };
 
+  // Chart Data for Analytics Tab
+  const categoryChartData = useMemo(() => {
+    return CATEGORIES_LIST.map(cat => ({
+      name: cat,
+      count: alertList.filter(a => a.category === cat).length
+    })).filter(c => c.count > 0);
+  }, [alertList]);
+
+  const priorityPieData = useMemo(() => {
+    const counts = { Critical: 0, High: 0, Medium: 0, Low: 0 };
+    alertList.forEach(a => {
+      const p = a.priority || 'Medium';
+      if (counts[p] !== undefined) counts[p]++;
+    });
+    return [
+      { name: 'Critical', value: counts.Critical, color: '#e11d48' },
+      { name: 'High', value: counts.High, color: '#f59e0b' },
+      { name: 'Medium', value: counts.Medium, color: '#3b82f6' },
+      { name: 'Low', value: counts.Low, color: '#64748b' }
+    ];
+  }, [alertList]);
+
   return (
     <div className="w-full flex flex-col p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       
-      {/* Top Header & Quick Trigger Bar */}
+      {/* Top Header & Sub-Nav Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
               <Siren className="w-7 h-7 text-rose-600 animate-pulse" />
-              Enterprise Alert Center
+              Enterprise Alert Command Center
             </h2>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500/10 text-rose-600 border border-rose-500/20">
-              Active Monitoring Live
+              MongoDB Live Sync Active
+            </span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1.5 border ${
+              isWsConnected 
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+            }`}>
+              {isWsConnected ? <Wifi className="w-3 h-3 text-emerald-500 animate-pulse" /> : <WifiOff className="w-3 h-3 text-amber-500" />}
+              {isWsConnected ? 'WebSocket: 0ms Sync' : 'WebSocket: Connecting...'}
             </span>
           </div>
           <p className="text-slate-500 dark:text-slate-400 font-medium text-xs md:text-sm mt-0.5">
-            Emergency alarms, safety hazards, equipment telematics, reader failures & AI threat escalation
+            Zero-latency emergency sirens, AI hazard diagnostics, automated dispatch rules & MongoDB persistence
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
+            onClick={() => {
+              wsTriggerSafetyAlert(
+                '⚡ INSTANT WS PANIC: High Voltage Perimeter Breach',
+                'Zone 4 High Voltage Substation',
+                'critical'
+              );
+            }}
+            className="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 text-white rounded-xl text-xs font-black shadow-md transition flex items-center gap-1.5"
+            title="Broadcast Zero-Latency WebSocket Panic Alert"
+          >
+            <Zap size={14} className="fill-current" /> Instant WS Panic
+          </button>
+
+          <button
             onClick={() => setIsCreateModalOpen(true)}
             className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2"
           >
-            <Plus size={15} /> Trigger Test Incident
+            <Plus size={15} /> Trigger Incident
           </button>
 
           <button
@@ -900,9 +1090,67 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
         </div>
       </div>
 
+      {/* Main Subtabs Navigation */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 overflow-x-auto">
+        <button
+          onClick={() => setActiveSubTab('feed')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+            activeSubTab === 'feed'
+              ? 'bg-[#007BC4] text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700'
+          }`}
+        >
+          <BellRing size={15} /> Live Incident Stream ({alertList.length})
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('rules')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+            activeSubTab === 'rules'
+              ? 'bg-[#007BC4] text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700'
+          }`}
+        >
+          <SlidersHorizontal size={15} /> Automated Dispatch Rules ({ruleList.length})
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('broadcast')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+            activeSubTab === 'broadcast'
+              ? 'bg-[#007BC4] text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700'
+          }`}
+        >
+          <Volume2 size={15} /> Emergency Siren & Muster Control
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('heatmap')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+            activeSubTab === 'heatmap'
+              ? 'bg-[#007BC4] text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700'
+          }`}
+        >
+          <Layers3 size={15} /> Spatial Hazard Heatmap
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('analytics')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+            activeSubTab === 'analytics'
+              ? 'bg-[#007BC4] text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700'
+          }`}
+        >
+          <BarChart2 size={15} /> SLA Compliance & Metrics
+        </button>
+      </div>
+
       {/* Notification Toast */}
       {notificationMsg && (
-        <div className={`p-3.5 rounded-xl text-xs font-bold flex items-center justify-between shadow-sm animate-in fade-in border ${
+        <div className={`p-3.5 rounded-xl text-xs font-bold flex items-center justify-between shadow-sm border ${
           notificationMsg.type === 'error' ? 'bg-rose-50 text-rose-800 border-rose-200' :
           notificationMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
           'bg-blue-50 text-blue-800 border-blue-200'
@@ -917,250 +1165,590 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
         </div>
       )}
 
-      {/* KPI Cards Overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Incidents</span>
-          <span className="text-2xl font-black text-slate-900 dark:text-white">{metrics.total}</span>
-        </div>
+      {/* ==================== SUBTAB 1: LIVE INCIDENT STREAM ==================== */}
+      {activeSubTab === 'feed' && (
+        <div className="space-y-6">
+          
+          {/* KPI Cards Overview */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Incidents</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{metrics.total}</span>
+            </div>
 
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Emergency & Critical</span>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-2xl font-black text-rose-600">{metrics.critical + metrics.emergencyCount}</span>
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Emergency & Critical</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-2xl font-black text-rose-600">{metrics.critical + metrics.emergencyCount}</span>
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">In Progress</span>
+              <span className="text-2xl font-black text-amber-600">{metrics.inProgress}</span>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Escalated (Tier 2/3)</span>
+              <span className="text-2xl font-black text-indigo-600">{metrics.escalated}</span>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Resolved & Cleared</span>
+              <span className="text-2xl font-black text-emerald-600">{metrics.resolved}</span>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Avg SLA Response</span>
+              <span className="text-2xl font-black text-slate-800 dark:text-slate-200">8.4m</span>
+            </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">In Progress</span>
-          <span className="text-2xl font-black text-amber-600">{metrics.inProgress}</span>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Escalated (Tier 2/3)</span>
-          <span className="text-2xl font-black text-indigo-600">{metrics.escalated}</span>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Resolved & Cleared</span>
-          <span className="text-2xl font-black text-emerald-600">{metrics.resolved}</span>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Avg SLA Response</span>
-          <span className="text-2xl font-black text-slate-800 dark:text-slate-200">8.4m</span>
-        </div>
-      </div>
-
-      {/* Category Pills Bar */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        <button
-          onClick={() => setSelectedCategory('All')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
-            selectedCategory === 'All'
-              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          All Categories ({alertList.length})
-        </button>
-
-        {CATEGORIES_LIST.map(cat => {
-          const cfg = CATEGORY_CONFIG[cat];
-          const Icon = cfg.icon;
-          const count = alertList.filter(a => a.category === cat).length;
-
-          return (
+          {/* Category Pills Bar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
             <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap border ${
-                selectedCategory === cat
-                  ? `${cfg.bg} ${cfg.color} ${cfg.border} ring-2 ring-offset-1 ring-current shadow-sm`
-                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+              onClick={() => setSelectedCategory('All')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+                selectedCategory === 'All'
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
               }`}
             >
-              <Icon size={14} className={cfg.color} />
-              {cat} ({count})
+              All Categories ({alertList.length})
             </button>
-          );
-        })}
-      </div>
 
-      {/* Filter Toolbar & Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-3.5" />
-          <input
-            type="text"
-            placeholder="Search incident ID, title, zone, officer..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500"
-          />
-        </div>
+            {CATEGORIES_LIST.map(cat => {
+              const cfg = CATEGORY_CONFIG[cat];
+              const Icon = cfg.icon;
+              const count = alertList.filter(a => a.category === cat).length;
 
-        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-          <select
-            value={selectedPriority}
-            onChange={e => setSelectedPriority(e.target.value as any)}
-            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 px-3 py-1.5 outline-none"
-          >
-            <option value="All">All Priorities</option>
-            <option value="Critical">Critical Priority</option>
-            <option value="High">High Priority</option>
-            <option value="Medium">Medium Priority</option>
-            <option value="Low">Low Priority</option>
-          </select>
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap border ${
+                    selectedCategory === cat
+                      ? `${cfg.bg} ${cfg.color} ${cfg.border} ring-2 ring-offset-1 ring-current shadow-sm`
+                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <Icon size={14} className={cfg.color} />
+                  {cat} ({count})
+                </button>
+              );
+            })}
+          </div>
 
-          <select
-            value={selectedStatus}
-            onChange={e => setSelectedStatus(e.target.value as any)}
-            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 px-3 py-1.5 outline-none"
-          >
-            <option value="All">All Statuses</option>
-            <option value="New">New</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Escalated">Escalated</option>
-            <option value="Resolved">Resolved</option>
-          </select>
-        </div>
-      </div>
+          {/* Filter Toolbar & Bulk Operations */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-3.5" />
+              <input
+                type="text"
+                placeholder="Search incident ID, title, zone, officer..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
 
-      {/* Incident List Cards */}
-      <div className="space-y-3">
-        {filteredAlerts.map(alert => {
-          const cat = alert.category || 'Safety';
-          const cfg = CATEGORY_CONFIG[cat];
-          const Icon = cfg.icon;
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+              <select
+                value={selectedPriority}
+                onChange={e => setSelectedPriority(e.target.value as any)}
+                className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 px-3 py-1.5 outline-none"
+              >
+                <option value="All">All Priorities</option>
+                <option value="Critical">Critical Priority</option>
+                <option value="High">High Priority</option>
+                <option value="Medium">Medium Priority</option>
+                <option value="Low">Low Priority</option>
+              </select>
 
-          return (
-            <div
-              key={alert.id}
-              className={`p-4 md:p-5 rounded-2xl border transition shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
-                alert.priority === 'Critical' ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900' :
-                alert.priority === 'High' ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900' :
-                'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300'
-              }`}
-            >
-              <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                <div className={`p-3 rounded-2xl shrink-0 ${cfg.bg} ${cfg.border} border shadow-inner`}>
-                  <Icon size={22} className={cfg.color} />
+              <select
+                value={selectedStatus}
+                onChange={e => setSelectedStatus(e.target.value as any)}
+                className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 px-3 py-1.5 outline-none"
+              >
+                <option value="All">All Statuses</option>
+                <option value="New">New</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Escalated">Escalated</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+
+              {selectedAlertIds.length > 0 && (
+                <div className="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-700 pl-2">
+                  <span className="text-[10px] font-bold text-slate-500">{selectedAlertIds.length} Selected</span>
+                  <button
+                    onClick={handleBulkAcknowledge}
+                    className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[11px] font-bold hover:bg-amber-100"
+                  >
+                    Acknowledge All
+                  </button>
+                  <button
+                    onClick={handleBulkEscalate}
+                    className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold hover:bg-rose-100"
+                  >
+                    Escalate All
+                  </button>
                 </div>
+              )}
+            </div>
+          </div>
 
-                <div className="space-y-1 min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-xs font-black text-rose-600 bg-rose-50 dark:bg-rose-900/50 px-2 py-0.5 rounded-md border border-rose-200">
-                      {alert.id}
-                    </span>
+          {/* Incident List Cards */}
+          <div className="space-y-3">
+            {filteredAlerts.map(alert => {
+              const cat = alert.category || 'Safety';
+              const cfg = CATEGORY_CONFIG[cat];
+              const Icon = cfg.icon;
+              const isSelected = selectedAlertIds.includes(alert.id!);
 
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${cfg.bg} ${cfg.color} border ${cfg.border}`}>
-                      {cat}
-                    </span>
+              return (
+                <div
+                  key={alert.id}
+                  className={`p-4 md:p-5 rounded-2xl border transition shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                    alert.priority === 'Critical' ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900' :
+                    alert.priority === 'High' ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900' :
+                    'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        setSelectedAlertIds(prev => 
+                          prev.includes(alert.id!) ? prev.filter(i => i !== alert.id) : [...prev, alert.id!]
+                        );
+                      }}
+                      className="mt-1 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    />
 
-                    {alert.priority === 'Critical' && (
-                      <Badge variant="outline" className="bg-rose-600 text-white font-black text-[10px] uppercase border-0 animate-pulse">
-                        Critical Priority
-                      </Badge>
-                    )}
-                    {alert.priority === 'High' && (
-                      <Badge variant="outline" className="bg-amber-500 text-white font-black text-[10px] uppercase border-0">
-                        High Priority
-                      </Badge>
-                    )}
-                    {alert.priority === 'Medium' && (
-                      <Badge variant="outline" className="bg-blue-500 text-white font-black text-[10px] uppercase border-0">
-                        Medium
-                      </Badge>
-                    )}
-                    {alert.priority === 'Low' && (
-                      <Badge variant="outline" className="bg-slate-400 text-white font-black text-[10px] uppercase border-0">
-                        Low
-                      </Badge>
-                    )}
+                    <div className={`p-3 rounded-2xl shrink-0 ${cfg.bg} ${cfg.border} border shadow-inner`}>
+                      <Icon size={22} className={cfg.color} />
+                    </div>
 
-                    <span className="text-xs text-slate-400 font-mono">
-                      {alert.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs font-black text-rose-600 bg-rose-50 dark:bg-rose-900/50 px-2 py-0.5 rounded-md border border-rose-200">
+                          {alert.id}
+                        </span>
+
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${cfg.bg} ${cfg.color} border ${cfg.border}`}>
+                          {cat}
+                        </span>
+
+                        {alert.priority === 'Critical' && (
+                          <Badge variant="outline" className="bg-rose-600 text-white font-black text-[10px] uppercase border-0 animate-pulse">
+                            Critical Priority
+                          </Badge>
+                        )}
+                        {alert.priority === 'High' && (
+                          <Badge variant="outline" className="bg-amber-500 text-white font-black text-[10px] uppercase border-0">
+                            High Priority
+                          </Badge>
+                        )}
+                        {alert.priority === 'Medium' && (
+                          <Badge variant="outline" className="bg-blue-500 text-white font-black text-[10px] uppercase border-0">
+                            Medium
+                          </Badge>
+                        )}
+                        {alert.priority === 'Low' && (
+                          <Badge variant="outline" className="bg-slate-400 text-white font-black text-[10px] uppercase border-0">
+                            Low
+                          </Badge>
+                        )}
+
+                        <span className="text-xs text-slate-400 font-mono">
+                          {alert.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+
+                      <h3 className="font-bold text-slate-900 dark:text-white text-base leading-snug">
+                        {alert.title || alert.message}
+                      </h3>
+
+                      <p className="text-xs text-slate-600 dark:text-slate-300 font-medium line-clamp-2">
+                        {alert.message}
+                      </p>
+
+                      <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 pt-1 flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} className="text-[#007BC4]" />
+                          {alert.evidence?.locationZone || 'Site Main Area'}
+                        </span>
+
+                        <div className="flex items-center gap-1 text-slate-700 dark:text-slate-200">
+                          <UserCheck size={12} className="text-emerald-600" />
+                          <span>Assigned:</span>
+                          <select
+                            value={alert.assignedTo || OFFICERS_LIST[0]}
+                            onChange={e => handleReassignOfficer(alert, e.target.value)}
+                            className="bg-transparent font-bold border-b border-dashed border-slate-400 outline-none cursor-pointer text-xs"
+                          >
+                            {OFFICERS_LIST.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        </div>
+
+                        {alert.comments && alert.comments.length > 0 && (
+                          <span className="flex items-center gap-1 text-slate-600">
+                            <MessageSquare size={12} />
+                            {alert.comments.length} Comments
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base leading-snug">
-                    {alert.title || alert.message}
-                  </h3>
+                  {/* Status & Actions */}
+                  <div className="flex items-center gap-2 shrink-0 self-end lg:self-center flex-wrap">
+                    {alert.status === 'New' && (
+                      <button
+                        onClick={() => handleAcknowledgeAlert(alert)}
+                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1"
+                        title="Acknowledge Alert & Begin Incident Handling"
+                      >
+                        <Check size={14} /> Acknowledge
+                      </button>
+                    )}
 
-                  <p className="text-xs text-slate-600 dark:text-slate-300 font-medium line-clamp-2">
-                    {alert.message}
-                  </p>
-
-                  <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 pt-1 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <MapPin size={12} className="text-[#007BC4]" />
-                      {alert.evidence?.locationZone || 'Site Main Area'}
-                    </span>
-
-                    <span className="flex items-center gap-1">
-                      <UserCheck size={12} className="text-emerald-600" />
-                      Assigned: <strong className="text-slate-700 dark:text-slate-200">{alert.assignedTo || 'Unassigned'}</strong>
-                    </span>
-
-                    {alert.comments && alert.comments.length > 0 && (
-                      <span className="flex items-center gap-1 text-slate-600">
-                        <MessageSquare size={12} />
-                        {alert.comments.length} Comments
+                    {alert.status === 'Resolved' || alert.resolved ? (
+                      <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                        <CheckCircle2 size={15} /> Resolved
+                      </span>
+                    ) : alert.status === 'Escalated' ? (
+                      <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1.5 animate-pulse">
+                        <ShieldAlert size={15} /> Escalated (Tier 2)
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1.5">
+                        <Clock size={15} /> In Progress
                       </span>
                     )}
+
+                    {alert.status !== 'Resolved' && !alert.resolved && (
+                      <button
+                        onClick={() => handleEscalateAlert(alert)}
+                        className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                        title="Escalate Alert to Executive Tier 2"
+                      >
+                        <ArrowUpRight size={14} /> Escalate
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setSelectedAlert(alert);
+                        setActiveDetailTab('ai_summary');
+                      }}
+                      className="px-3.5 py-1.5 bg-[#007BC4] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                    >
+                      <Eye size={14} /> Details & AI Summary
+                    </button>
                   </div>
                 </div>
+              );
+            })}
+
+            {filteredAlerts.length === 0 && (
+              <div className="py-16 text-center text-slate-500 font-medium bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <CheckCircle2 size={36} className="mx-auto text-emerald-500 mb-2" />
+                No active alerts matching search criteria.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== SUBTAB 2: AUTOMATED DISPATCH RULES ==================== */}
+      {activeSubTab === 'rules' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">Automated Escalation & Dispatch Policy Engine</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Configure automated policies that trigger PA sirens, auto-assign safety officers & escalate SLAs based on hazard conditions.</p>
+            </div>
+            <button
+              onClick={() => setIsCreateRuleModalOpen(true)}
+              className="px-4 py-2 bg-[#007BC4] hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
+            >
+              <Plus size={15} /> Create Escalation Rule
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ruleList.map(rule => (
+              <div key={rule.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm space-y-3 relative">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-bold text-[#007BC4] bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded">
+                    {rule.id}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleRule(rule)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase transition ${
+                        rule.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {rule.enabled ? 'Active' : 'Disabled'}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteRule(rule.id)}
+                      className="text-slate-400 hover:text-rose-600 p-1"
+                      title="Delete Rule"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm">{rule.name}</h4>
+
+                <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                  <div><strong>Category:</strong> {rule.category} | <strong>Min Priority:</strong> {rule.priorityThreshold}</div>
+                  <div><strong>Target Zone:</strong> {rule.targetZone}</div>
+                  <div><strong>Trigger SLA:</strong> {rule.slaMinutes} Mins</div>
+                  <div><strong>Auto-Assign:</strong> {rule.autoAssignOfficer}</div>
+                  <div><strong>Auto-Escalate:</strong> {rule.autoEscalateTier}</div>
+                  <div className="flex gap-2 pt-1">
+                    {rule.triggerSiren && <span className="px-2 py-0.5 bg-rose-50 text-rose-700 text-[10px] font-bold rounded">Siren Enabled</span>}
+                    {rule.notifySmsEmail && <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded">SMS & Email</span>}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center text-[11px] text-slate-400 font-mono">
+                  <span>Triggers: {rule.triggerCount} times</span>
+                  <span>Last: {rule.lastTriggered || 'Never'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== SUBTAB 3: EMERGENCY SIREN & MUSTER CONTROL ==================== */}
+      {activeSubTab === 'broadcast' && (
+        <div className="space-y-6">
+          
+          {/* Master Emergency Siren Activation Box */}
+          <div className="bg-gradient-to-r from-rose-950 via-rose-900 to-slate-900 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+              <div>
+                <span className="px-3 py-1 bg-rose-500/30 text-rose-300 rounded-full text-xs font-black uppercase tracking-wider border border-rose-500/40 inline-flex items-center gap-1.5 mb-2">
+                  <Siren size={14} className="animate-pulse" /> Site-Wide PA & Siren Controller
+                </span>
+                <h3 className="text-2xl font-black">Emergency Siren & Evacuation Broadcast Command</h3>
+                <p className="text-slate-300 text-xs mt-1 max-w-xl">
+                  Broadcast instant audio sirens, send automated SMS alerts to all active on-site personnel, and initiate real-time muster clearance tracking.
+                </p>
               </div>
 
-              {/* Status & Actions */}
-              <div className="flex items-center gap-2 shrink-0 self-end lg:self-center">
-                {alert.status === 'Resolved' || alert.resolved ? (
-                  <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
-                    <CheckCircle2 size={15} /> Resolved
-                  </span>
-                ) : alert.status === 'Escalated' ? (
-                  <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1.5 animate-pulse">
-                    <ShieldAlert size={15} /> Escalated (Tier 2)
-                  </span>
-                ) : (
-                  <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1.5">
-                    <Clock size={15} /> In Progress
-                  </span>
-                )}
-
-                {alert.status !== 'Resolved' && !alert.resolved && (
-                  <button
-                    onClick={() => handleEscalateAlert(alert)}
-                    className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-xl text-xs font-bold transition flex items-center gap-1"
-                    title="Escalate Alert to Executive Tier 2"
-                  >
-                    <ArrowUpRight size={14} /> Escalate
-                  </button>
-                )}
-
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={() => {
-                    setSelectedAlert(alert);
-                    setActiveDetailTab('ai_summary');
-                  }}
-                  className="px-3.5 py-1.5 bg-[#007BC4] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                  onClick={() => handleTriggerBroadcast('ALL SITE ZONES', 'Siren Alarm', 'SITE-WIDE EMERGENCY SIREN & EVACUATION ORDER')}
+                  className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-black text-sm rounded-2xl shadow-lg transition flex items-center gap-2 animate-bounce"
                 >
-                  <Eye size={14} /> Details & AI Summary
+                  <Volume2 size={20} /> ACTIVATE SITE-WIDE SIREN
                 </button>
               </div>
             </div>
-          );
-        })}
 
-        {filteredAlerts.length === 0 && (
-          <div className="py-16 text-center text-slate-500 font-medium bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
-            <CheckCircle2 size={36} className="mx-auto text-emerald-500 mb-2" />
-            No active alerts matching search criteria.
+            {/* Quick Zone Siren Buttons */}
+            <div className="pt-4 border-t border-rose-800/60 grid grid-cols-2 sm:grid-cols-4 gap-2 relative z-10">
+              {[
+                { name: 'Confined Shaft L3', icon: Flame },
+                { name: 'Scaffolding Level 1-4', icon: HardHat },
+                { name: 'Heavy Crane Yard', icon: Zap },
+                { name: 'Gatehouse Gate 1', icon: Shield }
+              ].map(z => (
+                <button
+                  key={z.name}
+                  onClick={() => handleTriggerBroadcast(z.name, 'Evacuation Order', `${z.name} Immediate Local Zone Evacuation`)}
+                  className="p-3 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 rounded-xl text-left text-xs font-bold transition flex items-center justify-between"
+                >
+                  <span className="truncate">{z.name} Siren</span>
+                  <Volume2 size={14} className="text-rose-400 shrink-0" />
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Active Emergency Broadcasts Table */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+            <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+              <Siren size={18} className="text-rose-600" /> Active Emergency Broadcast Log
+            </h3>
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Broadcast ID</TableHead>
+                    <TableHead>Title & Type</TableHead>
+                    <TableHead>Target Zone</TableHead>
+                    <TableHead>Activated By</TableHead>
+                    <TableHead>Muster Clearance</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {broadcastList.map(bc => (
+                    <TableRow key={bc.id}>
+                      <TableCell className="font-mono font-bold text-xs text-rose-600">{bc.id}</TableCell>
+                      <TableCell>
+                        <div className="font-bold text-xs text-slate-900 dark:text-white">{bc.title}</div>
+                        <span className="text-[10px] text-slate-400 font-medium">{bc.type}</span>
+                      </TableCell>
+                      <TableCell className="text-xs font-medium">{bc.zone}</TableCell>
+                      <TableCell className="text-xs font-medium">{bc.activatedBy}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-xs font-bold">
+                          <span>{bc.musterAccounted} / {bc.musterTarget} workers</span>
+                          <span className="text-emerald-600 font-mono">({Math.round((bc.musterAccounted / bc.musterTarget) * 100)}%)</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {bc.status === 'ACTIVE' ? (
+                          <Badge variant="outline" className="bg-rose-600 text-white font-black text-[10px] uppercase border-0 animate-pulse">
+                            ACTIVE SIREN
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-emerald-600 text-white font-black text-[10px] uppercase border-0">
+                            CLEARED
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {bc.status === 'ACTIVE' && (
+                          <button
+                            onClick={() => handleClearBroadcast(bc.id)}
+                            className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg text-xs font-bold"
+                          >
+                            Silence & Clear
+                          </button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== SUBTAB 4: SPATIAL HAZARD HEATMAP ==================== */}
+      {activeSubTab === 'heatmap' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">Site Spatial Hazard & Risk Heatmap</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Click any site zone to view real-time environmental telemetry and filter live incidents for that location.</p>
+            </div>
+            {selectedZone !== 'All' && (
+              <button
+                onClick={() => setSelectedZone('All')}
+                className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1"
+              >
+                Clear Zone Filter ({selectedZone})
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { name: 'Confined Shaft & Tunneling', risk: 'CRITICAL', score: 92, temp: '31.2°C', gas: '48ppm CO', activeIncidents: 1, bg: 'bg-rose-50 dark:bg-rose-950/40', border: 'border-rose-300 dark:border-rose-800', badgeColor: 'bg-rose-600' },
+              { name: 'Structure & Scaffolding (L1-L4)', risk: 'HIGH', score: 82, temp: '28.5°C', gas: 'Optimal', activeIncidents: 1, bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-300 dark:border-amber-800', badgeColor: 'bg-amber-500' },
+              { name: 'Heavy Crane & Exclusion Area', risk: 'HIGH', score: 78, temp: '29.0°C', gas: 'Optimal', activeIncidents: 2, bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-300 dark:border-amber-800', badgeColor: 'bg-amber-500' },
+              { name: 'Gate 1 Gatehouse', risk: 'MODERATE', score: 65, temp: '26.1°C', gas: 'Optimal', activeIncidents: 1, bg: 'bg-blue-50 dark:bg-blue-950/40', border: 'border-blue-300 dark:border-blue-800', badgeColor: 'bg-blue-600' },
+              { name: 'Laydown Yard & Material Staging', risk: 'SAFE', score: 25, temp: '25.0°C', gas: 'Optimal', activeIncidents: 0, bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-300 dark:border-emerald-800', badgeColor: 'bg-emerald-600' },
+              { name: 'Site Office & Welcome Center', risk: 'SAFE', score: 15, temp: '22.4°C', gas: 'Optimal', activeIncidents: 0, bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-300 dark:border-emerald-800', badgeColor: 'bg-emerald-600' }
+            ].map(z => (
+              <div
+                key={z.name}
+                onClick={() => {
+                  setSelectedZone(z.name);
+                  setActiveSubTab('feed');
+                  setNotificationMsg({ type: 'info', text: `Filtered Live Stream for Zone: ${z.name}` });
+                }}
+                className={`p-5 rounded-2xl border ${z.bg} ${z.border} cursor-pointer hover:shadow-md transition space-y-3 relative overflow-hidden`}
+              >
+                <div className="flex justify-between items-start">
+                  <Badge variant="outline" className={`${z.badgeColor} text-white font-black text-[10px] uppercase border-0`}>
+                    {z.risk} RISK ({z.score}/100)
+                  </Badge>
+                  <span className="text-xs font-mono font-bold text-slate-500">{z.activeIncidents} Active Hazards</span>
+                </div>
+
+                <h4 className="font-bold text-slate-900 dark:text-white text-base">{z.name}</h4>
+
+                <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/50">
+                  <div>Ambient Temp: <strong>{z.temp}</strong></div>
+                  <div>Gas Level: <strong>{z.gas}</strong></div>
+                </div>
+
+                <div className="text-[11px] font-bold text-[#007BC4] flex items-center gap-1">
+                  View Zone Incident Feed <ChevronRight size={14} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== SUBTAB 5: SLA COMPLIANCE & ANALYTICS ==================== */}
+      {activeSubTab === 'analytics' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Category Distribution Chart */}
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm">Incident Distribution by Category</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={categoryChartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#007BC4" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Priority Pie Breakdown */}
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm">Hazard Priority Breakdown</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={priorityPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    >
+                      {priorityPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* SELECTED ALERT DETAIL DRAWER / MODAL */}
       {selectedAlert && (
@@ -1340,7 +1928,7 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
                         <CheckCircle2 size={18} className="text-emerald-600" />
                         Incident Resolved & Verified
                       </div>
-                      <div><strong>Resolved By:</strong> {selectedAlert.resolution?.resolvedBy || 'Marcus Vance'}</div>
+                      <div><strong>Resolved By:</strong> {selectedAlert.resolution?.resolvedBy || OFFICERS_LIST[0]}</div>
                       <div><strong>Root Cause:</strong> {selectedAlert.resolution?.rootCause}</div>
                       <div><strong>Corrective Action:</strong> {selectedAlert.resolution?.correctiveAction}</div>
                       <div className="text-[10px] text-slate-400 font-mono">Resolved At: {selectedAlert.resolution?.resolvedAt}</div>
@@ -1513,12 +2101,13 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
 
                 <div>
                   <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Assign Officer</label>
-                  <input
-                    type="text"
+                  <select
                     value={newAlert.assignedTo}
                     onChange={e => setNewAlert({ ...newAlert, assignedTo: e.target.value })}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    {OFFICERS_LIST.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
                 </div>
               </div>
 
@@ -1535,6 +2124,124 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
                   className="px-4 py-2 bg-rose-600 text-white rounded-xl font-bold shadow-md hover:bg-rose-700 transition"
                 >
                   Post Incident Alert
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* CREATE RULE MODAL */}
+      {isCreateRuleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <form onSubmit={handleCreateRuleSubmit} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-3xl w-full max-w-lg p-6 relative space-y-4">
+            <button type="button" onClick={() => setIsCreateRuleModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <SlidersHorizontal size={18} className="text-[#007BC4]" />
+              Create Automated Escalation & Dispatch Rule
+            </h3>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Rule Policy Name</label>
+                <input
+                  type="text"
+                  value={newRule.name}
+                  onChange={e => setNewRule({ ...newRule, name: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  placeholder="e.g. Scaffolding Harness Risk Auto-Escalate"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Target Category</label>
+                  <select
+                    value={newRule.category}
+                    onChange={e => setNewRule({ ...newRule, category: e.target.value as any })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    <option value="All">All Categories</option>
+                    {CATEGORIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Priority Threshold</label>
+                  <select
+                    value={newRule.priorityThreshold}
+                    onChange={e => setNewRule({ ...newRule, priorityThreshold: e.target.value as any })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    <option value="Critical">Critical Priority</option>
+                    <option value="High">High Priority</option>
+                    <option value="Medium">Medium Priority</option>
+                    <option value="Low">Low Priority</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Trigger SLA (Mins)</label>
+                  <input
+                    type="number"
+                    value={newRule.slaMinutes}
+                    onChange={e => setNewRule({ ...newRule, slaMinutes: parseInt(e.target.value) || 10 })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Auto-Assign Officer</label>
+                  <select
+                    value={newRule.autoAssignOfficer}
+                    onChange={e => setNewRule({ ...newRule, autoAssignOfficer: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    {OFFICERS_LIST.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer font-bold">
+                  <input
+                    type="checkbox"
+                    checked={newRule.triggerSiren}
+                    onChange={e => setNewRule({ ...newRule, triggerSiren: e.target.checked })}
+                    className="rounded text-rose-600"
+                  />
+                  Trigger PA Siren
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer font-bold">
+                  <input
+                    type="checkbox"
+                    checked={newRule.notifySmsEmail}
+                    onChange={e => setNewRule({ ...newRule, notifySmsEmail: e.target.checked })}
+                    className="rounded text-[#007BC4]"
+                  />
+                  Send SMS/Email Alert
+                </label>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateRuleModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold shadow-md hover:bg-blue-700 transition"
+                >
+                  Save Dispatch Rule
                 </button>
               </div>
             </div>
@@ -1581,13 +2288,14 @@ export default function AlertsTab({ alerts }: { alerts: AIAlert[] }) {
 
               <div>
                 <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Signing EHS Officer</label>
-                <input
-                  type="text"
+                <select
                   value={resolutionData.verificationOfficer}
                   onChange={e => setResolutionData({ ...resolutionData, verificationOfficer: e.target.value })}
                   className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
                   required
-                />
+                >
+                  {OFFICERS_LIST.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
               </div>
 
               <div className="pt-2 flex justify-end gap-2">

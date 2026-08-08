@@ -1,18 +1,83 @@
-import { useState, useMemo, useEffect, useContext } from 'react';
+import { useState, useMemo, useEffect, useContext, useRef } from 'react';
 import { AppModeContext } from '../App';
 import { Person } from '../lib/simulation';
 import { 
   Play, Pause, FastForward, SkipBack, Search, Database, Calendar, 
   RotateCcw, Sparkles, Download, Flame, ShieldAlert, Radio, Truck, 
-  Box, Users, Filter, X, Clock, MapPin, FileText
+  Box, Users, User, Filter, X, Clock, MapPin, FileText, ZoomIn, ZoomOut, Maximize2,
+  Layers, Building2, Map as MapIcon, Compass, Eye, EyeOff, Navigation, ShieldCheck,
+  Zap, Sliders, RefreshCw
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useGaoHistory } from '../lib/useGaoApi';
 import { collection, query, orderBy, limit, getDocs, getCountFromServer } from '../lib/db';
 import { db } from '../lib/firebase';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
+import { getBlueprintSvg, InteractiveSiteMap, MapMode } from './LiveFloorMap';
 
-export default function PlaybackTab({ people, zones }: { people: Person[], zones: any }) {
+// Available Sites & Floors for Playback Map Selection
+const PLAYBACK_SITES: Record<string, {
+  id: string;
+  name: string;
+  contractor: string;
+  dimensions: string;
+  floors: { id: string; name: string; level: number }[];
+  zones: Record<string, { x: number; y: number; width: number; height: number; category?: string; hazardLevel?: string }>;
+}> = {
+  'metro-tower': {
+    id: 'metro-tower',
+    name: 'Metro Commercial Tower Site',
+    contractor: 'Apex Construction JV',
+    dimensions: '250m x 180m',
+    floors: [
+      { id: 'fl-1', name: 'Level 1 - Ground Access & Gate Portal', level: 1 },
+      { id: 'fl-2', name: 'Level 2 - Structural Deck & Crane Operating Area', level: 2 },
+      { id: 'fl-b1', name: 'Level B1 - Underground Utility & Storage Vault', level: -1 },
+    ],
+    zones: {
+      'Excavation Shaft': { x: 10, y: 15, width: 34, height: 62, category: 'EXCAVATION & SHORING', hazardLevel: 'warning' },
+      'Tower Core': { x: 51, y: 25, width: 32, height: 50, category: 'CONCRETE REINFORCEMENT', hazardLevel: 'normal' },
+      'Crane Swing Zone': { x: 80, y: 5, width: 16, height: 42, category: 'CRANE SWING RADIUS', hazardLevel: 'critical' },
+      'High Voltage Area': { x: 46, y: 5, width: 14, height: 16, category: 'SUBSTATION PERIMETER', hazardLevel: 'critical' },
+      'Muster Point A': { x: 2, y: 10, width: 8, height: 12, category: 'MUSTER POINT', hazardLevel: 'normal' },
+      'Site HQ Office': { x: 12, y: 80, width: 11, height: 11, category: 'ADMINISTRATIVE', hazardLevel: 'normal' },
+      'Material Staging Yard B': { x: 40, y: 80, width: 15, height: 11, category: 'LOGISTICS YARD', hazardLevel: 'normal' }
+    }
+  },
+  'logistics-hub': {
+    id: 'logistics-hub',
+    name: 'Apex Industrial Logistics Hub',
+    contractor: 'LogiTech Builders Ltd',
+    dimensions: '180m x 120m',
+    floors: [
+      { id: 'fl-main', name: 'Ground Warehouse & Dock Bays', level: 1 },
+      { id: 'fl-mezz', name: 'Mezzanine Inventory Office', level: 2 }
+    ],
+    zones: {
+      'Dock Loading Bay 1-4': { x: 5, y: 10, width: 40, height: 35, category: 'DOCK OPERATIONS', hazardLevel: 'warning' },
+      'High-Bay Automated Racking': { x: 50, y: 10, width: 45, height: 60, category: 'STORAGE VAULT', hazardLevel: 'normal' },
+      'Hazardous Material Depot': { x: 5, y: 55, width: 35, height: 35, category: 'HAZMAT ENCLOSURE', hazardLevel: 'critical' },
+      'Muster Point B': { x: 85, y: 80, width: 12, height: 15, category: 'SAFETY ASSEMBLY', hazardLevel: 'normal' }
+    }
+  },
+  'subsurface-shaft': {
+    id: 'subsurface-shaft',
+    name: 'Subsurface Tunnel & Shaft Operations',
+    contractor: 'GeoTunnel Infrastructure',
+    dimensions: '150m x 100m',
+    floors: [
+      { id: 'fl-shaft-1', name: 'Depth -15m Shoring Pit', level: -1 },
+      { id: 'fl-tunnel-2', name: 'Depth -30m Main Tunnel Bore', level: -2 }
+    ],
+    zones: {
+      'Tunnel Boring Machine Yard': { x: 15, y: 20, width: 40, height: 50, category: 'HEAVY MACHINERY', hazardLevel: 'critical' },
+      'Ventilation & Air Quality Hub': { x: 60, y: 15, width: 30, height: 30, category: 'LIFE SUPPORT SYSTEM', hazardLevel: 'warning' },
+      'Emergency Refuge Chamber': { x: 60, y: 55, width: 30, height: 35, category: 'SAFETY REFUGE', hazardLevel: 'normal' }
+    }
+  }
+};
+
+export default function PlaybackTab({ people, zones: initialZones }: { people: Person[], zones: any }) {
   const { mode } = useContext(AppModeContext);
   const [isPlaying, setIsPlaying] = useState(false);
   const [timeIndex, setTimeIndex] = useState(0);
@@ -20,6 +85,17 @@ export default function PlaybackTab({ people, zones }: { people: Person[], zones
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedPersonId, setHighlightedPersonId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'map' | 'api'>('map');
+
+  // Site & Floor Selection for Playback Maps
+  const [activeSiteId, setActiveSiteId] = useState<string>('metro-tower');
+  const activeSite = PLAYBACK_SITES[activeSiteId] || PLAYBACK_SITES['metro-tower'];
+  const [activeFloorId, setActiveFloorId] = useState<string>(activeSite.floors[0]?.id || 'fl-1');
+  const [mapStyleMode, setMapStyleMode] = useState<MapMode>('standard');
+
+  // Layer Visibility Toggles
+  const [showTrails, setShowTrails] = useState(true);
+  const [showZones, setShowZones] = useState(true);
+  const [showGateways, setShowGateways] = useState(true);
 
   // Enterprise playback controls
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'workers' | 'visitors' | 'equipment' | 'vehicles' | 'readers'>('all');
@@ -41,6 +117,13 @@ export default function PlaybackTab({ people, zones }: { people: Person[], zones
 
   // Fallback API History
   const { records: apiRecords, totalCount: apiTotalCount, isLoading: apiIsLoading, error: apiError } = useGaoHistory(skip, take);
+
+  // When active site changes, default to first floor
+  useEffect(() => {
+    if (activeSite.floors.length > 0) {
+      setActiveFloorId(activeSite.floors[0].id);
+    }
+  }, [activeSiteId]);
 
   useEffect(() => {
     if (mode === 'real') {
@@ -148,8 +231,9 @@ export default function PlaybackTab({ people, zones }: { people: Person[], zones
       setAiSummaryContent(`
 📊 **Aperture Playback AI Spatial Analytics Summary**
 • **Date Replayed:** ${selectedDate} (08:00 AM - ${currentTime.toLocaleTimeString()})
+• **Site Selected:** ${activeSite.name} (${activeSite.dimensions})
 • **Total Active Entities Tracked:** ${people.length} workers & sub-contractors, 8 machinery assets.
-• **High-Traffic Density Zones:** Structure & Scaffolding (L1-L4) recorded 42% of total dwell hours.
+• **High-Traffic Density Zones:** Structure & Scaffolding recorded 42% of total dwell hours.
 • **EHS Risk & Safety Violations:**
   - 1 Geofence Breach at frame #15 (Worker HH-1042 entered Heavy Crane exclusion zone without escort).
   - 1 PPE Compliance Warning at frame #42 (Hardhat tag lost signal for 8 minutes).
@@ -205,11 +289,14 @@ export default function PlaybackTab({ people, zones }: { people: Person[], zones
       data,
       [
         { label: 'Replay Date', value: selectedDate },
+        { label: 'Site Name', value: activeSite.name },
         { label: 'Entities Tracked', value: people.length },
         { label: 'Event Alerts Logged', value: eventMarkers.length }
       ]
     );
   };
+
+  const activeZones = activeSite.zones || initialZones;
 
   return (
     <div className="w-full flex flex-col p-6 gap-6 max-w-7xl mx-auto">
@@ -222,7 +309,7 @@ export default function PlaybackTab({ people, zones }: { people: Person[], zones
                Live Replay Engine
              </span>
            </div>
-           <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">Review historical worker trails, equipment movements, geofence breaches & RFID reader logs</p>
+           <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">Review historical worker trails, CAD site blueprints, geofence breaches & RFID reader logs</p>
         </div>
         
         <div className="flex items-center gap-3 flex-wrap">
@@ -283,6 +370,87 @@ export default function PlaybackTab({ people, zones }: { people: Person[], zones
 
       {viewMode === 'map' && (
          <>
+            {/* Site, Floor & Layer Selection Bar */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                {/* Site Selection Dropdown */}
+                <div className="flex items-center gap-2">
+                  <Building2 size={16} className="text-[#007BC4]" />
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Site Map:</span>
+                  <select
+                    value={activeSiteId}
+                    onChange={e => setActiveSiteId(e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-[#007BC4]"
+                  >
+                    {Object.values(PLAYBACK_SITES).map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.dimensions})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Floor Level Dropdown */}
+                <div className="flex items-center gap-2">
+                  <Layers size={16} className="text-indigo-500" />
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Level:</span>
+                  <select
+                    value={activeFloorId}
+                    onChange={e => setActiveFloorId(e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-[#007BC4]"
+                  >
+                    {activeSite.floors.map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Blueprint Render Mode Selector */}
+                <div className="flex items-center gap-2">
+                  <MapIcon size={16} className="text-teal-500" />
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Blueprint Mode:</span>
+                  <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                    {[
+                      { id: 'standard', label: 'CAD Vector' },
+                      { id: 'bim', label: 'BIM 3D' },
+                      { id: 'satellite', label: 'Satellite' }
+                    ].map(m => (
+                      <button
+                        key={m.id}
+                        onClick={() => setMapStyleMode(m.id as MapMode)}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${mapStyleMode === m.id ? 'bg-[#007BC4] text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Map Layer Controls */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowTrails(!showTrails)}
+                    className={`px-2.5 py-1.5 text-xs font-bold rounded-xl border transition flex items-center gap-1 ${showTrails ? 'bg-blue-500/10 text-[#007BC4] border-[#007BC4]/30' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-700'}`}
+                    title="Toggle Motion Trails"
+                  >
+                    <Compass size={13} /> Trails
+                  </button>
+                  <button
+                    onClick={() => setShowZones(!showZones)}
+                    className={`px-2.5 py-1.5 text-xs font-bold rounded-xl border transition flex items-center gap-1 ${showZones ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-700'}`}
+                    title="Toggle Zone Boundaries"
+                  >
+                    <Layers size={13} /> Zones
+                  </button>
+                  <button
+                    onClick={() => setShowGateways(!showGateways)}
+                    className={`px-2.5 py-1.5 text-xs font-bold rounded-xl border transition flex items-center gap-1 ${showGateways ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-700'}`}
+                    title="Toggle RFID Gateways"
+                  >
+                    <Radio size={13} /> Gateways
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Timeline Controls & Category Filter Bar */}
             <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm flex flex-col gap-4">
               
@@ -411,13 +579,19 @@ export default function PlaybackTab({ people, zones }: { people: Person[], zones
             {/* Canvas & Sidebar */}
             <div className="flex-1 flex flex-col xl:flex-row gap-6 min-h-0">
                {/* Replay Canvas */}
-               <div className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 relative shadow-sm overflow-hidden flex flex-col min-h-[500px]">
+               <div className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl relative shadow-xl overflow-hidden flex flex-col min-h-[550px]">
                   <PlaybackMap 
+                    site={activeSite}
                     historyFrames={simulatedHistory} 
                     currentFrameIndex={timeIndex} 
-                    zones={zones} 
+                    zones={activeZones} 
                     highlightedPersonId={highlightedPersonId} 
                     showHeatmap={showHeatmap}
+                    showTrails={showTrails}
+                    showZones={showZones}
+                    showGateways={showGateways}
+                    mapStyleMode={mapStyleMode}
+                    selectedCategory={selectedCategory}
                   />
                </div>
 
@@ -447,7 +621,7 @@ export default function PlaybackTab({ people, zones }: { people: Person[], zones
                         />
                      </div>
 
-                     <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[420px]">
+                     <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[460px]">
                         {currentFramePeople
                           .filter(p => {
                             if (selectedCategory === 'visitors') return p.role === 'Visitor';
@@ -595,37 +769,249 @@ export default function PlaybackTab({ people, zones }: { people: Person[], zones
   );
 }
 
-function PlaybackMap({ historyFrames, currentFrameIndex, zones, highlightedPersonId, showHeatmap }: { historyFrames: Person[][], currentFrameIndex: number, zones: any, highlightedPersonId: string | null, showHeatmap?: boolean }) {
-  const zoneEntries = Object.entries(zones);
+// Playback Map Component with CAD Blueprint, Motion Trails & Zoom/Pan Controls
+function PlaybackMap({ 
+  site,
+  historyFrames, 
+  currentFrameIndex, 
+  zones, 
+  highlightedPersonId, 
+  showHeatmap,
+  showTrails = true,
+  showZones = true,
+  showGateways = true,
+  mapStyleMode = 'standard',
+  selectedCategory = 'all'
+}: { 
+  site: typeof PLAYBACK_SITES[string];
+  historyFrames: Person[][]; 
+  currentFrameIndex: number; 
+  zones: any; 
+  highlightedPersonId: string | null; 
+  showHeatmap?: boolean;
+  showTrails?: boolean;
+  showZones?: boolean;
+  showGateways?: boolean;
+  mapStyleMode?: MapMode;
+  selectedCategory?: string;
+}) {
+  const zoneEntries = Object.entries(zones || {});
   const currentPeople = historyFrames[currentFrameIndex] || [];
-  
+
+  // Pan & Zoom state
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Generate SVG CAD Blueprint URI
+  const blueprintSvgUrl = useMemo(() => {
+    return getBlueprintSvg(site.id, site.name, site.contractor, site.dimensions, mapStyleMode);
+  }, [site, mapStyleMode]);
+
+  // Mouse handlers for panning
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom(prev => Math.max(0.6, Math.min(4, prev * delta)));
+  };
+
+  const resetView = () => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  // RFID Gateway Anchors
+  const rfidGateways = useMemo(() => [
+    { id: 'gate-1', name: 'Main Gate Portal G-01', x: 8, y: 88 },
+    { id: 'gate-2', name: 'Excavation Access G-02', x: 28, y: 18 },
+    { id: 'gate-3', name: 'Tower Core Portal G-03', x: 68, y: 30 },
+    { id: 'gate-4', name: 'Crane Swing Zone G-04', x: 88, y: 12 },
+    { id: 'gate-5', name: 'Material Yard G-05', x: 48, y: 82 }
+  ], []);
+
+  // Filtered current frame entities
+  const visibleEntities = useMemo(() => {
+    return currentPeople.filter(p => {
+      if (selectedCategory === 'visitors') return p.role === 'Visitor';
+      if (selectedCategory === 'workers') return p.role !== 'Visitor';
+      return true;
+    });
+  }, [currentPeople, selectedCategory]);
+
+  const highlightedPerson = currentPeople.find(p => p.id === highlightedPersonId);
+
   return (
-    <div className="w-full h-full relative bg-transparent overflow-hidden flex items-center justify-center">
-      <div className="absolute inset-0 z-0 opacity-10 dark:opacity-20" style={{ backgroundImage: 'linear-gradient(#007BC4 1px, transparent 1px), linear-gradient(90deg, #007BC4 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-      
-      <div className="relative w-full h-full border-0 rounded-xl bg-transparent z-10 overflow-hidden">
-        {zoneEntries.map(([name, rect]: any) => (
-           <div 
-            key={name}
-            className="absolute border border-[#007BC4]/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-2"
-            style={{ 
-              left: `${rect.x}%`, 
-              top: `${rect.y}%`, 
-              width: `${rect.width}%`, 
-              height: `${rect.height}%`
-            }}
-           >
-              <div className="bg-white/90 dark:bg-slate-800/90 text-[#007BC4] border border-[#007BC4]/20 rounded-full px-3 py-1 text-[10px] font-bold shadow backdrop-blur-sm whitespace-nowrap">{name}</div>
-           </div>
+    <div 
+      className="w-full h-full relative overflow-hidden bg-[#090d16] select-none cursor-grab active:cursor-grabbing flex items-center justify-center"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+    >
+      {/* Floating Canvas Controls (Zoom In, Zoom Out, Reset) */}
+      <div className="absolute top-4 right-4 z-40 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1.5 rounded-xl shadow-xl">
+        <button 
+          onClick={() => setZoom(prev => Math.min(4, prev * 1.25))}
+          className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition" 
+          title="Zoom In (+)"
+        >
+          <ZoomIn size={16} />
+        </button>
+        <button 
+          onClick={() => setZoom(prev => Math.max(0.6, prev * 0.8))}
+          className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition" 
+          title="Zoom Out (-)"
+        >
+          <ZoomOut size={16} />
+        </button>
+        <button 
+          onClick={resetView}
+          className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition text-[11px] font-bold px-2.5" 
+          title="Reset View (1:1)"
+        >
+          Reset
+        </button>
+      </div>
+
+      {/* Map Legend Overlay */}
+      <div className="absolute bottom-4 left-4 z-40 bg-slate-900/85 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl shadow-xl flex items-center gap-4 text-[10px] text-slate-300 font-bold">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#007BC4] border border-white" />
+          <span>Worker / Tag</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 border border-white" />
+          <span>Visitor</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 border border-white" />
+          <span>RFID Reader</span>
+        </div>
+        <div className="text-slate-500 font-mono">
+          Zoom: {Math.round(zoom * 100)}%
+        </div>
+      </div>
+
+      {/* Selected Entity Inspector Banner */}
+      {highlightedPerson && (
+        <div className="absolute top-4 left-4 z-40 bg-slate-900/90 backdrop-blur-md border border-[#007BC4] p-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs text-white">
+          <div className="p-2 rounded-lg bg-[#007BC4]/20 border border-[#007BC4]">
+            <User className="text-[#007BC4]" size={16} />
+          </div>
+          <div>
+            <div className="font-bold flex items-center gap-2">
+              <span>{highlightedPerson.name}</span>
+              <span className="text-[9px] bg-[#007BC4] px-1.5 py-0.5 rounded uppercase font-mono">{highlightedPerson.id}</span>
+            </div>
+            <div className="text-[10px] text-slate-300 mt-0.5 flex items-center gap-2 font-mono">
+              <span>Zone: {highlightedPerson.currentZone}</span>
+              <span>•</span>
+              <span>Pos: ({Math.round(highlightedPerson.x)}m, {Math.round(highlightedPerson.y)}m)</span>
+              <span>•</span>
+              <span className={highlightedPerson.presenceState === 'MOVING' ? 'text-emerald-400 font-bold' : 'text-slate-400'}>{highlightedPerson.presenceState}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Map Container with Scale & Pan Transform */}
+      <div 
+        ref={containerRef}
+        className="relative w-full h-full rounded-xl overflow-hidden transition-transform duration-75 ease-out"
+        style={{ transform: `scale(${zoom}) translate(${offset.x / zoom}px, ${offset.y / zoom}px)` }}
+      >
+        {/* CAD Blueprint Vector Map Background Image */}
+        <img 
+          src={blueprintSvgUrl} 
+          alt="Site CAD Blueprint Map" 
+          className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+        />
+
+        {/* Technical Grid Accent Overlay */}
+        <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(#007BC4_1px,transparent_1px)] [background-size:32px_32px]" />
+
+        {/* Zone Boundaries Layer */}
+        {showZones && zoneEntries.map(([name, rect]: any) => {
+          const isCritical = rect.hazardLevel === 'critical';
+          const isWarning = rect.hazardLevel === 'warning';
+          
+          return (
+            <div 
+              key={name}
+              className={`absolute border rounded-xl flex flex-col items-center justify-between p-2 backdrop-blur-[2px] transition-all ${
+                isCritical 
+                  ? 'border-rose-500/60 bg-rose-950/20 shadow-[0_0_15px_rgba(244,63,94,0.15)]' 
+                  : isWarning 
+                  ? 'border-amber-500/60 bg-amber-950/20' 
+                  : 'border-[#007BC4]/30 bg-blue-950/20'
+              }`}
+              style={{ 
+                left: `${rect.x}%`, 
+                top: `${rect.y}%`, 
+                width: `${rect.width}%`, 
+                height: `${rect.height}%`
+              }}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md backdrop-blur-md ${
+                  isCritical 
+                    ? 'bg-rose-600/90 text-white border border-rose-400' 
+                    : isWarning 
+                    ? 'bg-amber-500/90 text-slate-950 border border-amber-300' 
+                    : 'bg-[#007BC4]/80 text-white border border-[#007BC4]'
+                }`}>
+                  {name}
+                </span>
+                {rect.category && (
+                  <span className="text-[8px] font-mono text-slate-400 bg-slate-900/80 px-1.5 py-0.5 rounded">
+                    {rect.category}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* RFID Gateway Readers Layer */}
+        {showGateways && rfidGateways.map(gw => (
+          <div
+            key={gw.id}
+            className="absolute z-20 -translate-x-1/2 -translate-y-1/2 group"
+            style={{ left: `${gw.x}%`, top: `${gw.y}%` }}
+          >
+            <div className="relative flex items-center justify-center">
+              <span className="absolute w-8 h-8 rounded-full bg-purple-500/20 animate-ping" />
+              <div className="w-5 h-5 rounded-lg bg-purple-600 border border-purple-300 flex items-center justify-center text-white shadow-lg">
+                <Radio size={11} />
+              </div>
+            </div>
+            <div className="hidden group-hover:block absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] font-bold px-2 py-1 rounded shadow-xl whitespace-nowrap z-50">
+              {gw.name}
+            </div>
+          </div>
         ))}
 
         {/* Heatmap Overlay */}
         {showHeatmap && (
-          <div className="absolute inset-0 pointer-events-none z-15 opacity-60">
-            {currentPeople.map(p => (
+          <div className="absolute inset-0 pointer-events-none z-15 opacity-70">
+            {visibleEntities.map(p => (
               <div
                 key={`heat-${p.id}`}
-                className="absolute w-24 h-24 rounded-full bg-gradient-to-r from-red-500/50 via-amber-500/40 to-transparent blur-xl -translate-x-1/2 -translate-y-1/2"
+                className="absolute w-28 h-28 rounded-full bg-gradient-to-r from-red-500/60 via-amber-500/40 to-transparent blur-xl -translate-x-1/2 -translate-y-1/2"
                 style={{ left: `${p.x}%`, top: `${p.y}%` }}
               />
             ))}
@@ -633,60 +1019,83 @@ function PlaybackMap({ historyFrames, currentFrameIndex, zones, highlightedPerso
         )}
 
         {/* Motion Trails Polyline */}
-        <svg className="absolute inset-0 w-full h-full z-10 pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-           {historyFrames[0].map((baselinePerson, i) => {
-              const isVisitor = baselinePerson.role === 'Visitor';
-              const color = isVisitor ? '#f59e0b' : '#007BC4';
-              
-              if (highlightedPersonId && highlightedPersonId !== baselinePerson.id) return null;
+        {showTrails && (
+          <svg className="absolute inset-0 w-full h-full z-20 pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+             {historyFrames[0].map((baselinePerson, i) => {
+                const isVisitor = baselinePerson.role === 'Visitor';
+                const color = isVisitor ? '#f59e0b' : '#007BC4';
+                
+                if (highlightedPersonId && highlightedPersonId !== baselinePerson.id) return null;
 
-              const pointsStr = historyFrames.slice(0, currentFrameIndex + 1).map(frame => {
-                 const p = frame[i];
-                 return p ? `${p.x},${p.y}` : '';
-              }).filter(Boolean).join(' ');
+                const pointsStr = historyFrames.slice(0, currentFrameIndex + 1).map(frame => {
+                   const p = frame[i];
+                   return p ? `${p.x},${p.y}` : '';
+                }).filter(Boolean).join(' ');
 
-              if (!pointsStr) return null;
+                if (!pointsStr) return null;
 
-              return (
-                 <polyline
-                    key={`trail-${baselinePerson.id}`}
-                    points={pointsStr}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth="0.6"
-                    strokeDasharray="1 1"
-                    strokeOpacity={highlightedPersonId ? 0.9 : 0.35}
-                 />
-              );
-           })}
-        </svg>
+                return (
+                   <g key={`trail-group-${baselinePerson.id}`}>
+                     <polyline
+                        points={pointsStr}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth={highlightedPersonId === baselinePerson.id ? '1.2' : '0.6'}
+                        strokeDasharray="1 1"
+                        strokeOpacity={highlightedPersonId ? (highlightedPersonId === baselinePerson.id ? 1 : 0.1) : 0.45}
+                     />
+                   </g>
+                );
+             })}
+          </svg>
+        )}
 
         {/* Entity Markers */}
-        {currentPeople.map(p => {
+        {visibleEntities.map(p => {
           const isHighlighted = highlightedPersonId === p.id;
           const opacity = highlightedPersonId ? (isHighlighted ? 1 : 0.2) : 1;
+          const isVisitor = p.role === 'Visitor';
           
           return (
             <div
               key={p.id}
-              className="absolute w-4 h-4 rounded-full border-2 cursor-pointer transition-transform hover:scale-125"
+              className="absolute z-30 transition-all duration-300"
               style={{
                 left: `${p.x}%`,
                 top: `${p.y}%`,
                 transform: 'translate(-50%, -50%)',
-                transition: 'left 0.4s ease-out, top 0.4s ease-out',
-                opacity,
-                zIndex: isHighlighted ? 50 : 20,
-                backgroundColor: p.role === 'Visitor' ? '#f59e0b' : '#007BC4',
-                borderColor: '#ffffff',
-                boxShadow: isHighlighted ? '0 0 25px rgba(0,123,196,0.9)' : '0 0 5px rgba(0,0,0,0.2)'
+                opacity
               }}
             >
-              {isHighlighted && (
-                <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xl whitespace-nowrap z-50">
-                  {p.name} ({p.id})
+              <div className="relative group cursor-pointer">
+                {isHighlighted && (
+                  <span className="absolute -inset-2 rounded-full bg-[#007BC4]/40 animate-ping" />
+                )}
+                
+                <div 
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center text-[8px] font-black shadow-lg transition-transform group-hover:scale-125 ${
+                    isVisitor 
+                      ? 'bg-amber-500 border-amber-100 text-slate-950' 
+                      : 'bg-[#007BC4] border-white text-white'
+                  }`}
+                  style={{
+                    boxShadow: isHighlighted ? '0 0 20px rgba(0,123,196,1)' : '0 2px 6px rgba(0,0,0,0.5)'
+                  }}
+                >
+                  {p.name.charAt(0)}
                 </div>
-              )}
+
+                {/* Hover / Highlight Tooltip */}
+                <div className={`${isHighlighted ? 'block' : 'hidden group-hover:block'} absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold p-2 rounded-lg shadow-2xl whitespace-nowrap z-50 border border-slate-700`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${isVisitor ? 'bg-amber-400' : 'bg-[#007BC4]'}`} />
+                    <span>{p.name}</span>
+                  </div>
+                  <div className="text-[9px] text-slate-300 font-mono mt-0.5">
+                    {p.id} • {p.currentZone}
+                  </div>
+                </div>
+              </div>
             </div>
           );
         })}
@@ -694,3 +1103,4 @@ function PlaybackMap({ historyFrames, currentFrameIndex, zones, highlightedPerso
     </div>
   );
 }
+

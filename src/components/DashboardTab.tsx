@@ -50,15 +50,23 @@ import {
   Gauge,
   Sun,
   Flame,
-  CheckCircle
+  CheckCircle,
+  Plus,
+  Pencil,
+  Undo2,
+  Target,
+  MessageSquare,
+  Link2,
+  Palette,
+  CheckSquare
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import AIFeed from './AIFeed';
 import SystemHealthWidget from './SystemHealthWidget';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { useMemo, ReactNode, useState, useEffect, useContext } from 'react';
 import React from 'react';
-import { collection, onSnapshot, doc, getDoc, setDoc, query, orderBy, limit } from '../lib/db';
+import { collection, onSnapshot, doc, getDoc, setDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { AppModeContext } from '../App';
@@ -71,6 +79,10 @@ export interface KPIConfig {
   visible: boolean;
   order: number;
   deleted?: boolean;
+  sub?: string;
+  customValue?: string;
+  iconName?: string;
+  iconColor?: string;
 }
 
 export interface PanelConfig {
@@ -81,23 +93,30 @@ export interface PanelConfig {
   order: number;
   width: '1/4' | '1/3' | '1/2' | '2/3' | 'full';
   deleted?: boolean;
+  customType?: 'notes' | 'quick_links' | 'gauge' | 'text';
+  customNotes?: string;
+  customLinks?: { label: string; url: string; icon?: string }[];
+  customGaugeVal?: number;
+  customGaugeMax?: number;
+  customGaugeLabel?: string;
+  accentColor?: string;
 }
 
 const DEFAULT_KPIS: KPIConfig[] = [
-  { id: 'total_workers', title: 'Total Workers on Site', visible: true, order: 1 },
-  { id: 'active_workers', title: 'Active Workers', visible: true, order: 2 },
-  { id: 'visitors_count', title: 'Visitors', visible: true, order: 3 },
-  { id: 'contractors_count', title: 'Contractors', visible: true, order: 4 },
-  { id: 'active_tags', title: 'Active RFID Tags', visible: true, order: 5 },
-  { id: 'online_readers', title: 'Online Readers', visible: true, order: 6 },
-  { id: 'offline_readers', title: 'Offline Readers', visible: true, order: 7 },
-  { id: 'active_equipment', title: 'Active Equipment', visible: true, order: 8 },
-  { id: 'safety_alerts', title: 'Safety Alerts', visible: true, order: 9 },
-  { id: 'emergency_alerts', title: 'Emergency Alerts', visible: true, order: 10 },
-  { id: 'attendance_today', title: 'Attendance Today', visible: true, order: 11 },
-  { id: 'ppe_compliance', title: 'PPE Compliance', visible: true, order: 12 },
-  { id: 'productivity_score', title: 'Productivity Score', visible: true, order: 13 },
-  { id: 'site_utilization', title: 'Site Utilization', visible: true, order: 14 },
+  { id: 'total_workers', title: 'Total Workers on Site', visible: true, order: 1, sub: 'Active registered roster on site', iconName: 'Users', iconColor: 'bg-[#007BC4]' },
+  { id: 'active_workers', title: 'Active Workers', visible: true, order: 2, sub: 'Active in motion / on-shift trades', iconName: 'UserCheck', iconColor: 'bg-emerald-600' },
+  { id: 'visitors_count', title: 'Visitors', visible: true, order: 3, sub: 'Pre-registered & checked-in visitors', iconName: 'UserX', iconColor: 'bg-amber-500' },
+  { id: 'contractors_count', title: 'Contractors', visible: true, order: 4, sub: 'Subcontractor trades on site', iconName: 'HardHat', iconColor: 'bg-indigo-600' },
+  { id: 'active_tags', title: 'Active RFID Tags', visible: true, order: 5, sub: 'Transmitting hardhat & asset tags', iconName: 'Radio', iconColor: 'bg-sky-600' },
+  { id: 'online_readers', title: 'Online Readers', visible: true, order: 6, sub: 'Gate portals online & scanning', iconName: 'Wifi', iconColor: 'bg-emerald-600' },
+  { id: 'offline_readers', title: 'Offline Readers', visible: true, order: 7, sub: 'Disconnected or warning state', iconName: 'WifiOff', iconColor: 'bg-rose-600' },
+  { id: 'active_equipment', title: 'Active Equipment', visible: true, order: 8, sub: 'Cranes, excavators & lifts tracked', iconName: 'Truck', iconColor: 'bg-purple-600' },
+  { id: 'safety_alerts', title: 'Safety Alerts', visible: true, order: 9, sub: 'PPE & hazard proximity warnings', iconName: 'ShieldAlert', iconColor: 'bg-amber-500' },
+  { id: 'emergency_alerts', title: 'Emergency Alerts', visible: true, order: 10, sub: 'Critical panic & crane radius breaches', iconName: 'Siren', iconColor: 'bg-rose-600' },
+  { id: 'attendance_today', title: 'Attendance Today', visible: true, order: 11, sub: '48/50 scheduled workers checked in', iconName: 'Clock', iconColor: 'bg-blue-600' },
+  { id: 'ppe_compliance', title: 'PPE Compliance', visible: true, order: 12, sub: 'Hardhat tag & vest scan rate', iconName: 'ShieldCheck', iconColor: 'bg-teal-600' },
+  { id: 'productivity_score', title: 'Productivity Score', visible: true, order: 13, sub: 'Active work vs idle dwell rating', iconName: 'TrendingUp', iconColor: 'bg-emerald-600' },
+  { id: 'site_utilization', title: 'Site Utilization', visible: true, order: 14, sub: 'Active sectors vs max capacity', iconName: 'Gauge', iconColor: 'bg-violet-600' },
 ];
 
 const DEFAULT_PANELS: PanelConfig[] = [
@@ -157,7 +176,24 @@ export default function DashboardTab({
   const [panels, setPanels] = useState<PanelConfig[]>(DEFAULT_PANELS);
   const [isSaving, setIsSaving] = useState(false);
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'metrics' | 'grids'>('metrics');
+  const [activeTab, setActiveTab] = useState<'metrics' | 'grids' | 'trash' | 'settings'>('metrics');
+  const [editingKpiId, setEditingKpiId] = useState<string | null>(null);
+  const [editingPanelId, setEditingPanelId] = useState<string | null>(null);
+  const [showAddKpiForm, setShowAddKpiForm] = useState<boolean>(false);
+  const [showAddPanelForm, setShowAddPanelForm] = useState<boolean>(false);
+
+  // Custom KPI form inputs
+  const [newKpiTitle, setNewKpiTitle] = useState('');
+  const [newKpiVal, setNewKpiVal] = useState('');
+  const [newKpiSub, setNewKpiSub] = useState('');
+  const [newKpiIcon, setNewKpiIcon] = useState('Target');
+  const [newKpiColor, setNewKpiColor] = useState('bg-[#007BC4]');
+
+  // Custom Panel form inputs
+  const [newPanelTitle, setNewPanelTitle] = useState('');
+  const [newPanelDesc, setNewPanelDesc] = useState('');
+  const [newPanelWidth, setNewPanelWidth] = useState<'1/4' | '1/3' | '1/2' | '2/3' | 'full'>('1/2');
+  const [newPanelType, setNewPanelType] = useState<'notes' | 'quick_links' | 'gauge'>('notes');
 
   // Temporary layout configurations for draft editing
   const [tempKpis, setTempKpis] = useState<KPIConfig[]>([]);
@@ -1364,20 +1400,63 @@ export default function DashboardTab({
     }
   };
 
+  // Render icon for KPI cards
+  const renderKpiIcon = (name?: string) => {
+    switch (name) {
+      case 'UserCheck': return <UserCheck className="w-5 h-5 text-white" />;
+      case 'UserX': return <UserX className="w-5 h-5 text-white" />;
+      case 'HardHat': return <HardHat className="w-5 h-5 text-white" />;
+      case 'Radio': return <Radio className="w-5 h-5 text-white" />;
+      case 'Wifi': return <Wifi className="w-5 h-5 text-white" />;
+      case 'WifiOff': return <WifiOff className="w-5 h-5 text-white" />;
+      case 'Truck': return <Truck className="w-5 h-5 text-white" />;
+      case 'ShieldAlert': return <ShieldAlert className="w-5 h-5 text-white" />;
+      case 'Siren': return <Siren className="w-5 h-5 text-white animate-pulse" />;
+      case 'Clock': return <Clock className="w-5 h-5 text-white" />;
+      case 'ShieldCheck': return <ShieldCheck className="w-5 h-5 text-white" />;
+      case 'TrendingUp': return <TrendingUp className="w-5 h-5 text-white" />;
+      case 'Gauge': return <Gauge className="w-5 h-5 text-white" />;
+      case 'Activity': return <Activity className="w-5 h-5 text-white" />;
+      case 'Sparkles': return <Sparkles className="w-5 h-5 text-white" />;
+      case 'Target': return <Target className="w-5 h-5 text-white" />;
+      case 'MessageSquare': return <MessageSquare className="w-5 h-5 text-white" />;
+      default: return <Users className="w-5 h-5 text-white" />;
+    }
+  };
+
   // Direct content dispatcher mapping metric KPI configurations dynamically
   const renderKpiCard = (id: string) => {
     const isReal = mode === 'real';
+    const kpi = kpis.find(k => k.id === id);
+    const title = kpi?.title;
+    const subOverride = kpi?.sub;
+    const iconColorOverride = kpi?.iconColor;
+    const customVal = kpi?.customValue;
+
+    if (customVal !== undefined || id.startsWith('custom_kpi_')) {
+      return (
+        <KpiCard 
+          key={id} 
+          title={title || "Custom Metric"} 
+          value={customVal || "0"} 
+          sub={subOverride || "Custom Tagline"} 
+          icon={renderKpiIcon(kpi?.iconName)} 
+          iconColor={iconColorOverride || "bg-[#007BC4]"} 
+        />
+      );
+    }
+
     switch (id) {
       case 'total_workers':
       case 'total_people':
         return (
           <KpiCard 
             key={id} 
-            title="Total Workers on Site" 
+            title={title || "Total Workers on Site"} 
             value={people.length.toString()} 
-            sub="Active registered roster on site" 
-            icon={<Users className="w-5 h-5 text-white" />} 
-            iconColor="bg-[#007BC4]" 
+            sub={subOverride || "Active registered roster on site"} 
+            icon={renderKpiIcon(kpi?.iconName || 'Users')} 
+            iconColor={iconColorOverride || "bg-[#007BC4]"} 
             onClick={() => navigate('/people')} 
           />
         );
@@ -1386,11 +1465,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Active Workers" 
+            title={title || "Active Workers"} 
             value={(movingCount || Math.round(people.length * 0.85)).toString()} 
-            sub="Active in motion / on-shift trades" 
-            icon={<UserCheck className="w-5 h-5 text-white" />} 
-            iconColor="bg-emerald-600" 
+            sub={subOverride || "Active in motion / on-shift trades"} 
+            icon={renderKpiIcon(kpi?.iconName || 'UserCheck')} 
+            iconColor={iconColorOverride || "bg-emerald-600"} 
             onClick={() => navigate('/live')} 
           />
         );
@@ -1399,11 +1478,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Visitors" 
+            title={title || "Visitors"} 
             value={vCount.toString()} 
-            sub="Pre-registered & checked-in visitors" 
-            icon={<UserX className="w-5 h-5 text-white" />} 
-            iconColor="bg-amber-500" 
+            sub={subOverride || "Pre-registered & checked-in visitors"} 
+            icon={renderKpiIcon(kpi?.iconName || 'UserX')} 
+            iconColor={iconColorOverride || "bg-amber-500"} 
             onClick={() => navigate('/visitors')} 
           />
         );
@@ -1413,11 +1492,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Contractors" 
+            title={title || "Contractors"} 
             value={cCount.toString()} 
-            sub="Subcontractor trades on site" 
-            icon={<HardHat className="w-5 h-5 text-white" />} 
-            iconColor="bg-indigo-600" 
+            sub={subOverride || "Subcontractor trades on site"} 
+            icon={renderKpiIcon(kpi?.iconName || 'HardHat')} 
+            iconColor={iconColorOverride || "bg-indigo-600"} 
             onClick={() => navigate('/people')} 
           />
         );
@@ -1427,11 +1506,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Active RFID Tags" 
+            title={title || "Active RFID Tags"} 
             value={tagCount.toString()} 
-            sub="Transmitting hardhat & asset tags" 
-            icon={<Radio className="w-5 h-5 text-white" />} 
-            iconColor="bg-sky-600" 
+            sub={subOverride || "Transmitting hardhat & asset tags"} 
+            icon={renderKpiIcon(kpi?.iconName || 'Radio')} 
+            iconColor={iconColorOverride || "bg-sky-600"} 
             onClick={() => navigate('/devices')} 
           />
         );
@@ -1440,11 +1519,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Online Readers" 
+            title={title || "Online Readers"} 
             value={(deviceStats.online || 18).toString()} 
-            sub="Gate portals online & scanning" 
-            icon={<Wifi className="w-5 h-5 text-white" />} 
-            iconColor="bg-emerald-600" 
+            sub={subOverride || "Gate portals online & scanning"} 
+            icon={renderKpiIcon(kpi?.iconName || 'Wifi')} 
+            iconColor={iconColorOverride || "bg-emerald-600"} 
             onClick={() => navigate('/devices')} 
           />
         );
@@ -1452,11 +1531,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Offline Readers" 
+            title={title || "Offline Readers"} 
             value={(deviceStats.offline || 2).toString()} 
-            sub="Disconnected or warning state" 
-            icon={<WifiOff className="w-5 h-5 text-white" />} 
-            iconColor="bg-rose-600" 
+            sub={subOverride || "Disconnected or warning state"} 
+            icon={renderKpiIcon(kpi?.iconName || 'WifiOff')} 
+            iconColor={iconColorOverride || "bg-rose-600"} 
             onClick={() => navigate('/devices')} 
           />
         );
@@ -1464,11 +1543,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Active Equipment" 
+            title={title || "Active Equipment"} 
             value="12" 
-            sub="Cranes, excavators & lifts tracked" 
-            icon={<Truck className="w-5 h-5 text-white" />} 
-            iconColor="bg-purple-600" 
+            sub={subOverride || "Cranes, excavators & lifts tracked"} 
+            icon={renderKpiIcon(kpi?.iconName || 'Truck')} 
+            iconColor={iconColorOverride || "bg-purple-600"} 
             onClick={() => navigate('/maintenance')} 
           />
         );
@@ -1477,11 +1556,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Safety Alerts" 
+            title={title || "Safety Alerts"} 
             value={(alerts.filter(a => a.type === 'warning' || a.type === 'info').length || 4).toString()} 
-            sub="PPE & hazard proximity warnings" 
-            icon={<ShieldAlert className="w-5 h-5 text-white" />} 
-            iconColor="bg-amber-500" 
+            sub={subOverride || "PPE & hazard proximity warnings"} 
+            icon={renderKpiIcon(kpi?.iconName || 'ShieldAlert')} 
+            iconColor={iconColorOverride || "bg-amber-500"} 
             onClick={() => navigate('/alerts')} 
           />
         );
@@ -1489,11 +1568,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Emergency Alerts" 
+            title={title || "Emergency Alerts"} 
             value={(alerts.filter(a => a.type === 'security').length || 1).toString()} 
-            sub="Critical panic & crane radius breaches" 
-            icon={<Siren className="w-5 h-5 text-white animate-pulse" />} 
-            iconColor="bg-rose-600" 
+            sub={subOverride || "Critical panic & crane radius breaches"} 
+            icon={renderKpiIcon(kpi?.iconName || 'Siren')} 
+            iconColor={iconColorOverride || "bg-rose-600"} 
             onClick={() => navigate('/incidents')} 
           />
         );
@@ -1501,11 +1580,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Attendance Today" 
+            title={title || "Attendance Today"} 
             value="96.4%" 
-            sub="48/50 scheduled workers checked in" 
-            icon={<Clock className="w-5 h-5 text-white" />} 
-            iconColor="bg-blue-600" 
+            sub={subOverride || "48/50 scheduled workers checked in"} 
+            icon={renderKpiIcon(kpi?.iconName || 'Clock')} 
+            iconColor={iconColorOverride || "bg-blue-600"} 
             onClick={() => navigate('/attendance')} 
           />
         );
@@ -1513,11 +1592,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="PPE Compliance" 
+            title={title || "PPE Compliance"} 
             value="98.2%" 
-            sub="Hardhat tag & vest scan rate" 
-            icon={<ShieldCheck className="w-5 h-5 text-white" />} 
-            iconColor="bg-teal-600" 
+            sub={subOverride || "Hardhat tag & vest scan rate"} 
+            icon={renderKpiIcon(kpi?.iconName || 'ShieldCheck')} 
+            iconColor={iconColorOverride || "bg-teal-600"} 
             onClick={() => navigate('/ai-insights')} 
           />
         );
@@ -1525,11 +1604,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Productivity Score" 
+            title={title || "Productivity Score"} 
             value="94.5%" 
-            sub="Active work vs idle dwell rating" 
-            icon={<TrendingUp className="w-5 h-5 text-white" />} 
-            iconColor="bg-emerald-600" 
+            sub={subOverride || "Active work vs idle dwell rating"} 
+            icon={renderKpiIcon(kpi?.iconName || 'TrendingUp')} 
+            iconColor={iconColorOverride || "bg-emerald-600"} 
             onClick={() => navigate('/analytics')} 
           />
         );
@@ -1537,11 +1616,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Site Utilization" 
+            title={title || "Site Utilization"} 
             value="78.4%" 
-            sub="Active sectors vs max capacity" 
-            icon={<Gauge className="w-5 h-5 text-white" />} 
-            iconColor="bg-violet-600" 
+            sub={subOverride || "Active sectors vs max capacity"} 
+            icon={renderKpiIcon(kpi?.iconName || 'Gauge')} 
+            iconColor={iconColorOverride || "bg-violet-600"} 
             onClick={() => navigate('/live')} 
           />
         );
@@ -1549,11 +1628,11 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="In Motion" 
+            title={title || "In Motion"} 
             value={movingCount.toString()} 
-            sub={isReal ? "Tags in moving state" : "↗ 15.7% vs yesterday"} 
-            icon={<Activity className="w-5 h-5 text-white" />} 
-            iconColor="bg-[#007BC4]" 
+            sub={subOverride || (isReal ? "Tags in moving state" : "↗ 15.7% vs yesterday")} 
+            icon={renderKpiIcon(kpi?.iconName || 'Activity')} 
+            iconColor={iconColorOverride || "bg-[#007BC4]"} 
             onClick={() => navigate('/live')} 
           />
         );
@@ -1561,16 +1640,25 @@ export default function DashboardTab({
         return (
           <KpiCard 
             key={id} 
-            title="Avg. Dwell Time" 
+            title={title || "Avg. Dwell Time"} 
             value={`${avgDwellInfo}m`} 
-            sub={isReal ? "Per active on-site session" : "↗ 5.6% vs yesterday"} 
-            icon={<Clock className="w-5 h-5 text-white" />} 
-            iconColor="bg-[#8b5cf6]" 
+            sub={subOverride || (isReal ? "Per active on-site session" : "↗ 5.6% vs yesterday")} 
+            icon={renderKpiIcon(kpi?.iconName || 'Clock')} 
+            iconColor={iconColorOverride || "bg-[#8b5cf6]"} 
             onClick={() => navigate('/analytics')} 
           />
         );
       default:
-        return null;
+        return (
+          <KpiCard 
+            key={id} 
+            title={title || id} 
+            value={customVal || "0"} 
+            sub={subOverride || "Custom metric"} 
+            icon={renderKpiIcon(kpi?.iconName)} 
+            iconColor={iconColorOverride || "bg-[#007BC4]"} 
+          />
+        );
     }
   };
 
@@ -1785,18 +1873,26 @@ export default function DashboardTab({
             {/* Config Tabs Selector */}
             <div className="flex border-b border-slate-150 text-xs shrink-0 bg-slate-50/50">
               <button 
-                onClick={() => setActiveTab('metrics')}
+                onClick={() => { setActiveTab('metrics'); setEditingKpiId(null); setEditingPanelId(null); }}
                 className={`flex-1 py-3 text-center font-bold relative transition ${activeTab === 'metrics' ? 'text-[#007BC4]' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                Metric Cards
+                Metric Cards ({tempKpis.filter(k => !k.deleted).length})
                 {activeTab === 'metrics' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#007BC4]" />}
               </button>
               <button 
-                onClick={() => setActiveTab('grids')}
+                onClick={() => { setActiveTab('grids'); setEditingKpiId(null); setEditingPanelId(null); }}
                 className={`flex-1 py-3 text-center font-bold relative transition ${activeTab === 'grids' ? 'text-[#007BC4]' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                Charts & Panels Grid
+                Widgets ({tempPanels.filter(p => !p.deleted).length})
                 {activeTab === 'grids' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#007BC4]" />}
+              </button>
+              <button 
+                onClick={() => { setActiveTab('trash'); setEditingKpiId(null); setEditingPanelId(null); }}
+                className={`py-3 px-3 text-center font-bold relative transition ${activeTab === 'trash' ? 'text-rose-600' : 'text-slate-400 hover:text-slate-600'}`}
+                title="Trash Bin"
+              >
+                Trash ({tempKpis.filter(k => k.deleted).length + tempPanels.filter(p => p.deleted).length})
+                {activeTab === 'trash' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-rose-600" />}
               </button>
             </div>
             
@@ -1804,9 +1900,124 @@ export default function DashboardTab({
             <div className="flex-1 overflow-y-auto p-5">
               {activeTab === 'metrics' ? (
                 <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5 bg-[#007BC4]/5 p-3 rounded-lg border border-[#007BC4]/10">
-                    <p className="text-[11px] leading-relaxed text-slate-600 font-medium">✨ <strong>Drag-and-Drop Enabled:</strong> Drag any card using the grid handle to rearrange, or toggle its visibility checkbox.</p>
+                  <div className="flex items-center justify-between bg-[#007BC4]/5 p-3 rounded-lg border border-[#007BC4]/10">
+                    <p className="text-[11px] leading-relaxed text-slate-600 font-medium">✨ Drag handles to rearrange, edit text, or create custom metric counters.</p>
+                    <button
+                      onClick={() => setShowAddKpiForm(!showAddKpiForm)}
+                      className="shrink-0 flex items-center gap-1 bg-[#007BC4] text-white px-2.5 py-1.5 rounded-md text-[11px] font-bold hover:bg-[#006aa9] transition shadow-xs cursor-pointer ml-2"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {showAddKpiForm ? 'Close' : 'Add Metric'}
+                    </button>
                   </div>
+
+                  {/* Add Custom KPI Form */}
+                  {showAddKpiForm && (
+                    <div className="p-4 bg-slate-100/80 rounded-xl border border-slate-200/80 flex flex-col gap-3 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <span className="text-xs font-black text-slate-800 uppercase tracking-wider">Create Custom Metric Card</span>
+                        <button onClick={() => setShowAddKpiForm(false)} className="text-slate-400 hover:text-slate-600">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Card Label</label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. Scaffolding Rating"
+                            value={newKpiTitle}
+                            onChange={(e) => setNewKpiTitle(e.target.value)}
+                            className="w-full mt-1 bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#007BC4]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Value / Score</label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. 99.4%"
+                            value={newKpiVal}
+                            onChange={(e) => setNewKpiVal(e.target.value)}
+                            className="w-full mt-1 bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#007BC4]"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Subtitle / Tagline</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. 14 Audits Scanned Today"
+                          value={newKpiSub}
+                          onChange={(e) => setNewKpiSub(e.target.value)}
+                          className="w-full mt-1 bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#007BC4]"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Icon</label>
+                          <select 
+                            value={newKpiIcon}
+                            onChange={(e) => setNewKpiIcon(e.target.value)}
+                            className="w-full mt-1 bg-white border border-slate-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#007BC4]"
+                          >
+                            <option value="Target">Target / Goal</option>
+                            <option value="Users">Users / Roster</option>
+                            <option value="Radio">RFID Radio</option>
+                            <option value="Truck">Heavy Fleet</option>
+                            <option value="ShieldAlert">Hazard Warning</option>
+                            <option value="Clock">Shift Clock</option>
+                            <option value="Sparkles">AI Insight</option>
+                            <option value="Activity">Motion Tracker</option>
+                            <option value="Gauge">Capacity Meter</option>
+                            <option value="MessageSquare">Notes / Chat</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Badge Accent</label>
+                          <select 
+                            value={newKpiColor}
+                            onChange={(e) => setNewKpiColor(e.target.value)}
+                            className="w-full mt-1 bg-white border border-slate-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#007BC4]"
+                          >
+                            <option value="bg-[#007BC4]">Aperture Blue</option>
+                            <option value="bg-emerald-600">Safety Emerald</option>
+                            <option value="bg-amber-500">Caution Amber</option>
+                            <option value="bg-indigo-600">Trade Indigo</option>
+                            <option value="bg-rose-600">Alert Crimson</option>
+                            <option value="bg-purple-600">Fleet Purple</option>
+                            <option value="bg-teal-600">Compliance Teal</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (!newKpiTitle.trim()) return;
+                          const newCard: KPIConfig = {
+                            id: `custom_kpi_${Date.now()}`,
+                            title: newKpiTitle.trim(),
+                            customValue: newKpiVal.trim() || '100',
+                            sub: newKpiSub.trim() || 'Custom Metric Tagline',
+                            iconName: newKpiIcon,
+                            iconColor: newKpiColor,
+                            visible: true,
+                            order: tempKpis.filter(k => !k.deleted).length + 1
+                          };
+                          setTempKpis(prev => [...prev, newCard]);
+                          setNewKpiTitle('');
+                          setNewKpiVal('');
+                          setNewKpiSub('');
+                          setShowAddKpiForm(false);
+                        }}
+                        className="w-full mt-1 py-2 bg-[#007BC4] hover:bg-[#006aa9] text-white rounded-lg text-xs font-bold transition shadow"
+                      >
+                        ＋ Create & Add Metric Card
+                      </button>
+                    </div>
+                  )}
                   
                   <div className="flex flex-col gap-2">
                     {[...tempKpis]
@@ -1815,78 +2026,238 @@ export default function DashboardTab({
                       .map((kpi, idx, arr) => {
                         const isDraggingObj = draggedIdx === idx;
                         const isOver = dragOverIdx === idx;
+                        const isEditingThis = editingKpiId === kpi.id;
                         
                         return (
                           <motion.div 
                             layout
                             id={`kpi-item-${kpi.id}`}
                             key={kpi.id}
-                            draggable
+                            draggable={!isEditingThis}
                             onDragStart={(e: any) => handleDragStart(e, idx)}
                             onDragOver={(e: any) => handleDragOver(e, idx)}
                             onDragEnd={handleDragEnd}
                             onDrop={(e) => handleDrop(e, idx, 'kpi')}
                             transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                            className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-grab active:cursor-grabbing select-none ${
+                            className={`flex flex-col p-3 rounded-lg border transition-all ${
                               isDraggingObj 
                                 ? 'opacity-30 border-dashed border-[#007BC4] bg-slate-100' 
                                 : isOver 
                                   ? 'border-[#007BC4] bg-[#007BC4]/10 shadow-md scale-[1.01]' 
-                                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200'
+                                  : isEditingThis
+                                    ? 'bg-blue-50/60 border-[#007BC4] shadow-sm'
+                                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200'
                             }`}
                           >
-                            <div className="flex items-center gap-2">
-                              {/* Grip Icon Drag Handle */}
-                              <div className="text-slate-400 hover:text-slate-600 p-0.5 pointer-events-none">
-                                <GripVertical className="w-4 h-4 shrink-0" />
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                {/* Grip Icon Drag Handle */}
+                                <div className="text-slate-400 hover:text-slate-600 p-0.5 cursor-grab">
+                                  <GripVertical className="w-4 h-4 shrink-0" />
+                                </div>
+                                
+                                <button 
+                                  onClick={() => handleToggleKpi(kpi.id)}
+                                  className={`p-1.5 rounded-md hover:bg-white border transition shadow-xs ${kpi.visible ? 'text-[#007BC4] border-[#007BC4]/20 bg-[#007BC4]/5' : 'text-slate-400 border-slate-200 bg-white'}`}
+                                  title={kpi.visible ? "Disable metric" : "Enable metric"}
+                                >
+                                  {kpi.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                </button>
+                                
+                                <span className={`text-xs font-bold truncate ${kpi.visible ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{kpi.title}</span>
                               </div>
                               
-                              <button 
-                                onClick={() => handleToggleKpi(kpi.id)}
-                                className={`p-1.5 rounded-md hover:bg-white border transition shadow-xs ${kpi.visible ? 'text-[#007BC4] border-[#007BC4]/20 bg-[#007BC4]/5' : 'text-slate-400 border-slate-200 bg-white'}`}
-                                title={kpi.visible ? "Disable metric" : "Enable metric"}
-                              >
-                                {kpi.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                              </button>
-                              <span className={`text-xs font-bold ${kpi.visible ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{kpi.title}</span>
+                              {/* Actions bar */}
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button 
+                                  onClick={() => setEditingKpiId(isEditingThis ? null : kpi.id)}
+                                  className={`p-1 rounded transition shadow-xs border ${isEditingThis ? 'bg-[#007BC4] text-white border-[#007BC4]' : 'bg-white hover:bg-slate-200 text-slate-500 border-slate-100'}`}
+                                  title="Edit Title & Icon"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  onClick={() => handleMoveKpiUp(idx)}
+                                  disabled={idx === 0}
+                                  className="p-1 rounded bg-white hover:bg-slate-200 text-slate-500 disabled:opacity-20 transition shadow-xs border border-slate-100"
+                                  title="Move Up"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  onClick={() => handleMoveKpiDown(idx)}
+                                  disabled={idx === arr.length - 1}
+                                  className="p-1 rounded bg-white hover:bg-slate-200 text-slate-500 disabled:opacity-20 transition shadow-xs border border-slate-100"
+                                  title="Move Down"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteKpi(kpi.id)}
+                                  className="p-1 rounded bg-white hover:bg-red-50 text-red-500 hover:text-red-700 transition shadow-xs border border-slate-100 ml-1 cursor-pointer"
+                                  title="Send to Trash"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
-                            
-                            {/* Actions bar */}
-                            <div className="flex items-center gap-1">
-                              <button 
-                                onClick={() => handleMoveKpiUp(idx)}
-                                disabled={idx === 0}
-                                className="p-1 rounded bg-white hover:bg-slate-200 text-slate-500 disabled:opacity-20 transition shadow-xs border border-slate-100"
-                                title="Move Up"
-                              >
-                                <ArrowUp className="w-3.5 h-3.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleMoveKpiDown(idx)}
-                                disabled={idx === arr.length - 1}
-                                className="p-1 rounded bg-white hover:bg-slate-200 text-slate-500 disabled:opacity-20 transition shadow-xs border border-slate-100"
-                                title="Move Down"
-                              >
-                                <ArrowDown className="w-3.5 h-3.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteKpi(kpi.id)}
-                                className="p-1 rounded bg-white hover:bg-red-50 text-red-500 hover:text-red-700 transition shadow-xs border border-slate-100 ml-1 cursor-pointer"
-                                title="Delete Option"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+
+                            {/* Inline Editor Drawer for this KPI */}
+                            {isEditingThis && (
+                              <div className="mt-3 pt-3 border-t border-slate-200/80 grid grid-cols-1 gap-2.5 text-xs animate-in fade-in duration-150">
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Rename Card Title</label>
+                                  <input 
+                                    type="text"
+                                    value={kpi.title}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setTempKpis(prev => prev.map(k => k.id === kpi.id ? { ...k, title: val } : k));
+                                    }}
+                                    className="w-full mt-1 bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#007BC4]"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Custom Subtitle</label>
+                                    <input 
+                                      type="text"
+                                      value={kpi.sub || ''}
+                                      placeholder="e.g. Live roster on site"
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setTempKpis(prev => prev.map(k => k.id === kpi.id ? { ...k, sub: val } : k));
+                                      }}
+                                      className="w-full mt-1 bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#007BC4]"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Fixed Value Override</label>
+                                    <input 
+                                      type="text"
+                                      value={kpi.customValue || ''}
+                                      placeholder="Leave empty for dynamic"
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setTempKpis(prev => prev.map(k => k.id === kpi.id ? { ...k, customValue: val } : k));
+                                      }}
+                                      className="w-full mt-1 bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#007BC4]"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between pt-1">
+                                  <span className="text-[10px] text-slate-400 font-medium">Changes apply upon saving layout.</span>
+                                  <button 
+                                    onClick={() => setEditingKpiId(null)}
+                                    className="px-3 py-1 bg-[#007BC4] text-white font-bold rounded text-[11px]"
+                                  >
+                                    Done Editing
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </motion.div>
                         );
                       })}
                   </div>
                 </div>
-              ) : (
+              ) : activeTab === 'grids' ? (
                 <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5 bg-[#007BC4]/5 p-3 rounded-lg border border-[#007BC4]/10">
-                    <p className="text-[11px] leading-relaxed text-slate-600 font-medium">✨ <strong>Drag-and-Drop Enabled:</strong> Use the grippers to dynamically order active tracking widgets. Modify widths below to resize the dashboard grid columns.</p>
+                  <div className="flex items-center justify-between bg-[#007BC4]/5 p-3 rounded-lg border border-[#007BC4]/10">
+                    <p className="text-[11px] leading-relaxed text-slate-600 font-medium">✨ Drag to order active panels or resize grid column widths below.</p>
+                    <button
+                      onClick={() => setShowAddPanelForm(!showAddPanelForm)}
+                      className="shrink-0 flex items-center gap-1 bg-[#007BC4] text-white px-2.5 py-1.5 rounded-md text-[11px] font-bold hover:bg-[#006aa9] transition shadow-xs cursor-pointer ml-2"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {showAddPanelForm ? 'Close' : 'Add Widget'}
+                    </button>
                   </div>
+
+                  {/* Add Custom Panel Widget Form */}
+                  {showAddPanelForm && (
+                    <div className="p-4 bg-slate-100/80 rounded-xl border border-slate-200/80 flex flex-col gap-3 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <span className="text-xs font-black text-slate-800 uppercase tracking-wider">Create Custom Widget Panel</span>
+                        <button onClick={() => setShowAddPanelForm(false)} className="text-slate-400 hover:text-slate-600">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Widget Header Title</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. EHS Shift Briefing Board"
+                          value={newPanelTitle}
+                          onChange={(e) => setNewPanelTitle(e.target.value)}
+                          className="w-full mt-1 bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#007BC4]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Widget Description</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Daily site instructions and emergency protocols"
+                          value={newPanelDesc}
+                          onChange={(e) => setNewPanelDesc(e.target.value)}
+                          className="w-full mt-1 bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#007BC4]"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Grid Column Width</label>
+                          <select 
+                            value={newPanelWidth}
+                            onChange={(e: any) => setNewPanelWidth(e.target.value)}
+                            className="w-full mt-1 bg-white border border-slate-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#007BC4]"
+                          >
+                            <option value="1/3">1/3 Width</option>
+                            <option value="1/2">1/2 Width (Half Screen)</option>
+                            <option value="2/3">2/3 Width</option>
+                            <option value="full">Full Width (12 Columns)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Widget Function</label>
+                          <select 
+                            value={newPanelType}
+                            onChange={(e: any) => setNewPanelType(e.target.value)}
+                            className="w-full mt-1 bg-white border border-slate-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#007BC4]"
+                          >
+                            <option value="notes">Editable Shift Notes Board</option>
+                            <option value="quick_links">Safety Launchpad Buttons</option>
+                            <option value="gauge">Target Compliance Dial</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (!newPanelTitle.trim()) return;
+                          const newWidget: PanelConfig = {
+                            id: `custom_panel_${Date.now()}`,
+                            title: newPanelTitle.trim(),
+                            description: newPanelDesc.trim() || 'Custom site operational tracking panel',
+                            width: newPanelWidth,
+                            visible: true,
+                            order: tempPanels.filter(p => !p.deleted).length + 1,
+                            customType: newPanelType,
+                            customNotes: 'Type custom site briefing notes or shift highlights here...'
+                          };
+                          setTempPanels(prev => [...prev, newWidget]);
+                          setNewPanelTitle('');
+                          setNewPanelDesc('');
+                          setShowAddPanelForm(false);
+                        }}
+                        className="w-full mt-1 py-2 bg-[#007BC4] hover:bg-[#006aa9] text-white rounded-lg text-xs font-bold transition shadow"
+                      >
+                        ＋ Create & Add Widget Panel
+                      </button>
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-3">
                     {[...tempPanels]
@@ -1895,32 +2266,35 @@ export default function DashboardTab({
                       .map((panel, idx, arr) => {
                         const isDraggingObj = draggedIdx === idx;
                         const isOver = dragOverIdx === idx;
+                        const isEditingThis = editingPanelId === panel.id;
                         
                         return (
                           <motion.div 
                             layout
                             id={`panel-item-${panel.id}`}
                             key={panel.id}
-                            draggable
+                            draggable={!isEditingThis}
                             onDragStart={(e: any) => handleDragStart(e, idx)}
                             onDragOver={(e: any) => handleDragOver(e, idx)}
                             onDragEnd={handleDragEnd}
                             onDrop={(e) => handleDrop(e, idx, 'panel')}
                             transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                            className={`p-3.5 rounded-lg border flex flex-col gap-2 transition-all cursor-grab active:cursor-grabbing select-none ${
+                            className={`p-3.5 rounded-lg border flex flex-col gap-2 transition-all ${
                               isDraggingObj
                                 ? 'opacity-30 border-dashed border-[#007BC4] bg-slate-100'
                                 : isOver
                                   ? 'border-[#007BC4] bg-[#007BC4]/10 shadow-lg scale-[1.01]'
-                                  : panel.visible 
-                                    ? 'bg-slate-50/50 hover:bg-slate-50 border-slate-200 shadow-none' 
-                                    : 'bg-slate-50 border-slate-200/50 opacity-70 border-dashed'
+                                  : isEditingThis
+                                    ? 'bg-blue-50/60 border-[#007BC4] shadow-sm'
+                                    : panel.visible 
+                                      ? 'bg-slate-50/50 hover:bg-slate-50 border-slate-200 shadow-none' 
+                                      : 'bg-slate-50 border-slate-200/50 opacity-70 border-dashed'
                             }`}
                           >
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
                                 {/* Grip Drag Handle */}
-                                <div className="text-slate-400 hover:text-slate-600 p-0.5 pointer-events-none">
+                                <div className="text-slate-400 hover:text-slate-600 p-0.5 cursor-grab">
                                   <GripVertical className="w-4 h-4 shrink-0" />
                                 </div>
                                 
@@ -1931,14 +2305,21 @@ export default function DashboardTab({
                                 >
                                   {panel.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                                 </button>
-                                <div>
-                                  <p className={`text-xs font-bold leading-tight ${panel.visible ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{panel.title}</p>
-                                  <p className="text-[9px] text-slate-400 mt-0.5 leading-tight max-w-[200px]">{panel.description}</p>
+                                <div className="min-w-0">
+                                  <p className={`text-xs font-bold leading-tight truncate ${panel.visible ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{panel.title}</p>
+                                  <p className="text-[9px] text-slate-400 mt-0.5 leading-tight max-w-[200px] truncate">{panel.description}</p>
                                 </div>
                               </div>
                               
                               {/* Alternative reorder keys */}
                               <div className="flex items-center gap-1 shrink-0">
+                                <button 
+                                  onClick={() => setEditingPanelId(isEditingThis ? null : panel.id)}
+                                  className={`p-1 rounded transition shadow-xs border ${isEditingThis ? 'bg-[#007BC4] text-white border-[#007BC4]' : 'bg-white hover:bg-slate-200 text-slate-500 border-slate-100'}`}
+                                  title="Edit Panel Label"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
                                 <button 
                                   onClick={() => handleMovePanelUp(idx)}
                                   disabled={idx === 0}
@@ -1958,16 +2339,54 @@ export default function DashboardTab({
                                 <button 
                                   onClick={() => handleDeletePanel(panel.id)}
                                   className="p-1 rounded bg-white hover:bg-red-50 text-red-500 hover:text-red-700 transition shadow-xs border border-slate-100 ml-1 cursor-pointer"
-                                  title="Delete Option"
+                                  title="Send to Trash"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </div>
+
+                            {/* Inline Editor for Panel Title */}
+                            {isEditingThis && (
+                              <div className="mt-2 pt-2 border-t border-slate-200/80 flex flex-col gap-2 text-xs animate-in fade-in duration-150">
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Rename Panel Title</label>
+                                  <input 
+                                    type="text"
+                                    value={panel.title}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setTempPanels(prev => prev.map(p => p.id === panel.id ? { ...p, title: val } : p));
+                                    }}
+                                    className="w-full mt-1 bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#007BC4]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Panel Description</label>
+                                  <input 
+                                    type="text"
+                                    value={panel.description}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setTempPanels(prev => prev.map(p => p.id === panel.id ? { ...p, description: val } : p));
+                                    }}
+                                    className="w-full mt-1 bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#007BC4]"
+                                  />
+                                </div>
+                                <div className="flex justify-end pt-1">
+                                  <button 
+                                    onClick={() => setEditingPanelId(null)}
+                                    className="px-3 py-1 bg-[#007BC4] text-white font-bold rounded text-[11px]"
+                                  >
+                                    Done Editing
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                             
                             {/* Width selector grids */}
                             {panel.visible && panel.id !== 'tech_footer' && (
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mt-2 pt-2 border-t border-slate-200/50">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mt-1 pt-2 border-t border-slate-200/50">
                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Grid column width</label>
                                 <div className="flex items-center gap-0.5 self-end sm:self-auto">
                                   {(['1/4', '1/3', '1/2', '2/3', 'full'] as const).map(w => {
@@ -1988,6 +2407,56 @@ export default function DashboardTab({
                           </motion.div>
                         );
                       })}
+                  </div>
+                </div>
+              ) : (
+                /* Trash Bin Tab */
+                <div className="flex flex-col gap-4">
+                  <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-800 font-medium">
+                    🗑️ <strong>Trash Bin:</strong> Items here are currently removed from your active dashboard grid. Click <strong>Restore</strong> to put them back into layout.
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deleted Metric Cards</span>
+                    {tempKpis.filter(k => k.deleted).length > 0 ? (
+                      tempKpis.filter(k => k.deleted).map(kpi => (
+                        <div key={kpi.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                          <span className="font-bold text-slate-700">{kpi.title}</span>
+                          <button
+                            onClick={() => setTempKpis(prev => prev.map(k => k.id === kpi.id ? { ...k, deleted: false, visible: true } : k))}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded text-[11px] font-bold hover:bg-emerald-700 transition"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Restore
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400 italic p-2">No deleted metrics in trash.</span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2 mt-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deleted Panel Widgets</span>
+                    {tempPanels.filter(p => p.deleted).length > 0 ? (
+                      tempPanels.filter(p => p.deleted).map(panel => (
+                        <div key={panel.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                          <div>
+                            <span className="font-bold text-slate-700 block">{panel.title}</span>
+                            <span className="text-[10px] text-slate-400">{panel.description}</span>
+                          </div>
+                          <button
+                            onClick={() => setTempPanels(prev => prev.map(p => p.id === panel.id ? { ...p, deleted: false, visible: true } : p))}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded text-[11px] font-bold hover:bg-emerald-700 transition shrink-0 ml-2"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Restore
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400 italic p-2">No deleted panels in trash.</span>
+                    )}
                   </div>
                 </div>
               )}

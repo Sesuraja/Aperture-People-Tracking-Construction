@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { getCollectionDocs, upsertDoc, logAuditEvent } from '../services/db.js';
 import { broadcastSseEvent } from '../services/sse.js';
+import { broadcastWebSocketEvent } from '../services/websocket.js';
 
 export const rfidRouter = Router();
 
@@ -115,9 +116,15 @@ rfidRouter.post('/scan', async (req: Request, res: Response) => {
     // Record history
     await upsertDoc('tag_history', scanRecord);
 
-    // Broadcast SSE real-time event to subscribers
+    // Broadcast SSE & WebSocket real-time events to subscribers
     broadcastSseEvent('rfid_scan', {
       type: 'rfid_scan',
+      record: scanRecord,
+      timestamp
+    });
+
+    broadcastWebSocketEvent('tag_update', {
+      type: 'tag_update',
       record: scanRecord,
       timestamp
     });

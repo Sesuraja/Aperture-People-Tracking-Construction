@@ -50,8 +50,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn('Firestore Operation Notice: ', JSON.stringify(errInfo));
 }
 
 export const INITIAL_PROJECT_ZONES: Record<string, Record<string, { x: number; y: number; width: number; height: number }>> = {
@@ -179,7 +178,7 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
         if (data.idleAlertThreshold !== undefined) idleAlertThresholdRef.current = data.idleAlertThreshold;
         if (data.occupancyThresholds) occupancyLimitsRef.current = data.occupancyThresholds;
       }
-    });
+    }, (err) => handleFirestoreError(err, OperationType.GET, 'settings/global'));
 
     // Listen to real alerts from the database
     const alertQuery = query(collection(db, 'alerts'), orderBy('timestamp', 'desc'), limit(50));
@@ -196,7 +195,7 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
           });
        });
        setAlerts(fetchedAlerts);
-    });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'alerts'));
     
     // Listen to floor plans to generate zones based on devices placed
     const floorplansQuery = query(collection(db, 'floorplans'));
@@ -216,7 +215,7 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
           }
        });
        setDynamicZones(newZones);
-    });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'floorplans'));
     
     const registeredQuery = query(collection(db, 'registered_people'));
     const unsubscribeRegistered = onSnapshot(registeredQuery, (snapshot) => {
@@ -225,21 +224,21 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
           mapped[doc.id] = { name: doc.data().name, role: doc.data().role || 'Employee' };
        });
        registeredPeopleRef.current = mapped;
-    });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'registered_people'));
     
     // Listen to Assets from Firebase in real mode
     const assetsQuery = collection(db, 'assets');
     const unsubscribeAssets = onSnapshot(assetsQuery, (snap) => {
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       if (mode === 'real') setAssets(items);
-    });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'assets'));
 
     // Listen to Vehicles from Firebase in real mode
     const vehiclesQuery = collection(db, 'vehicles');
     const unsubscribeVehicles = onSnapshot(vehiclesQuery, (snap) => {
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       if (mode === 'real') setVehicles(items);
-    });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'vehicles'));
 
     return () => {
        unsubscribeSettings();

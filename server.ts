@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -10,21 +11,28 @@ import { rfidRouter } from './src/server/routes/rfid.js';
 import { aiRouter } from './src/server/routes/ai.js';
 import { dataRouter } from './src/server/routes/data.js';
 import { eventsRouter } from './src/server/routes/events.js';
+import { mongodbRouter } from './src/server/routes/mongodb.js';
 import { errorHandler } from './src/server/middleware/errorHandler.js';
+import { initWebSocketServer } from './src/server/services/websocket.js';
 
 export const app = express();
 
 async function startServer() {
   const PORT = 3000;
+  const httpServer = http.createServer(app);
 
   // Initialize DB and bootstrap Admin user if specified
   await initDatabase();
   await bootstrapAdminUser();
 
+  // Initialize WebSocket Server for real-time live tracking and safety alerts
+  initWebSocketServer(httpServer);
+
   // Helmet HTTP security headers (configured for iframe & SPA compatibility)
   app.use(helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     frameguard: false
   }));
@@ -61,6 +69,7 @@ async function startServer() {
   app.use('/api', aiRouter);
   app.use('/api/data', dataRouter);
   app.use('/api/events', eventsRouter);
+  app.use('/api/mongodb', mongodbRouter);
 
   // Centralized Error Handler Middleware
   app.use(errorHandler);
@@ -80,8 +89,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Server] GAO People Tracking Server running on http://0.0.0.0:${PORT}`);
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Server] GAO People Tracking Server running on http://0.0.0.0:${PORT} (WS on /ws)`);
   });
 }
 

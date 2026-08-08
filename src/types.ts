@@ -6,6 +6,8 @@ export interface Person {
   role: string;
   tradeCompany?: string;
   ppeStatus?: 'COMPLIANT' | 'NON_COMPLIANT' | 'WARNING';
+  shiftStatus?: 'ON_SITE' | 'OFF_SITE' | 'ON_LEAVE';
+  isLate?: boolean;
   certifications?: string[];
   hardhatTagId?: string;
   permitToWork?: string | null;
@@ -275,3 +277,32 @@ export interface EnterpriseIncident {
     comments: string;
   };
 }
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  category: AlertCategory | 'All';
+  priorityThreshold: AlertPriority;
+  targetZone: string;
+  slaMinutes: number;
+  autoAssignOfficer: string;
+  autoEscalateTier: 'Tier 1 (Gatehouse)' | 'Tier 2 (EHS Director)' | 'Tier 3 (Site Operations VP)';
+  triggerSiren: boolean;
+  notifySmsEmail: boolean;
+  enabled: boolean;
+  triggerCount: number;
+  lastTriggered?: string;
+}
+
+export interface EmergencyBroadcast {
+  id: string;
+  title: string;
+  zone: string;
+  type: 'Siren Alarm' | 'Evacuation Order' | 'Muster Drill' | 'Weather Lockout';
+  activatedBy: string;
+  timestamp: string;
+  musterTarget: number;
+  musterAccounted: number;
+  status: 'ACTIVE' | 'CLEARED';
+}
+

@@ -1,17 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Person } from '../lib/simulation';
 import { 
   Clock, CheckCircle2, UserX, AlertTriangle, Download, Search, Briefcase, 
   Calendar as CalendarIcon, MapPin, Radio, FileSpreadsheet, UserCheck, 
   ShieldCheck, ArrowUpRight, BarChart2, Plus, X, Sun, Moon, 
-  CalendarDays, Layers, Zap, DollarSign, Filter, RefreshCw, Printer, FileText
+  CalendarDays, Layers, Zap, DollarSign, Filter, RefreshCw, Printer, FileText,
+  Activity, Check, Ban, Edit3, ExternalLink, HelpCircle, LayoutList, LayoutGrid,
+  Sparkles
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
+import { db, collection, addDoc, updateDoc, doc, onSnapshot, getDocs } from '../lib/db';
+import DailyReportingTaskModal from './DailyReportingTaskModal';
 
 export interface AttendanceRecord {
   id: string;
+  personId?: string;
   name: string;
   role: string;
   company: string;
@@ -32,18 +37,46 @@ export interface AttendanceRecord {
   hourlyRate: number;
   leaveReason?: string;
   punchType: 'RFID_AUTO' | 'MANUAL_OVERRIDE' | 'GEO_MOBILE_PUNCH';
+  gateLocation?: string;
+  date?: string;
+  updatedAt?: string;
 }
 
-const SHIFT_OPTIONS = [
+export interface LeaveRecord {
+  id: string;
+  personId?: string;
+  name: string;
+  department: string;
+  type: 'Medical Leave' | 'Annual Leave' | 'Safety Training' | 'Emergency' | 'Parental';
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: 'APPROVED' | 'PENDING' | 'REJECTED';
+  approvedBy: string;
+  createdAt?: string;
+}
+
+export interface ShiftScheduleRecord {
+  id: string;
+  personId: string;
+  name: string;
+  department: string;
+  shift: 'Day Shift (07:00-15:30)' | 'Night Shift (19:00-03:30)' | 'Swing OT (15:00-23:30)';
+  overtimeAuthorized: boolean;
+  maxOtHours: number;
+  notes: string;
+}
+
+const SHIFT_OPTIONS: Array<'Day Shift (07:00-15:30)' | 'Night Shift (19:00-03:30)' | 'Swing OT (15:00-23:30)'> = [
   'Day Shift (07:00-15:30)',
   'Night Shift (19:00-03:30)',
   'Swing OT (15:00-23:30)'
 ];
 
-const MOCK_LEAVE_RECORDS = [
-  { id: 'LV-101', name: 'David Chen', department: 'Scaffolding & Civil', type: 'Medical Leave', startDate: '2026-08-06', endDate: '2026-08-08', status: 'APPROVED', approvedBy: 'Marcus Vance' },
-  { id: 'LV-102', name: 'Sarah Lin', department: 'Geotechnical EHS', type: 'Annual Leave', startDate: '2026-08-10', endDate: '2026-08-15', status: 'PENDING', approvedBy: 'Site HR' },
-  { id: 'LV-103', name: 'Frank Reynolds', department: 'Heavy Equipment', type: 'Safety Training', startDate: '2026-08-06', endDate: '2026-08-06', status: 'APPROVED', approvedBy: 'Elena Rostova' }
+const MOCK_LEAVE_DEFAULTS: LeaveRecord[] = [
+  { id: 'LV-101', name: 'David Chen', department: 'Structure & Scaffolding', type: 'Medical Leave', startDate: '2026-08-06', endDate: '2026-08-08', reason: 'High-elevation ankle sprain medical clearance', status: 'APPROVED', approvedBy: 'Marcus Vance' },
+  { id: 'LV-102', name: 'Sarah Lin', department: 'Safety & EHS', type: 'Annual Leave', startDate: '2026-08-10', endDate: '2026-08-15', reason: 'Scheduled annual vacation', status: 'PENDING', approvedBy: 'Site HR' },
+  { id: 'LV-103', name: 'Frank Reynolds', department: 'Heavy Equipment Ops', type: 'Safety Training', startDate: '2026-08-06', endDate: '2026-08-06', reason: 'Heavy Rigging Certification Renewal', status: 'APPROVED', approvedBy: 'Elena Rostova' }
 ];
 
 const MOCK_HOLIDAYS = [
@@ -53,23 +86,233 @@ const MOCK_HOLIDAYS = [
 ];
 
 export default function AttendanceTab({ people }: { people: Person[] }) {
-  const [activeSubTab, setActiveSubTab] = useState<'roster' | 'calendar' | 'shifts' | 'heatmap' | 'departments' | 'payroll'>('roster');
+  const [activeSubTab, setActiveSubTab] = useState<'roster' | 'live_feed' | 'calendar' | 'shifts' | 'heatmap' | 'departments' | 'payroll'>('roster');
+  const [layoutType, setLayoutType] = useState<'table' | 'cards'>('table');
+  
+  // Real-time Database Collections
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRecord[]>([]);
+  const [shiftSchedules, setShiftSchedules] = useState<ShiftScheduleRecord[]>([]);
+  const [dbLoading, setDbLoading] = useState(true);
+
+  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [shiftFilter, setShiftFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string>('Today');
 
   // Manual Attendance Modal
   const [isManualPunchOpen, setIsManualPunchOpen] = useState(false);
   const [selectedPersonForPunch, setSelectedPersonForPunch] = useState<Person | null>(null);
   const [manualPunchType, setManualPunchType] = useState<'IN' | 'OUT'>('IN');
   const [manualReason, setManualReason] = useState('Turnstile Badge Sensor Glitch');
+  const [manualGateLocation, setManualGateLocation] = useState('Gate 1 - North Gatehouse');
+
+  // Request Leave Modal
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [selectedPersonForLeave, setSelectedPersonForLeave] = useState<Person | null>(null);
+  const [leaveType, setLeaveType] = useState<LeaveRecord['type']>('Medical Leave');
+  const [leaveStartDate, setLeaveStartDate] = useState('2026-08-08');
+  const [leaveEndDate, setLeaveEndDate] = useState('2026-08-10');
+  const [leaveReasonText, setLeaveReasonText] = useState('Physiotherapy Session');
+
+  // Shift Edit Modal
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [selectedPersonForShift, setSelectedPersonForShift] = useState<Person | null>(null);
+  const [assignedShift, setAssignedShift] = useState<'Day Shift (07:00-15:30)' | 'Night Shift (19:00-03:30)' | 'Swing OT (15:00-23:30)'>('Day Shift (07:00-15:30)');
+  const [otAuthorized, setOtAuthorized] = useState(true);
+  const [maxOtHoursVal, setMaxOtHoursVal] = useState(4);
+
+  // Rate Editing Modal
+  const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [selectedRecordForRate, setSelectedRecordForRate] = useState<AttendanceRecord | null>(null);
+  const [newHourlyRate, setNewHourlyRate] = useState<number>(45);
+
+  // Daily Automated Report Task Modal
+  const [isDailyTaskModalOpen, setIsDailyTaskModalOpen] = useState(false);
 
   // Notification Toast
   const [notification, setNotification] = useState<string | null>(null);
 
-  // Generate enriched attendance data
+  // Seed default dataset if database is empty
+  useEffect(() => {
+    let unsubscribeAttendance = () => {};
+    let unsubscribeLeave = () => {};
+    let unsubscribeShifts = () => {};
+
+    const syncAttendanceData = async () => {
+      setDbLoading(true);
+      try {
+        // Listen to attendance_logs
+        unsubscribeAttendance = onSnapshot(collection(db, 'attendance_logs'), (snapshot) => {
+          if (!snapshot.empty) {
+            const logs: AttendanceRecord[] = [];
+            snapshot.forEach(docSnap => {
+              logs.push({ id: docSnap.id, ...docSnap.data() } as AttendanceRecord);
+            });
+            setAttendanceLogs(logs);
+          } else if (people.length > 0) {
+            // Seed initial attendance data
+            seedInitialAttendanceLogs();
+          }
+        });
+
+        // Listen to leave_requests
+        unsubscribeLeave = onSnapshot(collection(db, 'leave_requests'), (snapshot) => {
+          if (!snapshot.empty) {
+            const leaves: LeaveRecord[] = [];
+            snapshot.forEach(docSnap => {
+              leaves.push({ id: docSnap.id, ...docSnap.data() } as LeaveRecord);
+            });
+            setLeaveRequests(leaves);
+          } else {
+            seedInitialLeaveRequests();
+          }
+        });
+
+        // Listen to shift_schedules
+        unsubscribeShifts = onSnapshot(collection(db, 'shift_schedules'), (snapshot) => {
+          if (!snapshot.empty) {
+            const shifts: ShiftScheduleRecord[] = [];
+            snapshot.forEach(docSnap => {
+              shifts.push({ id: docSnap.id, ...docSnap.data() } as ShiftScheduleRecord);
+            });
+            setShiftSchedules(shifts);
+          } else {
+            seedInitialShiftSchedules();
+          }
+        });
+
+      } catch (err) {
+        console.warn('Error subscribing to attendance collections:', err);
+      } finally {
+        setDbLoading(false);
+      }
+    };
+
+    syncAttendanceData();
+
+    return () => {
+      unsubscribeAttendance();
+      unsubscribeLeave();
+      unsubscribeShifts();
+    };
+  }, [people]);
+
+  // Initial Seeding Helpers
+  const seedInitialAttendanceLogs = async () => {
+    if (people.length === 0) return;
+    const initialLogs: Omit<AttendanceRecord, 'id'>[] = people.map((p, idx) => {
+      const firstInH = 7 + (idx % 3);
+      const firstInM = (idx * 13) % 60;
+      const lastOutH = 16 + (idx % 4);
+      const lastOutM = (idx * 17) % 60;
+
+      const isLate = firstInH >= 8 && firstInM > 15;
+      const isOvertime = lastOutH >= 18;
+
+      const totalMins = ((lastOutH * 60) + lastOutM) - ((firstInH * 60) + firstInM);
+      const breakMins = 45 + (idx % 2 === 0 ? 15 : 0);
+      const netWorkMins = Math.max(0, totalMins - breakMins);
+      const hoursNum = Math.floor(netWorkMins / 60);
+      const minsNum = netWorkMins % 60;
+
+      const otHours = isOvertime ? Math.round(((lastOutH - 17) + (lastOutM / 60)) * 10) / 10 : 0;
+
+      const departments = ['Civil Engineering', 'Electrical & Utilities', 'Safety & EHS', 'Heavy Equipment Ops', 'Structure & Scaffolding'];
+      const dept = departments[idx % departments.length];
+
+      const shiftChoice: 'Day Shift (07:00-15:30)' | 'Night Shift (19:00-03:30)' | 'Swing OT (15:00-23:30)' = 
+        idx % 4 === 0 ? 'Night Shift (19:00-03:30)' : idx % 5 === 0 ? 'Swing OT (15:00-23:30)' : 'Day Shift (07:00-15:30)';
+
+      const geoStatus: 'IN_GEO_FENCE' | 'OUT_OF_BOUNDS' | 'BEACON_VERIFIED' = 
+        idx % 7 === 0 ? 'OUT_OF_BOUNDS' : idx % 3 === 0 ? 'BEACON_VERIFIED' : 'IN_GEO_FENCE';
+
+      const punchType: 'RFID_AUTO' | 'MANUAL_OVERRIDE' | 'GEO_MOBILE_PUNCH' = 
+        idx % 6 === 0 ? 'MANUAL_OVERRIDE' : idx % 4 === 0 ? 'GEO_MOBILE_PUNCH' : 'RFID_AUTO';
+
+      let statusVal: 'PRESENT' | 'LATE' | 'ABSENT' | 'ON_LEAVE' | 'OVERTIME' = 'PRESENT';
+      if (idx % 9 === 0) statusVal = 'ABSENT';
+      else if (idx % 11 === 0) statusVal = 'ON_LEAVE';
+      else if (isOvertime) statusVal = 'OVERTIME';
+      else if (isLate) statusVal = 'LATE';
+
+      const gates = ['Gate 1 - North Gatehouse', 'Gate 2 - East Logistics', 'Turnstile West Shaft', 'Main South Entrance'];
+
+      return {
+        personId: p.id,
+        name: p.name,
+        role: p.role,
+        company: p.tradeCompany || 'BuildCorp Partner',
+        department: dept,
+        siteZone: p.currentZone || 'Main Gate 1',
+        shift: shiftChoice,
+        firstIn: `${firstInH.toString().padStart(2, '0')}:${firstInM.toString().padStart(2, '0')}`,
+        lastOut: `${lastOutH.toString().padStart(2, '0')}:${lastOutM.toString().padStart(2, '0')}`,
+        breakDurationMins: breakMins,
+        totalHoursStr: `${hoursNum}h ${minsNum}m`,
+        totalMins: netWorkMins,
+        overtimeHours: otHours,
+        isLate,
+        isOvertime,
+        rfidTagId: p.hardhatTagId || `HH-${p.id.substring(0, 4).toUpperCase()}`,
+        geoStatus,
+        status: statusVal,
+        hourlyRate: 38 + (idx % 5) * 6,
+        punchType,
+        gateLocation: gates[idx % gates.length],
+        date: '2026-08-07',
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    try {
+      for (const log of initialLogs) {
+        await addDoc(collection(db, 'attendance_logs'), log);
+      }
+    } catch (err) {
+      console.warn('Error seeding initial attendance logs:', err);
+    }
+  };
+
+  const seedInitialLeaveRequests = async () => {
+    try {
+      for (const l of MOCK_LEAVE_DEFAULTS) {
+        await addDoc(collection(db, 'leave_requests'), {
+          ...l,
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch (err) {
+      console.warn('Error seeding leave requests:', err);
+    }
+  };
+
+  const seedInitialShiftSchedules = async () => {
+    if (people.length === 0) return;
+    try {
+      for (let i = 0; i < Math.min(people.length, 10); i++) {
+        const p = people[i];
+        await addDoc(collection(db, 'shift_schedules'), {
+          personId: p.id,
+          name: p.name,
+          department: (p as any).department || p.role || 'Civil Engineering',
+          shift: i % 3 === 0 ? 'Night Shift (19:00-03:30)' : i % 4 === 0 ? 'Swing OT (15:00-23:30)' : 'Day Shift (07:00-15:30)',
+          overtimeAuthorized: i % 2 === 0,
+          maxOtHours: 4,
+          notes: 'Standard site shift schedule'
+        });
+      }
+    } catch (err) {
+      console.warn('Error seeding shift schedules:', err);
+    }
+  };
+
+  // Fallback to client calculations if database snapshot is loading
   const attendanceData = useMemo<AttendanceRecord[]>(() => {
+    if (attendanceLogs.length > 0) return attendanceLogs;
+
     return people.map((p, idx) => {
       const firstInH = 7 + (idx % 3);
       const firstInM = (idx * 13) % 60;
@@ -106,7 +349,8 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
       else if (isLate) statusVal = 'LATE';
 
       return {
-        id: p.id,
+        id: `mock-${p.id}`,
+        personId: p.id,
         name: p.name,
         role: p.role,
         company: p.tradeCompany || 'BuildCorp Partner',
@@ -125,10 +369,12 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
         geoStatus,
         status: statusVal,
         hourlyRate: 38 + (idx % 5) * 6,
-        punchType
+        punchType,
+        gateLocation: 'Gate 1 - North Gatehouse',
+        date: '2026-08-07'
       };
     });
-  }, [people]);
+  }, [attendanceLogs, people]);
 
   // Filtered Roster
   const filteredRoster = useMemo(() => {
@@ -159,18 +405,219 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
     return { total, present, late, overtime, totalOtHours: Math.round(totalOtHours * 10) / 10, punctualityRate, geoRate };
   }, [attendanceData]);
 
-  // Handle RFID Tap Simulation
-  const handleSimulateRfidTap = (personName: string, tagId: string) => {
-    setNotification(`⚡ RFID Sensor Gate 1 Triggered! Hardhat Tag ${tagId} (${personName}) clocked in successfully.`);
+  // Handle RFID Tap Simulation & Save to DB
+  const handleSimulateRfidTap = async (record: AttendanceRecord) => {
+    const now = new Date();
+    const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    // Update or add log in MongoDB
+    try {
+      if (record.id && !record.id.startsWith('mock-')) {
+        await updateDoc(doc(db, 'attendance_logs', record.id), {
+          firstIn: record.firstIn === '--:--' ? currentTimeStr : record.firstIn,
+          lastOut: currentTimeStr,
+          status: 'PRESENT',
+          punchType: 'RFID_AUTO',
+          updatedAt: now.toISOString()
+        });
+      } else {
+        await addDoc(collection(db, 'attendance_logs'), {
+          ...record,
+          firstIn: record.firstIn === '--:--' ? currentTimeStr : record.firstIn,
+          lastOut: currentTimeStr,
+          status: 'PRESENT',
+          punchType: 'RFID_AUTO',
+          updatedAt: now.toISOString()
+        });
+      }
+      setNotification(`⚡ RFID Sensor Gate 1 Triggered! Hardhat Tag ${record.rfidTagId} (${record.name}) scanned at ${currentTimeStr}. Document synced to MongoDB.`);
+    } catch (err) {
+      console.warn('Error updating RFID tap in DB:', err);
+      setNotification(`⚡ RFID Sensor Gate 1 Triggered for ${record.name}! (Local update)`);
+    }
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // Handle Manual Attendance Submit
-  const handleSaveManualPunch = () => {
+  // Handle Manual Attendance Submit & Save to DB
+  const handleSaveManualPunch = async () => {
     if (!selectedPersonForPunch) return;
-    setNotification(`✅ Manual Override Punch (${manualPunchType}) logged for ${selectedPersonForPunch.name}. Reason: ${manualReason}.`);
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    const existing = attendanceData.find(a => a.personId === selectedPersonForPunch.id || a.name === selectedPersonForPunch.name);
+
+    try {
+      if (existing && existing.id && !existing.id.startsWith('mock-')) {
+        await updateDoc(doc(db, 'attendance_logs', existing.id), {
+          firstIn: manualPunchType === 'IN' ? timeStr : existing.firstIn,
+          lastOut: manualPunchType === 'OUT' ? timeStr : existing.lastOut,
+          status: manualPunchType === 'IN' ? 'PRESENT' : 'PRESENT',
+          punchType: 'MANUAL_OVERRIDE',
+          gateLocation: manualGateLocation,
+          updatedAt: now.toISOString()
+        });
+      } else {
+        await addDoc(collection(db, 'attendance_logs'), {
+          personId: selectedPersonForPunch.id,
+          name: selectedPersonForPunch.name,
+          role: selectedPersonForPunch.role,
+          company: selectedPersonForPunch.tradeCompany || 'BuildCorp Partner',
+          department: (selectedPersonForPunch as any).department || selectedPersonForPunch.role || 'Civil Engineering',
+          siteZone: selectedPersonForPunch.currentZone || 'Main Gate 1',
+          shift: 'Day Shift (07:00-15:30)',
+          firstIn: manualPunchType === 'IN' ? timeStr : '08:00',
+          lastOut: manualPunchType === 'OUT' ? timeStr : '17:00',
+          breakDurationMins: 45,
+          totalHoursStr: '8h 15m',
+          totalMins: 495,
+          overtimeHours: 0,
+          isLate: false,
+          isOvertime: false,
+          rfidTagId: selectedPersonForPunch.hardhatTagId || `HH-${selectedPersonForPunch.id.substring(0, 4)}`,
+          geoStatus: 'IN_GEO_FENCE',
+          status: 'PRESENT',
+          hourlyRate: 42,
+          punchType: 'MANUAL_OVERRIDE',
+          gateLocation: manualGateLocation,
+          date: '2026-08-07',
+          updatedAt: now.toISOString()
+        });
+      }
+      setNotification(`✅ Manual Override Punch (${manualPunchType}) saved to MongoDB for ${selectedPersonForPunch.name}. Location: ${manualGateLocation}. Reason: ${manualReason}.`);
+    } catch (err) {
+      console.warn('Error saving manual punch to DB:', err);
+      setNotification(`✅ Manual Override Punch (${manualPunchType}) logged for ${selectedPersonForPunch.name}.`);
+    }
+
     setIsManualPunchOpen(false);
     setSelectedPersonForPunch(null);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Submit New Leave Request to MongoDB
+  const handleSaveLeaveRequest = async () => {
+    if (!selectedPersonForLeave) return;
+
+    try {
+      await addDoc(collection(db, 'leave_requests'), {
+        personId: selectedPersonForLeave.id,
+        name: selectedPersonForLeave.name,
+        department: (selectedPersonForLeave as any).department || selectedPersonForLeave.role || 'Structure & Scaffolding',
+        type: leaveType,
+        startDate: leaveStartDate,
+        endDate: leaveEndDate,
+        reason: leaveReasonText,
+        status: 'PENDING',
+        approvedBy: 'Site EHS Manager',
+        createdAt: new Date().toISOString()
+      });
+      setNotification(`📅 Leave request for ${selectedPersonForLeave.name} (${leaveType}) submitted and saved to MongoDB.`);
+    } catch (err) {
+      console.warn('Error saving leave request:', err);
+      setNotification(`📅 Leave request for ${selectedPersonForLeave.name} submitted.`);
+    }
+
+    setIsLeaveModalOpen(false);
+    setSelectedPersonForLeave(null);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Approve / Reject Leave Request in MongoDB
+  const handleUpdateLeaveStatus = async (leaveId: string, newStatus: 'APPROVED' | 'REJECTED') => {
+    try {
+      if (!leaveId.startsWith('LV-')) {
+        await updateDoc(doc(db, 'leave_requests', leaveId), {
+          status: newStatus,
+          approvedBy: 'Marcus Vance (EHS Lead)',
+          updatedAt: new Date().toISOString()
+        });
+      }
+      setLeaveRequests(prev => prev.map(l => l.id === leaveId ? { ...l, status: newStatus, approvedBy: 'Marcus Vance (EHS Lead)' } : l));
+      setNotification(`Leave request ${leaveId} updated to ${newStatus} in MongoDB.`);
+    } catch (err) {
+      console.warn('Error updating leave status in DB:', err);
+      setLeaveRequests(prev => prev.map(l => l.id === leaveId ? { ...l, status: newStatus } : l));
+      setNotification(`Leave request updated to ${newStatus}.`);
+    }
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Reassign Worker Shift & Save to MongoDB
+  const handleSaveShiftAssignment = async () => {
+    if (!selectedPersonForShift) return;
+
+    try {
+      await addDoc(collection(db, 'shift_schedules'), {
+        personId: selectedPersonForShift.id,
+        name: selectedPersonForShift.name,
+        department: (selectedPersonForShift as any).department || selectedPersonForShift.role || 'Civil Engineering',
+        shift: assignedShift,
+        overtimeAuthorized: otAuthorized,
+        maxOtHours: maxOtHoursVal,
+        notes: `Updated on ${new Date().toLocaleDateString()}`
+      });
+
+      // Also update existing attendance log if present
+      const existing = attendanceData.find(a => a.personId === selectedPersonForShift.id);
+      if (existing && existing.id && !existing.id.startsWith('mock-')) {
+        await updateDoc(doc(db, 'attendance_logs', existing.id), {
+          shift: assignedShift
+        });
+      }
+
+      setNotification(`⏱️ Shift updated to ${assignedShift} for ${selectedPersonForShift.name} and persisted to MongoDB.`);
+    } catch (err) {
+      console.warn('Error updating shift schedule:', err);
+      setNotification(`⏱️ Shift assigned to ${selectedPersonForShift.name}.`);
+    }
+
+    setIsShiftModalOpen(false);
+    setSelectedPersonForShift(null);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Update Worker Hourly Rate in MongoDB
+  const handleSaveHourlyRate = async () => {
+    if (!selectedRecordForRate) return;
+
+    try {
+      if (!selectedRecordForRate.id.startsWith('mock-')) {
+        await updateDoc(doc(db, 'attendance_logs', selectedRecordForRate.id), {
+          hourlyRate: newHourlyRate
+        });
+      }
+      setAttendanceLogs(prev => prev.map(r => r.id === selectedRecordForRate.id ? { ...r, hourlyRate: newHourlyRate } : r));
+      setNotification(`💵 Hourly pay rate for ${selectedRecordForRate.name} updated to $${newHourlyRate}/hr in MongoDB.`);
+    } catch (err) {
+      console.warn('Error updating hourly rate:', err);
+      setNotification(`💵 Rate updated to $${newHourlyRate}/hr.`);
+    }
+
+    setIsRateModalOpen(false);
+    setSelectedRecordForRate(null);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Bulk Clock-In All Present
+  const handleBulkClockIn = async () => {
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    try {
+      for (const rec of filteredRoster) {
+        if (rec.id && !rec.id.startsWith('mock-')) {
+          await updateDoc(doc(db, 'attendance_logs', rec.id), {
+            status: 'PRESENT',
+            firstIn: timeStr,
+            updatedAt: now.toISOString()
+          });
+        }
+      }
+      setNotification(`⚡ Bulk Clock-In executed for ${filteredRoster.length} workers! Updated in MongoDB.`);
+    } catch (err) {
+      console.warn('Bulk clock in error:', err);
+      setNotification(`⚡ Bulk Clock-In processed for ${filteredRoster.length} workers.`);
+    }
     setTimeout(() => setNotification(null), 4000);
   };
 
@@ -258,16 +705,25 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
               <Clock className="w-7 h-7 text-[#007BC4]" />
               Enterprise Attendance Management
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#007BC4]/10 text-[#007BC4] border border-[#007BC4]/20">
-              RFID Turnstile Live
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              MongoDB Connected
             </span>
           </div>
           <p className="text-slate-500 dark:text-slate-400 font-medium text-xs md:text-sm mt-0.5">
-            RFID turnstile taps, geo-fence mobile punches, shift rosters, overtime & automated payroll export
+            RFID turnstile taps, geo-mobile punches, leave management, shift rosters & automated payroll timesheets
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setIsDailyTaskModalOpen(true)}
+            className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-2 cursor-pointer"
+            title="Execute or configure automated daily attendance & safety compliance reporting task"
+          >
+            <Sparkles size={15} className="animate-pulse" /> Daily Report Task (PDF)
+          </button>
+
           <button
             onClick={() => {
               if (people.length > 0) {
@@ -277,7 +733,19 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
             }}
             className="px-3.5 py-2 bg-[#007BC4] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2"
           >
-            <Plus size={15} /> Manual Attendance Override
+            <Plus size={15} /> Manual Punch Override
+          </button>
+
+          <button
+            onClick={() => {
+              if (people.length > 0) {
+                setSelectedPersonForLeave(people[0]);
+                setIsLeaveModalOpen(true);
+              }
+            }}
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2"
+          >
+            <UserX size={15} /> Request Leave
           </button>
 
           <button
@@ -351,10 +819,11 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
         <div className="flex items-center gap-1 overflow-x-auto">
           {[
             { id: 'roster', label: 'Attendance Roster', icon: UserCheck },
+            { id: 'live_feed', label: 'Live Gatehouse Scans', icon: Activity },
             { id: 'calendar', label: 'Calendar & Leave Log', icon: CalendarDays },
             { id: 'shifts', label: 'Shift Roster & Overtime', icon: Clock },
-            { id: 'heatmap', label: 'Attendance Density Heatmap', icon: BarChart2 },
-            { id: 'departments', label: 'Department & Contractor Breakdown', icon: Layers },
+            { id: 'heatmap', label: 'Gate Traffic Heatmap', icon: BarChart2 },
+            { id: 'departments', label: 'Departments & Contractors', icon: Layers },
             { id: 'payroll', label: 'Payroll & Timesheets', icon: DollarSign }
           ].map(tab => {
             const Icon = tab.icon;
@@ -378,7 +847,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
         {/* Filters for Roster */}
         {activeSubTab === 'roster' && (
           <div className="flex items-center gap-2 w-full lg:w-auto mt-2 lg:mt-0 flex-wrap">
-            <div className="relative flex-1 sm:w-52">
+            <div className="relative flex-1 sm:w-48">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-3.5" />
               <input 
                 type="text" 
@@ -410,6 +879,44 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
               <option value="All">All Shifts</option>
               {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s.split(' ')[0]}</option>)}
             </select>
+
+            <button
+              onClick={handleBulkClockIn}
+              className="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 text-xs font-bold rounded-xl transition flex items-center gap-1"
+              title="Clock in all filtered workers instantly"
+            >
+              <Zap size={13} /> Bulk Clock-In
+            </button>
+
+            {/* View Layout Toggle: List vs Condensed Cards */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setLayoutType('table')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  layoutType === 'table'
+                    ? 'bg-white dark:bg-slate-700 text-[#007BC4] dark:text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+                }`}
+                title="Standard List View"
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">List</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayoutType('cards')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  layoutType === 'cards'
+                    ? 'bg-white dark:bg-slate-700 text-[#007BC4] dark:text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+                }`}
+                title="Condensed Cards View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cards</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -417,7 +924,105 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
       {/* 1. ATTENDANCE ROSTER TAB */}
       {activeSubTab === 'roster' && (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-          <Table>
+          {layoutType === 'cards' ? (
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredRoster.map((item) => (
+                <div
+                  key={item.id}
+                  className="relative rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 transition-all hover:shadow-md flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                          {item.name}
+                        </h4>
+                        <div className="text-[11px] font-mono text-[#007BC4] font-bold">
+                          {item.rfidTagId} • <span className="font-sans text-slate-500 font-normal">{item.role}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        {item.status === 'PRESENT' && <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">Present</Badge>}
+                        {item.status === 'OVERTIME' && <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px]">OT (+{item.overtimeHours}h)</Badge>}
+                        {item.status === 'LATE' && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">Late</Badge>}
+                        {item.status === 'ABSENT' && <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">Absent</Badge>}
+                        {item.status === 'ON_LEAVE' && <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px]">Leave</Badge>}
+                      </div>
+                    </div>
+
+                    {/* Details Box */}
+                    <div className="my-2.5 space-y-1.5 text-xs bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-[11px] font-medium">Department:</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{item.department}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-[11px] font-medium">Contractor:</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">{item.company}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-[11px] font-medium">Shift Schedule:</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                          {item.shift.includes('Night') ? <Moon size={11} className="text-indigo-500" /> : <Sun size={11} className="text-amber-500" />}
+                          {item.shift.split(' ')[0]}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 dark:border-slate-700/50 font-mono text-[11px]">
+                        <span className="text-slate-400 font-sans">First In / Last Out:</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{item.firstIn} - {item.lastOut}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-[11px] font-medium">Net Work Hours:</span>
+                        <span className="font-bold text-[#007BC4]">{item.totalHoursStr} <span className="text-[10px] text-slate-400 font-normal">({item.breakDurationMins}m break)</span></span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+                        <span className="text-slate-400 text-[10px] font-medium">Site Geo-Status:</span>
+                        {item.geoStatus === 'IN_GEO_FENCE' ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                            <MapPin size={9} /> In Geo-Fence
+                          </span>
+                        ) : item.geoStatus === 'BEACON_VERIFIED' ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                            <Radio size={9} /> Beacon
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                            <AlertTriangle size={9} /> Out of Bounds
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Action */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono text-slate-400">{item.gateLocation || 'Gatehouse 1'}</span>
+                    <button
+                      onClick={() => handleSimulateRfidTap(item)}
+                      className="px-3 py-1 bg-[#007BC4]/10 hover:bg-[#007BC4] text-[#007BC4] hover:text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+                      title="Simulate Hardhat RFID Turnstile Tap"
+                    >
+                      ⚡ Tap RFID
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {filteredRoster.length === 0 && (
+                <div className="col-span-full py-12 text-center text-slate-400 text-xs font-semibold">
+                  No attendance records matched search query or filters.
+                </div>
+              )}
+            </div>
+          ) : (
+            <Table>
             <TableHeader className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
               <TableRow>
                 <TableHead className="font-bold">Personnel & RFID Tag</TableHead>
@@ -425,7 +1030,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
                 <TableHead className="font-bold">Shift Schedule</TableHead>
                 <TableHead className="font-bold">First In / Last Out</TableHead>
                 <TableHead className="font-bold">Net Work Hours</TableHead>
-                <TableHead className="font-bold">Geo-Fence Status</TableHead>
+                <TableHead className="font-bold">Gate & Geo Status</TableHead>
                 <TableHead className="font-bold text-center">Status</TableHead>
                 <TableHead className="font-bold text-right">Actions</TableHead>
               </TableRow>
@@ -463,19 +1068,22 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
                   </TableCell>
 
                   <TableCell>
-                    {item.geoStatus === 'IN_GEO_FENCE' ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
-                        <MapPin size={10} /> In Site Geo-Fence
-                      </span>
-                    ) : item.geoStatus === 'BEACON_VERIFIED' ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 w-fit">
-                        <Radio size={10} /> Bluetooth Beacon
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 w-fit">
-                        <AlertTriangle size={10} /> Out of Bounds
-                      </span>
-                    )}
+                    <div className="space-y-1">
+                      {item.geoStatus === 'IN_GEO_FENCE' ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                          <MapPin size={10} /> In Site Geo-Fence
+                        </span>
+                      ) : item.geoStatus === 'BEACON_VERIFIED' ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 w-fit">
+                          <Radio size={10} /> Bluetooth Beacon
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 w-fit">
+                          <AlertTriangle size={10} /> Out of Bounds
+                        </span>
+                      )}
+                      <div className="text-[9px] text-slate-400 font-mono">{item.gateLocation || 'Gate 1 Gatehouse'}</div>
+                    </div>
                   </TableCell>
 
                   <TableCell className="text-center">
@@ -488,7 +1096,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
 
                   <TableCell className="text-right">
                     <button
-                      onClick={() => handleSimulateRfidTap(item.name, item.rfidTagId)}
+                      onClick={() => handleSimulateRfidTap(item)}
                       className="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-[#007BC4] hover:text-white text-slate-800 dark:text-slate-200 text-xs font-bold rounded-lg transition"
                       title="Simulate Hardhat RFID Turnstile Tap"
                     >
@@ -499,10 +1107,61 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
               ))}
             </TableBody>
           </Table>
+          )}
         </div>
       )}
 
-      {/* 2. CALENDAR & LEAVE LOG TAB */}
+      {/* 2. LIVE GATEHOUSE SCANS TAB */}
+      {activeSubTab === 'live_feed' && (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                <Activity size={18} className="text-[#007BC4]" />
+                Live Turnstile Scan & Geo-Fence Access Feed
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">Real-time gatehouse sensor events logged to MongoDB</p>
+            </div>
+            <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 rounded-full text-xs font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              Live Sensor Active
+            </span>
+          </div>
+
+          <div className="space-y-2.5">
+            {attendanceData.map((a, idx) => (
+              <div key={a.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between text-xs hover:border-[#007BC4]/40 transition">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#007BC4]/10 text-[#007BC4] font-black flex items-center justify-center shrink-0">
+                    {a.name.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      {a.name}
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-bold">{a.rfidTagId}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">{a.department} • {a.company}</div>
+                  </div>
+                </div>
+
+                <div className="text-center hidden sm:block">
+                  <div className="font-bold text-slate-800 dark:text-slate-200">{a.gateLocation || 'Gate 1 Gatehouse'}</div>
+                  <div className="text-[10px] text-slate-400">{a.punchType}</div>
+                </div>
+
+                <div className="text-right space-y-0.5">
+                  <div className="font-mono font-bold text-[#007BC4]">{a.firstIn} AM</div>
+                  <Badge variant="outline" className={a.geoStatus === 'IN_GEO_FENCE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}>
+                    {a.geoStatus}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. CALENDAR & LEAVE LOG TAB */}
       {activeSubTab === 'calendar' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm space-y-4">
@@ -521,7 +1180,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
               ))}
               {Array.from({ length: 31 }).map((_, i) => {
                 const dayNum = i + 1;
-                const isToday = dayNum === 6;
+                const isToday = dayNum === 7;
                 const presentCount = 38 + (i % 7);
                 const lateCount = i % 4;
 
@@ -529,7 +1188,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
                   <div 
                     key={dayNum} 
                     className={`p-2.5 rounded-xl border text-left flex flex-col justify-between h-20 transition ${
-                      isToday ? 'border-[#007BC4] bg-[#007BC4]/5 font-bold' : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900'
+                      isToday ? 'border-[#007BC4] bg-[#007BC4]/5 font-bold ring-2 ring-[#007BC4]/30' : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900'
                     }`}
                   >
                     <span className={`text-xs ${isToday ? 'text-[#007BC4] font-black' : 'text-slate-700 dark:text-slate-300'}`}>{dayNum}</span>
@@ -546,21 +1205,53 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
           {/* Leave & Site Holiday Sidebar */}
           <div className="space-y-4">
             <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm space-y-3">
-              <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-                <UserX size={16} className="text-indigo-600" />
-                Active & Pending Leave Requests
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                  <UserX size={16} className="text-indigo-600" />
+                  Leave Requests (MongoDB)
+                </h4>
+                <button
+                  onClick={() => {
+                    if (people.length > 0) {
+                      setSelectedPersonForLeave(people[0]);
+                      setIsLeaveModalOpen(true);
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold rounded-lg transition"
+                >
+                  + Add
+                </button>
+              </div>
+
               <div className="space-y-2.5">
-                {MOCK_LEAVE_RECORDS.map(l => (
-                  <div key={l.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1 text-xs">
-                    <div className="flex justify-between font-bold text-slate-900 dark:text-white">
+                {(leaveRequests.length > 0 ? leaveRequests : MOCK_LEAVE_DEFAULTS).map(l => (
+                  <div key={l.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center font-bold text-slate-900 dark:text-white">
                       <span>{l.name}</span>
-                      <Badge variant="outline" className={l.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}>
+                      <Badge variant="outline" className={l.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' : l.status === 'REJECTED' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}>
                         {l.status}
                       </Badge>
                     </div>
                     <div className="text-slate-500 text-[11px]">{l.department} • {l.type}</div>
                     <div className="text-slate-400 font-mono text-[10px]">{l.startDate} to {l.endDate}</div>
+                    <div className="text-slate-600 dark:text-slate-400 italic text-[10px]">{l.reason}</div>
+
+                    {l.status === 'PENDING' && (
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-slate-800">
+                        <button
+                          onClick={() => handleUpdateLeaveStatus(l.id, 'APPROVED')}
+                          className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10px]"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleUpdateLeaveStatus(l.id, 'REJECTED')}
+                          className="flex-1 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-[10px]"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -569,7 +1260,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
             <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm space-y-3">
               <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                 <CalendarDays size={16} className="text-[#007BC4]" />
-                Upcoming Site Holidays & Stand-Downs
+                Upcoming Site Holidays
               </h4>
               <div className="space-y-2">
                 {MOCK_HOLIDAYS.map(h => (
@@ -584,7 +1275,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
         </div>
       )}
 
-      {/* 3. SHIFT ROSTER & OVERTIME */}
+      {/* 4. SHIFT ROSTER & OVERTIME */}
       {activeSubTab === 'shifts' && (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-5 space-y-5">
           <div className="flex items-center justify-between">
@@ -595,6 +1286,17 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
               </h3>
               <p className="text-xs text-slate-500 font-medium">Configure day, night, and swing overtime shifts for trade contractors.</p>
             </div>
+            <button
+              onClick={() => {
+                if (people.length > 0) {
+                  setSelectedPersonForShift(people[0]);
+                  setIsShiftModalOpen(true);
+                }
+              }}
+              className="px-3.5 py-2 bg-[#007BC4] hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+            >
+              <Edit3 size={14} /> Assign / Reassign Shift
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -622,10 +1324,23 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
               <p className="text-xs text-blue-800 dark:text-blue-300">Pre-approved overtime hours for milestone completion. Requires EHS supervisor authorization.</p>
             </div>
           </div>
+
+          <div className="mt-4">
+            <h4 className="font-bold text-slate-900 dark:text-white text-sm mb-3">Shift Assignments (MongoDB Synced)</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {attendanceData.slice(0, 9).map(a => (
+                <div key={a.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1 text-xs">
+                  <div className="font-bold text-slate-900 dark:text-white">{a.name}</div>
+                  <div className="text-slate-500 text-[11px]">{a.department}</div>
+                  <div className="text-[#007BC4] font-bold font-mono text-[11px]">{a.shift}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* 4. ATTENDANCE HEATMAP */}
+      {/* 5. ATTENDANCE HEATMAP */}
       {activeSubTab === 'heatmap' && (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-5 space-y-4">
           <div>
@@ -670,7 +1385,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
         </div>
       )}
 
-      {/* 5. DEPARTMENT & CONTRACTOR BREAKDOWN */}
+      {/* 6. DEPARTMENT & CONTRACTOR BREAKDOWN */}
       {activeSubTab === 'departments' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm space-y-3">
@@ -720,7 +1435,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
         </div>
       )}
 
-      {/* 6. PAYROLL & TIMESHEETS */}
+      {/* 7. PAYROLL & TIMESHEETS */}
       {activeSubTab === 'payroll' && (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-5 space-y-4">
           <div className="flex justify-between items-center">
@@ -748,6 +1463,7 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
                 <TableHead className="font-bold">OT Hours (1.5x)</TableHead>
                 <TableHead className="font-bold">Hourly Rate</TableHead>
                 <TableHead className="font-bold text-right">Est. Gross Pay</TableHead>
+                <TableHead className="font-bold text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -763,6 +1479,18 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
                     <TableCell className="text-xs font-mono font-bold text-[#007BC4]">{a.overtimeHours} hrs</TableCell>
                     <TableCell className="text-xs font-mono text-slate-600 dark:text-slate-400">${a.hourlyRate}/hr</TableCell>
                     <TableCell className="text-xs font-mono font-black text-emerald-600 text-right">${grossPay}</TableCell>
+                    <TableCell className="text-right">
+                      <button
+                        onClick={() => {
+                          setSelectedRecordForRate(a);
+                          setNewHourlyRate(a.hourlyRate);
+                          setIsRateModalOpen(true);
+                        }}
+                        className="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-[#007BC4] hover:text-white text-xs font-bold rounded-lg transition"
+                      >
+                        Edit Rate
+                      </button>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -818,6 +1546,20 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
               </div>
 
               <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Gatehouse Location</label>
+                <select
+                  value={manualGateLocation}
+                  onChange={e => setManualGateLocation(e.target.value)}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                >
+                  <option value="Gate 1 - North Gatehouse">Gate 1 - North Gatehouse</option>
+                  <option value="Gate 2 - East Logistics Portal">Gate 2 - East Logistics Portal</option>
+                  <option value="Turnstile West Shaft">Turnstile West Shaft</option>
+                  <option value="Main South Entrance">Main South Entrance</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Reason for Override</label>
                 <input
                   type="text"
@@ -841,13 +1583,227 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
                   onClick={handleSaveManualPunch}
                   className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold"
                 >
-                  Submit Manual Punch
+                  Submit & Sync to MongoDB
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Leave Request Modal */}
+      {isLeaveModalOpen && selectedPersonForLeave && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-md p-6 relative">
+            <button onClick={() => setIsLeaveModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Request Worker Leave (MongoDB)</h3>
+            
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Worker</label>
+                <select
+                  value={selectedPersonForLeave.id}
+                  onChange={e => {
+                    const found = people.find(p => p.id === e.target.value);
+                    if (found) setSelectedPersonForLeave(found);
+                  }}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                >
+                  {people.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({(p as any).department || p.role || 'Worker'})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Leave Type</label>
+                <select
+                  value={leaveType}
+                  onChange={e => setLeaveType(e.target.value as any)}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                >
+                  <option value="Medical Leave">Medical Leave</option>
+                  <option value="Annual Leave">Annual Leave</option>
+                  <option value="Safety Training">Safety Training</option>
+                  <option value="Emergency">Emergency</option>
+                  <option value="Parental">Parental</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={leaveStartDate}
+                    onChange={e => setLeaveStartDate(e.target.value)}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={leaveEndDate}
+                    onChange={e => setLeaveEndDate(e.target.value)}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Reason / EHS Clearance</label>
+                <input
+                  type="text"
+                  value={leaveReasonText}
+                  onChange={e => setLeaveReasonText(e.target.value)}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  placeholder="e.g. Doctor Certificate attached"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLeaveModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveLeaveRequest}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700"
+                >
+                  Save Leave to MongoDB
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shift Assignment Modal */}
+      {isShiftModalOpen && selectedPersonForShift && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-md p-6 relative">
+            <button onClick={() => setIsShiftModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Reassign Worker Shift</h3>
+            
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Worker</label>
+                <select
+                  value={selectedPersonForShift.id}
+                  onChange={e => {
+                    const found = people.find(p => p.id === e.target.value);
+                    if (found) setSelectedPersonForShift(found);
+                  }}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                >
+                  {people.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({(p as any).department || p.role || 'Worker'})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Target Shift Schedule</label>
+                <select
+                  value={assignedShift}
+                  onChange={e => setAssignedShift(e.target.value as any)}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-[#007BC4]"
+                >
+                  {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div>
+                  <div className="font-bold text-slate-800 dark:text-slate-200">Authorize Overtime</div>
+                  <div className="text-[10px] text-slate-500">Allow worker to exceed 8h with 1.5x pay multiplier</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={otAuthorized}
+                  onChange={e => setOtAuthorized(e.target.checked)}
+                  className="w-4 h-4 text-[#007BC4] rounded"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsShiftModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveShiftAssignment}
+                  className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold"
+                >
+                  Save Shift to MongoDB
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Hourly Rate Modal */}
+      {isRateModalOpen && selectedRecordForRate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-xs p-6 relative">
+            <button onClick={() => setIsRateModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Edit Pay Rate</h3>
+            <p className="text-xs text-slate-500 mb-3">{selectedRecordForRate.name}</p>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Hourly Rate ($/hr)</label>
+                <input
+                  type="number"
+                  value={newHourlyRate}
+                  onChange={e => setNewHourlyRate(Number(e.target.value))}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-emerald-600"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsRateModalOpen(false)}
+                  className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveHourlyRate}
+                  className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl font-bold"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Daily Automated Reporting Task Modal */}
+      <DailyReportingTaskModal
+        isOpen={isDailyTaskModalOpen}
+        onClose={() => setIsDailyTaskModalOpen(false)}
+        people={people}
+      />
 
     </div>
   );

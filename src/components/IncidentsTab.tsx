@@ -4,15 +4,15 @@ import {
   WitnessStatement, IncidentAttachment, IncidentTimelineEvent 
 } from '../types';
 import { 
-  ShieldAlert, AlertTriangle, CheckCircle2, Clock, Paperclip, ChevronRight, 
-  FileText, Plus, Download, Printer, Search, Filter, Flame, Stethoscope, 
-  Shield, Zap, Wrench, Droplet, UserCheck, AlertOctagon, Activity, Sparkles, 
-  ArrowRight, CheckSquare, MessageSquare, UserPlus, FileCheck, Layers, X, 
-  Send, ShieldCheck, Eye, EyeOff, Building2, MapPin, HardHat, FileSpreadsheet, RefreshCw
+  ShieldAlert, AlertTriangle, CheckCircle2, Clock, Paperclip, 
+  Plus, Printer, Search, Flame, Stethoscope, 
+  Shield, Zap, Wrench, Droplet, AlertOctagon, Activity, Sparkles, 
+  ArrowRight, CheckSquare, MessageSquare, UserPlus, X, 
+  HardHat, FileSpreadsheet, RefreshCw, Trash2, Edit3, Database,
+  ArrowLeft, Upload, FileText, Lock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs } from '../lib/db';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, isMongoActive } from '../lib/db';
 import { db } from '../lib/firebase';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
 
@@ -76,7 +76,7 @@ const INITIAL_MOCK_INCIDENTS: EnterpriseIncident[] = [
         id: 'att-1',
         fileName: 'cctv_crane_swing_frame.jpg',
         fileType: 'CCTV Clip',
-        fileUrl: '/cctv_frame_crane.jpg',
+        fileUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?w=600&auto=format&fit=crop&q=80',
         fileSize: '2.4 MB',
         uploadedBy: 'AI Vision System',
         uploadedAt: '10:02 AM'
@@ -145,7 +145,7 @@ const INITIAL_MOCK_INCIDENTS: EnterpriseIncident[] = [
         id: 'att-3',
         fileName: 'spill_containment_photo.jpg',
         fileType: 'Photo',
-        fileUrl: '/spill_photo.jpg',
+        fileUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80',
         fileSize: '3.1 MB',
         uploadedBy: 'Elena Rostova',
         uploadedAt: '09:00 AM'
@@ -203,17 +203,7 @@ const INITIAL_MOCK_INCIDENTS: EnterpriseIncident[] = [
         statement: 'I grabbed the handrail while climbing up and felt a sharp metallic burr cut through my glove seam.'
       }
     ],
-    attachments: [
-      {
-        id: 'att-4',
-        fileName: 'medical_triage_form.pdf',
-        fileType: 'Medical Report',
-        fileUrl: '/medical_report.pdf',
-        fileSize: '1.2 MB',
-        uploadedBy: 'Sarah Lin',
-        uploadedAt: '07:30 AM'
-      }
-    ],
+    attachments: [],
     timeline: [
       { id: 't1', timestamp: '07:00 AM', title: 'Injury Reported', description: 'Hand laceration treated at Gatehouse First Aid station.', actor: 'Sarah Lin', statusChange: 'Open' },
       { id: 't2', timestamp: '07:30 AM', title: 'Medical Triage Completed', description: 'Wound cleaned and bandaged. Triage report logged.', actor: 'Sarah Lin', statusChange: 'Investigation' },
@@ -223,109 +213,39 @@ const INITIAL_MOCK_INCIDENTS: EnterpriseIncident[] = [
       { id: 'ca-5', actionItem: 'Sand and file down all burrs on Scaffold Tier 2 handrails', assignedTo: 'Scaffold Maintenance', dueDate: '2026-08-06', isCompleted: true },
       { id: 'ca-6', actionItem: 'Issue Level 4 cut-resistant gloves to all scaffolding crews', assignedTo: 'PPE Procurement', dueDate: '2026-08-07', isCompleted: true }
     ]
-  },
-  {
-    id: 'INC-2026-104',
-    title: 'Site Perimeter Gate 3 Lock Tampering',
-    category: 'Security',
-    severity: 'High',
-    workflowStatus: 'Approval',
-    locationZone: 'Main Gate 1',
-    reportedAt: new Date(Date.now() - 360 * 60 * 1000).toISOString(),
-    reportedBy: 'Gate 3 Patrol Guard',
-    assignedOfficer: 'Marcus Vance',
-    assignedRole: 'Security Director',
-    description: 'Padlock on secondary perimeter fence Gate 3 cut during overnight hours. No material missing, CCTV captured 1 suspect fleeing.',
-    aiAnalysis: {
-      severityScore: 72,
-      aiSummary: 'Security perimeter breach via mechanical cut on gate chain lock.',
-      probableRootCause: 'Lack of thermal CCTV coverage along East perimeter fence boundary.',
-      contributingFactors: [
-        'Perimeter lighting fixture L-12 was powered off due to faulty breaker.'
-      ],
-      capaRecommendations: [
-        'Install smart electronic solenoid lock with turnstile telemetry on Gate 3.',
-        'Reposition thermal camera CAM-EAST-02 to cover blind fence angle.'
-      ],
-      regulatoryImpact: 'Site Physical Security Compliance Protocol Level 2.'
-    },
-    witnessStatements: [],
-    attachments: [
-      {
-        id: 'att-5',
-        fileName: 'gate3_cut_lock.jpg',
-        fileType: 'Photo',
-        fileUrl: '/cut_lock.jpg',
-        fileSize: '1.8 MB',
-        uploadedBy: 'Patrol Guard',
-        uploadedAt: '05:30 AM'
-      }
-    ],
-    timeline: [
-      { id: 't1', timestamp: '05:15 AM', title: 'Breach Discovered', description: 'Cut lock noticed during morning patrol.', actor: 'Patrol Guard', statusChange: 'Open' },
-      { id: 't2', timestamp: '06:00 AM', title: 'Investigation Completed', description: 'CCTV footage archived & police report filed.', actor: 'Marcus Vance', statusChange: 'Investigation' },
-      { id: 't3', timestamp: '09:00 AM', title: 'Submitted for EHS Approval', description: 'CAPA plan submitted for executive sign-off.', actor: 'Marcus Vance', statusChange: 'Approval' }
-    ],
-    correctiveActions: [
-      { id: 'ca-7', actionItem: 'Replace Gate 3 cut padlock with high-security smart lock', assignedTo: 'Security Maintenance', dueDate: '2026-08-06', isCompleted: true }
-    ],
-    approvalSignOff: {
-      approvedBy: 'David Miller (Site Operations VP)',
-      approvedAt: new Date().toISOString(),
-      comments: 'Security CAPA plan approved. Proceed with thermal camera upgrade.'
-    }
-  },
-  {
-    id: 'INC-2026-105',
-    title: 'Temporary Power DB-02 Electrical Short Arc',
-    category: 'Electrical',
-    severity: 'Closed' as any,
-    workflowStatus: 'Closed',
-    locationZone: 'Electrical Substation',
-    reportedAt: new Date(Date.now() - 500 * 60 * 1000).toISOString(),
-    reportedBy: 'VoltCraft Utilities Tech',
-    assignedOfficer: 'Frank Reynolds',
-    assignedRole: 'Electrical Safety Lead',
-    description: 'Electrical arc flash occurred inside distribution board DB-02 due to moisture penetration during heavy rainfall.',
-    equipmentInvolved: 'Distribution Board DB-02',
-    aiAnalysis: {
-      severityScore: 60,
-      aiSummary: 'Electrical short circuit caused by rainwater ingress into weather-rated DB box.',
-      probableRootCause: 'Damaged rubber door gasket seal on NEMA 4X distribution enclosure.',
-      contributingFactors: ['Heavy rainstorm coupled with worn enclosure seal.'],
-      capaRecommendations: ['Replace DB-02 door seal and install weather canopy overhead.'],
-      regulatoryImpact: 'NFPA 70E Electrical Safety in the Workplace Compliance.'
-    },
-    witnessStatements: [],
-    attachments: [],
-    timeline: [
-      { id: 't1', timestamp: '03:00 AM', title: 'Arc Flash Alarm', description: 'Main breaker tripped automatically.', actor: 'Telemetry System', statusChange: 'Open' },
-      { id: 't2', timestamp: '05:00 AM', title: 'Repairs Completed', description: 'Breaker replaced and IP67 canopy installed.', actor: 'Frank Reynolds', statusChange: 'Closed' }
-    ],
-    correctiveActions: [
-      { id: 'ca-8', actionItem: 'Replace NEMA enclosure seal and test insulation resistance', assignedTo: 'VoltCraft Electric', dueDate: '2026-08-05', isCompleted: true }
-    ]
   }
 ];
 
 export default function IncidentsTab() {
   const [incidents, setIncidents] = useState<EnterpriseIncident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<EnterpriseIncident | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Filters
+  // Filters & Sorting
   const [selectedCategory, setSelectedCategory] = useState<IncidentCategory | 'All'>('All');
   const [selectedStatus, setSelectedStatus] = useState<IncidentWorkflowStatus | 'All'>('All');
+  const [selectedSeverityFilter, setSelectedSeverityFilter] = useState<'All' | 'Critical' | 'High' | 'Medium' | 'Low'>('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'severity' | 'threat'>('newest');
 
-  // Modals & Active Sub-Tabs
+  // Modals & Sub-Tabs
   const [isNewIncidentOpen, setIsNewIncidentOpen] = useState(false);
+  const [isEditIncidentOpen, setIsEditIncidentOpen] = useState(false);
   const [isAddWitnessOpen, setIsAddWitnessOpen] = useState(false);
-  const [activeDetailTab, setActiveDetailTab] = useState<'ai_analysis' | 'workflow' | 'witnesses' | 'attachments' | 'timeline' | 'capa'>('ai_analysis');
+  const [isAddCapaOpen, setIsAddCapaOpen] = useState(false);
+  const [isAddAttachmentOpen, setIsAddAttachmentOpen] = useState(false);
+  const [isAddTimelineOpen, setIsAddTimelineOpen] = useState(false);
+  const [isSignOffOpen, setIsSignOffOpen] = useState(false);
+  const [isEditRcaOpen, setIsEditRcaOpen] = useState(false);
+  const [viewingAttachment, setViewingAttachment] = useState<IncidentAttachment | null>(null);
+  const [isAnalyzingAi, setIsAnalyzingAi] = useState(false);
+
+  const [activeDetailTab, setActiveDetailTab] = useState<'ai_analysis' | 'workflow' | 'capa' | 'witnesses' | 'attachments' | 'timeline'>('ai_analysis');
 
   // Notification Toast
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
-  // New Incident Form State
+  // Forms State
   const [newForm, setNewForm] = useState<{
     title: string;
     category: IncidentCategory;
@@ -333,8 +253,10 @@ export default function IncidentsTab() {
     locationZone: string;
     reportedBy: string;
     assignedOfficer: string;
-    description: string;
     equipmentInvolved: string;
+    hazardClass: string;
+    injuredPersonnelCount: number;
+    description: string;
   }>({
     title: '',
     category: 'Near Miss',
@@ -342,11 +264,14 @@ export default function IncidentsTab() {
     locationZone: 'Main Gate 1',
     reportedBy: 'Field Safety Officer',
     assignedOfficer: 'Marcus Vance (EHS Director)',
-    description: '',
-    equipmentInvolved: ''
+    equipmentInvolved: '',
+    hazardClass: '',
+    injuredPersonnelCount: 0,
+    description: ''
   });
 
-  // New Witness Statement State
+  const [editForm, setEditForm] = useState<any>({});
+
   const [newWitness, setNewWitness] = useState({
     witnessName: '',
     witnessRole: '',
@@ -355,8 +280,41 @@ export default function IncidentsTab() {
     statement: ''
   });
 
-  // Sync with Firestore & Seed Initial Data
+  const [newCapa, setNewCapa] = useState({
+    actionItem: '',
+    assignedTo: 'Site Safety Team',
+    dueDate: new Date().toISOString().split('T')[0]
+  });
+
+  const [newAttachment, setNewAttachment] = useState({
+    fileName: '',
+    fileType: 'Photo' as const,
+    fileUrl: '',
+    fileSize: '1.2 MB',
+    uploadedBy: 'EHS Inspector'
+  });
+
+  const [newTimelineEvent, setNewTimelineEvent] = useState({
+    title: '',
+    description: '',
+    actor: 'EHS Field Officer'
+  });
+
+  const [signOffForm, setSignOffForm] = useState({
+    approvedBy: 'David Miller (Site Operations VP)',
+    comments: 'Comprehensive RCA and CAPA items verified. Incident formally approved and signed off.'
+  });
+
+  const [rcaForm, setRcaForm] = useState({
+    probableRootCause: '',
+    regulatoryImpact: '',
+    contributingFactorText: ''
+  });
+
+  // Sync with MongoDB / Firestore
   useEffect(() => {
+    let unsub: () => void = () => {};
+
     const seedAndSubscribe = async () => {
       try {
         const snap = await getDocs(collection(db, 'incidents_enterprise'));
@@ -364,40 +322,68 @@ export default function IncidentsTab() {
           for (const inc of INITIAL_MOCK_INCIDENTS) {
             await setDoc(doc(db, 'incidents_enterprise', inc.id), {
               ...inc,
-              reportedAt: typeof inc.reportedAt === 'string' ? inc.reportedAt : inc.reportedAt.toISOString()
+              reportedAt: typeof inc.reportedAt === 'string' ? inc.reportedAt : new Date(inc.reportedAt).toISOString()
             });
           }
         }
       } catch (err) {
-        console.error('Error seeding initial incidents:', err);
+        console.error('Error seeding initial incidents to MongoDB/db:', err);
       }
+
+      unsub = onSnapshot(collection(db, 'incidents_enterprise'), (snapshot) => {
+        const data = snapshot.docs.map(docSnap => {
+          const d = docSnap.data();
+          return {
+            ...d,
+            id: docSnap.id
+          } as EnterpriseIncident;
+        });
+
+        setIncidents(data);
+        if (data.length > 0) {
+          setSelectedIncident(prev => {
+            if (!prev) return data[0];
+            const updated = data.find(i => i.id === prev.id);
+            return updated || data[0];
+          });
+        }
+      });
     };
 
     seedAndSubscribe();
 
-    const unsub = onSnapshot(collection(db, 'incidents_enterprise'), (snapshot) => {
-      const data = snapshot.docs.map(docSnap => {
-        const d = docSnap.data();
-        return {
-          ...d,
-          id: docSnap.id
-        } as EnterpriseIncident;
-      });
-
-      setIncidents(data);
-      if (data.length > 0 && !selectedIncident) {
-        setSelectedIncident(data[0]);
-      }
-    });
-
-    return () => unsub();
+    return () => {
+      if (unsub) unsub();
+    };
   }, []);
 
-  // Filtered Incident Roster
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const snap = await getDocs(collection(db, 'incidents_enterprise'));
+      const data = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as EnterpriseIncident));
+      setIncidents(data);
+      if (data.length > 0) {
+        if (!selectedIncident) setSelectedIncident(data[0]);
+        else {
+          const matched = data.find(i => i.id === selectedIncident.id);
+          if (matched) setSelectedIncident(matched);
+        }
+      }
+      setNotification({ type: 'success', text: 'Incidents synchronized directly with MongoDB.' });
+    } catch (err) {
+      console.error('Manual refresh error:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Filtered and Sorted Incidents Roster
   const filteredIncidents = useMemo(() => {
     return incidents.filter(inc => {
       const matchesCategory = selectedCategory === 'All' || inc.category === selectedCategory;
       const matchesStatus = selectedStatus === 'All' || inc.workflowStatus === selectedStatus;
+      const matchesSeverity = selectedSeverityFilter === 'All' || inc.severity === selectedSeverityFilter;
       
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = !searchTerm ||
@@ -405,11 +391,27 @@ export default function IncidentsTab() {
         inc.title.toLowerCase().includes(searchLower) ||
         inc.locationZone.toLowerCase().includes(searchLower) ||
         inc.assignedOfficer.toLowerCase().includes(searchLower) ||
-        inc.description.toLowerCase().includes(searchLower);
+        inc.description.toLowerCase().includes(searchLower) ||
+        (inc.equipmentInvolved && inc.equipmentInvolved.toLowerCase().includes(searchLower));
 
-      return matchesCategory && matchesStatus && matchesSearch;
+      return matchesCategory && matchesStatus && matchesSeverity && matchesSearch;
+    }).sort((a, b) => {
+      if (sortBy === 'newest') {
+        return new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime();
+      }
+      if (sortBy === 'oldest') {
+        return new Date(a.reportedAt).getTime() - new Date(b.reportedAt).getTime();
+      }
+      if (sortBy === 'severity') {
+        const orderMap = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+        return (orderMap[b.severity] || 0) - (orderMap[a.severity] || 0);
+      }
+      if (sortBy === 'threat') {
+        return (b.aiAnalysis?.severityScore || 0) - (a.aiAnalysis?.severityScore || 0);
+      }
+      return 0;
     });
-  }, [incidents, selectedCategory, selectedStatus, searchTerm]);
+  }, [incidents, selectedCategory, selectedStatus, selectedSeverityFilter, searchTerm, sortBy]);
 
   // KPI Metrics
   const metrics = useMemo(() => {
@@ -422,13 +424,15 @@ export default function IncidentsTab() {
     return { total, openCount, highRisk, capaPending, closedCount };
   }, [incidents]);
 
-  // Handle Create New Incident
+  // 1. Create New Incident Submit (MongoDB Persisted)
   const handleCreateIncidentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newForm.title || !newForm.description) return;
 
     const incId = `INC-2026-${Math.floor(Math.random() * 899) + 100}`;
     const nowStr = new Date().toISOString();
+
+    const initialAiScore = newForm.severity === 'Critical' ? 92 : newForm.severity === 'High' ? 78 : newForm.severity === 'Medium' ? 50 : 25;
 
     const newRecord: EnterpriseIncident = {
       id: incId,
@@ -443,10 +447,12 @@ export default function IncidentsTab() {
       assignedRole: 'Field EHS Specialist',
       description: newForm.description,
       equipmentInvolved: newForm.equipmentInvolved || undefined,
+      hazardClass: newForm.hazardClass || undefined,
+      injuredPersonnelCount: newForm.injuredPersonnelCount || 0,
       aiAnalysis: {
-        severityScore: newForm.severity === 'Critical' ? 92 : newForm.severity === 'High' ? 75 : 45,
-        aiSummary: `Initial incident analysis logged for ${newForm.category} at ${newForm.locationZone}.`,
-        probableRootCause: `Pending formal site investigation by ${newForm.assignedOfficer}.`,
+        severityScore: initialAiScore,
+        aiSummary: `Initial automated EHS incident analysis logged for ${newForm.category} at ${newForm.locationZone}.`,
+        probableRootCause: `Pending formal field investigation by ${newForm.assignedOfficer}.`,
         contributingFactors: [
           'Environmental or operational hazard reported in field.',
           'Initial notification captured via Enterprise Incident Center.'
@@ -456,7 +462,7 @@ export default function IncidentsTab() {
           'Assign field investigator to conduct witness interviews.',
           'Log formal root cause analysis within 24 hours.'
         ],
-        regulatoryImpact: 'Internal EHS Incident Protocol Level 1 - Notification Dispatched.'
+        regulatoryImpact: 'Internal EHS Incident Protocol Level 1 - Mandatory Notification Dispatched.'
       },
       witnessStatements: [],
       attachments: [],
@@ -464,7 +470,7 @@ export default function IncidentsTab() {
         { id: `t_${Date.now()}`, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), title: 'Incident Created', description: newForm.description, actor: newForm.reportedBy, statusChange: 'Open' }
       ],
       correctiveActions: [
-        { id: `ca_${Date.now()}`, actionItem: 'Perform preliminary safety perimeter isolation', assignedTo: newForm.assignedOfficer, dueDate: '2026-08-07', isCompleted: false }
+        { id: `ca_${Date.now()}`, actionItem: 'Perform preliminary safety perimeter isolation', assignedTo: newForm.assignedOfficer, dueDate: new Date().toISOString().split('T')[0], isCompleted: false }
       ]
     };
 
@@ -472,7 +478,7 @@ export default function IncidentsTab() {
       await setDoc(doc(db, 'incidents_enterprise', incId), newRecord);
       setSelectedIncident(newRecord);
       setIsNewIncidentOpen(false);
-      setNotification({ type: 'success', text: `Enterprise Incident ${incId} logged & dispatched to ${newForm.assignedOfficer}` });
+      setNotification({ type: 'success', text: `Incident ${incId} saved to MongoDB and dispatched!` });
       setNewForm({
         title: '',
         category: 'Near Miss',
@@ -480,16 +486,77 @@ export default function IncidentsTab() {
         locationZone: 'Main Gate 1',
         reportedBy: 'Field Safety Officer',
         assignedOfficer: 'Marcus Vance (EHS Director)',
-        description: '',
-        equipmentInvolved: ''
+        equipmentInvolved: '',
+        hazardClass: '',
+        injuredPersonnelCount: 0,
+        description: ''
       });
     } catch (err) {
-      console.error('Error creating incident:', err);
+      console.error('Error creating incident in MongoDB:', err);
+      setNotification({ type: 'error', text: 'Failed to create incident in MongoDB database.' });
     }
   };
 
-  // Transition Workflow Stage
-  const handleAdvanceWorkflow = async (nextStatus: IncidentWorkflowStatus) => {
+  // 2. Edit Incident Details Submit (MongoDB Persisted)
+  const openEditIncident = () => {
+    if (!selectedIncident) return;
+    setEditForm({
+      title: selectedIncident.title,
+      category: selectedIncident.category,
+      severity: selectedIncident.severity,
+      locationZone: selectedIncident.locationZone,
+      assignedOfficer: selectedIncident.assignedOfficer,
+      equipmentInvolved: selectedIncident.equipmentInvolved || '',
+      hazardClass: selectedIncident.hazardClass || '',
+      injuredPersonnelCount: selectedIncident.injuredPersonnelCount || 0,
+      description: selectedIncident.description
+    });
+    setIsEditIncidentOpen(true);
+  };
+
+  const handleEditIncidentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIncident) return;
+
+    const updated = {
+      ...selectedIncident,
+      title: editForm.title,
+      category: editForm.category,
+      severity: editForm.severity,
+      locationZone: editForm.locationZone,
+      assignedOfficer: editForm.assignedOfficer,
+      equipmentInvolved: editForm.equipmentInvolved,
+      hazardClass: editForm.hazardClass,
+      injuredPersonnelCount: Number(editForm.injuredPersonnelCount) || 0,
+      description: editForm.description
+    };
+
+    try {
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), updated);
+      setSelectedIncident(updated);
+      setIsEditIncidentOpen(false);
+      setNotification({ type: 'success', text: `Incident ${selectedIncident.id} details updated in MongoDB.` });
+    } catch (err) {
+      console.error('Error updating incident:', err);
+    }
+  };
+
+  // 3. Delete Incident (MongoDB Persisted)
+  const handleDeleteIncident = async () => {
+    if (!selectedIncident) return;
+    if (!window.confirm(`Are you sure you want to permanently delete incident ${selectedIncident.id} from MongoDB?`)) return;
+
+    try {
+      await deleteDoc(doc(db, 'incidents_enterprise', selectedIncident.id));
+      setNotification({ type: 'info', text: `Incident ${selectedIncident.id} deleted from MongoDB.` });
+      setSelectedIncident(null);
+    } catch (err) {
+      console.error('Error deleting incident:', err);
+    }
+  };
+
+  // 4. Advance or Jump Workflow Stage (MongoDB Persisted)
+  const handleSetWorkflowStage = async (nextStatus: IncidentWorkflowStatus) => {
     if (!selectedIncident) return;
 
     const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -498,7 +565,7 @@ export default function IncidentsTab() {
       {
         id: `t_${Date.now()}`,
         timestamp: nowTimeStr,
-        title: `Advanced to ${nextStatus}`,
+        title: `Stage Changed to ${nextStatus}`,
         description: `Workflow stage updated from ${selectedIncident.workflowStatus} to ${nextStatus}.`,
         actor: 'EHS Control Lead',
         statusChange: nextStatus
@@ -517,13 +584,186 @@ export default function IncidentsTab() {
         timeline: updatedTimeline
       });
 
-      setNotification({ type: 'success', text: `Incident ${selectedIncident.id} advanced to workflow stage: ${nextStatus}` });
+      setNotification({ type: 'success', text: `Incident ${selectedIncident.id} advanced to: ${nextStatus}` });
     } catch (err) {
       console.error('Error advancing workflow stage:', err);
     }
   };
 
-  // Add Witness Statement
+  // 5. Trigger Server-Side AI Re-Analyze for Incident RCA
+  const handleReanalyzeWithAi = async () => {
+    if (!selectedIncident) return;
+    setIsAnalyzingAi(true);
+
+    try {
+      const res = await fetch('/api/analyze-incident', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: selectedIncident.title,
+          category: selectedIncident.category,
+          severity: selectedIncident.severity,
+          locationZone: selectedIncident.locationZone,
+          equipmentInvolved: selectedIncident.equipmentInvolved,
+          description: selectedIncident.description
+        })
+      });
+
+      const aiData = await res.json();
+
+      const updatedAiAnalysis = {
+        severityScore: aiData.severityScore || selectedIncident.aiAnalysis?.severityScore || 75,
+        aiSummary: aiData.aiSummary || selectedIncident.aiAnalysis?.aiSummary || 'Analysis complete.',
+        probableRootCause: aiData.probableRootCause || selectedIncident.aiAnalysis?.probableRootCause || 'Under review.',
+        contributingFactors: aiData.contributingFactors || selectedIncident.aiAnalysis?.contributingFactors || [],
+        capaRecommendations: aiData.capaRecommendations || selectedIncident.aiAnalysis?.capaRecommendations || [],
+        regulatoryImpact: aiData.regulatoryImpact || selectedIncident.aiAnalysis?.regulatoryImpact || 'OSHA Protocol'
+      };
+
+      const updatedTimeline = [
+        ...(selectedIncident.timeline || []),
+        {
+          id: `t_${Date.now()}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          title: 'AI RCA Re-Analyzed',
+          description: 'Gemini AI generated fresh Root Cause Analysis and CAPA recommendations.',
+          actor: 'EHS AI Engine'
+        }
+      ];
+
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
+        aiAnalysis: updatedAiAnalysis,
+        timeline: updatedTimeline
+      });
+
+      setSelectedIncident({
+        ...selectedIncident,
+        aiAnalysis: updatedAiAnalysis,
+        timeline: updatedTimeline
+      });
+
+      setNotification({ type: 'success', text: 'AI Root Cause Analysis updated via Gemini Model!' });
+    } catch (err) {
+      console.error('AI Re-analyze error:', err);
+    } finally {
+      setIsAnalyzingAi(false);
+    }
+  };
+
+  // 6. Edit Manual RCA Details
+  const openEditRca = () => {
+    if (!selectedIncident) return;
+    setRcaForm({
+      probableRootCause: selectedIncident.aiAnalysis?.probableRootCause || '',
+      regulatoryImpact: selectedIncident.aiAnalysis?.regulatoryImpact || '',
+      contributingFactorText: (selectedIncident.aiAnalysis?.contributingFactors || []).join('\n')
+    });
+    setIsEditRcaOpen(true);
+  };
+
+  const handleSaveRca = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIncident) return;
+
+    const updatedFactors = rcaForm.contributingFactorText.split('\n').filter(Boolean);
+
+    const updatedAnalysis = {
+      ...(selectedIncident.aiAnalysis || {
+        severityScore: 70,
+        aiSummary: 'Manual RCA updated by EHS Lead.',
+        capaRecommendations: []
+      }),
+      probableRootCause: rcaForm.probableRootCause,
+      regulatoryImpact: rcaForm.regulatoryImpact,
+      contributingFactors: updatedFactors
+    };
+
+    try {
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
+        aiAnalysis: updatedAnalysis
+      });
+      setSelectedIncident({
+        ...selectedIncident,
+        aiAnalysis: updatedAnalysis
+      });
+      setIsEditRcaOpen(false);
+      setNotification({ type: 'success', text: 'Root Cause Analysis details saved to MongoDB.' });
+    } catch (err) {
+      console.error('Error saving RCA:', err);
+    }
+  };
+
+  // 7. CAPA Items CRUD
+  const handleToggleCapa = async (actionId: string) => {
+    if (!selectedIncident || !selectedIncident.correctiveActions) return;
+
+    const updatedCapas = selectedIncident.correctiveActions.map(ca => 
+      ca.id === actionId ? { ...ca, isCompleted: !ca.isCompleted } : ca
+    );
+
+    try {
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
+        correctiveActions: updatedCapas
+      });
+
+      setSelectedIncident({
+        ...selectedIncident,
+        correctiveActions: updatedCapas
+      });
+      setNotification({ type: 'info', text: 'CAPA action item status updated.' });
+    } catch (err) {
+      console.error('Error toggling CAPA item:', err);
+    }
+  };
+
+  const handleAddCapaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIncident || !newCapa.actionItem) return;
+
+    const newCapItem = {
+      id: `ca_${Date.now()}`,
+      actionItem: newCapa.actionItem,
+      assignedTo: newCapa.assignedTo,
+      dueDate: newCapa.dueDate,
+      isCompleted: false
+    };
+
+    const updatedCapas = [...(selectedIncident.correctiveActions || []), newCapItem];
+
+    try {
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
+        correctiveActions: updatedCapas
+      });
+
+      setSelectedIncident({
+        ...selectedIncident,
+        correctiveActions: updatedCapas
+      });
+
+      setIsAddCapaOpen(false);
+      setNewCapa({ actionItem: '', assignedTo: 'Site Safety Team', dueDate: new Date().toISOString().split('T')[0] });
+      setNotification({ type: 'success', text: 'New CAPA action item created in MongoDB.' });
+    } catch (err) {
+      console.error('Error adding CAPA item:', err);
+    }
+  };
+
+  const handleDeleteCapa = async (actionId: string) => {
+    if (!selectedIncident || !selectedIncident.correctiveActions) return;
+    const updatedCapas = selectedIncident.correctiveActions.filter(c => c.id !== actionId);
+
+    try {
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
+        correctiveActions: updatedCapas
+      });
+      setSelectedIncident({ ...selectedIncident, correctiveActions: updatedCapas });
+      setNotification({ type: 'info', text: 'CAPA item removed.' });
+    } catch (err) {
+      console.error('Error deleting CAPA:', err);
+    }
+  };
+
+  // 8. Witness Statements CRUD
   const handleAddWitnessSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedIncident || !newWitness.witnessName || !newWitness.statement) return;
@@ -552,38 +792,157 @@ export default function IncidentsTab() {
 
       setIsAddWitnessOpen(false);
       setNewWitness({ witnessName: '', witnessRole: '', company: 'BuildCorp Partner', interviewedBy: 'Marcus Vance', statement: '' });
-      setNotification({ type: 'success', text: 'Witness statement attached to incident file.' });
+      setNotification({ type: 'success', text: 'Witness statement recorded in MongoDB.' });
     } catch (err) {
       console.error('Error adding witness statement:', err);
     }
   };
 
-  // Toggle CAPA Action Completion
-  const handleToggleCapa = async (actionId: string) => {
-    if (!selectedIncident || !selectedIncident.correctiveActions) return;
-
-    const updatedCapas = selectedIncident.correctiveActions.map(ca => 
-      ca.id === actionId ? { ...ca, isCompleted: !ca.isCompleted } : ca
-    );
+  const handleDeleteWitness = async (witnessId: string) => {
+    if (!selectedIncident || !selectedIncident.witnessStatements) return;
+    const updatedStatements = selectedIncident.witnessStatements.filter(w => w.id !== witnessId);
 
     try {
       await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
-        correctiveActions: updatedCapas
+        witnessStatements: updatedStatements
+      });
+      setSelectedIncident({ ...selectedIncident, witnessStatements: updatedStatements });
+      setNotification({ type: 'info', text: 'Witness statement removed.' });
+    } catch (err) {
+      console.error('Error deleting witness statement:', err);
+    }
+  };
+
+  // 9. Attachments CRUD
+  const handleAddAttachmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIncident || !newAttachment.fileName) return;
+
+    const newAtt: IncidentAttachment = {
+      id: `att_${Date.now()}`,
+      fileName: newAttachment.fileName,
+      fileType: newAttachment.fileType,
+      fileUrl: newAttachment.fileUrl || 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?w=600&auto=format&fit=crop&q=80',
+      fileSize: newAttachment.fileSize,
+      uploadedBy: newAttachment.uploadedBy,
+      uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    const updatedAttachments = [...(selectedIncident.attachments || []), newAtt];
+
+    try {
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
+        attachments: updatedAttachments
       });
 
       setSelectedIncident({
         ...selectedIncident,
-        correctiveActions: updatedCapas
+        attachments: updatedAttachments
       });
-      setNotification({ type: 'info', text: 'CAPA action item status updated.' });
+
+      setIsAddAttachmentOpen(false);
+      setNewAttachment({ fileName: '', fileType: 'Photo', fileUrl: '', fileSize: '1.2 MB', uploadedBy: 'EHS Inspector' });
+      setNotification({ type: 'success', text: 'Evidence attachment uploaded to incident file.' });
     } catch (err) {
-      console.error('Error toggling CAPA item:', err);
+      console.error('Error adding attachment:', err);
+    }
+  };
+
+  const handleDeleteAttachment = async (attId: string) => {
+    if (!selectedIncident || !selectedIncident.attachments) return;
+    const updatedAttachments = selectedIncident.attachments.filter(a => a.id !== attId);
+
+    try {
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
+        attachments: updatedAttachments
+      });
+      setSelectedIncident({ ...selectedIncident, attachments: updatedAttachments });
+      setNotification({ type: 'info', text: 'Evidence attachment removed.' });
+    } catch (err) {
+      console.error('Error deleting attachment:', err);
+    }
+  };
+
+  // 10. Timeline Note Addition
+  const handleAddTimelineSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIncident || !newTimelineEvent.title) return;
+
+    const newEvt: IncidentTimelineEvent = {
+      id: `t_${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      title: newTimelineEvent.title,
+      description: newTimelineEvent.description,
+      actor: newTimelineEvent.actor
+    };
+
+    const updatedTimeline = [...(selectedIncident.timeline || []), newEvt];
+
+    try {
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
+        timeline: updatedTimeline
+      });
+
+      setSelectedIncident({
+        ...selectedIncident,
+        timeline: updatedTimeline
+      });
+
+      setIsAddTimelineOpen(false);
+      setNewTimelineEvent({ title: '', description: '', actor: 'EHS Field Officer' });
+      setNotification({ type: 'success', text: 'Timeline event recorded.' });
+    } catch (err) {
+      console.error('Error adding timeline event:', err);
+    }
+  };
+
+  // 11. Executive Approval & Sign-Off Submit
+  const handleSignOffSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIncident) return;
+
+    const signOffData = {
+      approvedBy: signOffForm.approvedBy,
+      approvedAt: new Date().toISOString(),
+      comments: signOffForm.comments
+    };
+
+    const updatedTimeline = [
+      ...(selectedIncident.timeline || []),
+      {
+        id: `t_${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        title: 'Executive Sign-Off Completed',
+        description: `Approved by ${signOffForm.approvedBy}: "${signOffForm.comments}"`,
+        actor: signOffForm.approvedBy,
+        statusChange: 'Closed' as IncidentWorkflowStatus
+      }
+    ];
+
+    try {
+      await updateDoc(doc(db, 'incidents_enterprise', selectedIncident.id), {
+        workflowStatus: 'Closed',
+        approvalSignOff: signOffData,
+        timeline: updatedTimeline
+      });
+
+      setSelectedIncident({
+        ...selectedIncident,
+        workflowStatus: 'Closed',
+        approvalSignOff: signOffData,
+        timeline: updatedTimeline
+      });
+
+      setIsSignOffOpen(false);
+      setNotification({ type: 'success', text: `Incident ${selectedIncident.id} formally signed off and closed.` });
+    } catch (err) {
+      console.error('Error completing sign off:', err);
     }
   };
 
   // Export CSV
   const handleExportCSV = () => {
-    const data = incidents.map(i => ({
+    const data = filteredIncidents.map(i => ({
       IncidentID: i.id,
       Title: i.title,
       Category: i.category,
@@ -592,6 +951,8 @@ export default function IncidentsTab() {
       Location: i.locationZone,
       ReportedBy: i.reportedBy,
       AssignedOfficer: i.assignedOfficer,
+      Equipment: i.equipmentInvolved || 'N/A',
+      InjuredCount: i.injuredPersonnelCount || 0,
       SeverityScore: i.aiAnalysis?.severityScore || 50,
       CapasPending: i.correctiveActions?.filter(c => !c.isCompleted).length || 0
     }));
@@ -605,6 +966,8 @@ export default function IncidentsTab() {
       { key: 'Location', label: 'ZONE LOCATION' },
       { key: 'ReportedBy', label: 'REPORTED BY' },
       { key: 'AssignedOfficer', label: 'ASSIGNED OFFICER' },
+      { key: 'Equipment', label: 'EQUIPMENT' },
+      { key: 'InjuredCount', label: 'INJURED COUNT' },
       { key: 'SeverityScore', label: 'AI THREAT SCORE' },
       { key: 'CapasPending', label: 'PENDING CAPAS' }
     ]);
@@ -612,7 +975,7 @@ export default function IncidentsTab() {
 
   // Export PDF
   const handleExportPDF = () => {
-    const rows = incidents.map(i => ({
+    const rows = filteredIncidents.map(i => ({
       id: i.id,
       cat: i.category,
       title: i.title,
@@ -648,10 +1011,10 @@ export default function IncidentsTab() {
   return (
     <div className="w-full flex flex-col p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       
-      {/* Header Bar */}
+      {/* Top Header Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
               <ShieldAlert className="w-7 h-7 text-[#007BC4]" />
               Enterprise Incident Center
@@ -659,13 +1022,32 @@ export default function IncidentsTab() {
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#007BC4]/10 text-[#007BC4] border border-[#007BC4]/20">
               EHS Command Live
             </span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 border ${
+              isMongoActive() 
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+              <Database size={11} />
+              {isMongoActive() ? 'MongoDB Active: gao_rfid' : 'Firestore Fallback'}
+            </span>
           </div>
           <p className="text-slate-500 dark:text-slate-400 font-medium text-xs md:text-sm mt-0.5">
-            Near misses, injuries, equipment damage, fires, medical events, security breaches, witnesses, & AI RCA
+            Full incident lifecycle management: near misses, injuries, fires, witness statements, RCA, CAPA actions, and MongoDB persistence.
           </p>
         </div>
 
+        {/* Action Controls */}
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 transition flex items-center gap-1.5 text-xs font-bold"
+            title="Refresh from MongoDB"
+          >
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin text-[#007BC4]' : ''} />
+            <span className="hidden sm:inline">Sync DB</span>
+          </button>
+
           <button
             onClick={() => setIsNewIncidentOpen(true)}
             className="px-4 py-2 bg-[#007BC4] hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2"
@@ -691,9 +1073,13 @@ export default function IncidentsTab() {
         </div>
       </div>
 
-      {/* Notification Toast */}
+      {/* Notification Toast Banner */}
       {notification && (
-        <div className="p-3.5 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-blue-700 rounded-xl text-xs font-bold text-blue-900 dark:text-blue-200 flex items-center justify-between shadow-sm animate-in fade-in">
+        <div className={`p-3.5 border rounded-xl text-xs font-bold flex items-center justify-between shadow-sm animate-in fade-in ${
+          notification.type === 'success' ? 'bg-emerald-50 dark:bg-slate-800 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200' :
+          notification.type === 'error' ? 'bg-rose-50 dark:bg-slate-800 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200' :
+          'bg-blue-50 dark:bg-slate-800 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200'
+        }`}>
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-[#007BC4]" />
             {notification.text}
@@ -735,7 +1121,7 @@ export default function IncidentsTab() {
         </div>
       </div>
 
-      {/* Category Selection Tabs Bar */}
+      {/* Category Selection Filter Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         <button
           onClick={() => setSelectedCategory('All')}
@@ -769,24 +1155,25 @@ export default function IncidentsTab() {
         })}
       </div>
 
-      {/* Workflow Stage Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="relative w-full sm:w-72">
+      {/* Search, Workflow Stage, Severity & Sorting Toolbar */}
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        
+        <div className="relative w-full lg:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-3.5" />
           <input
             type="text"
-            placeholder="Search incident ID, title, zone, officer..."
+            placeholder="Search ID, title, zone, officer, equipment..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#007BC4]"
           />
         </div>
 
-        {/* Workflow Stage Pills */}
-        <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto">
+        {/* Workflow Stage Filter */}
+        <div className="flex items-center gap-1 overflow-x-auto w-full lg:w-auto">
           <button
             onClick={() => setSelectedStatus('All')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold ${selectedStatus === 'All' ? 'bg-[#007BC4] text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold ${selectedStatus === 'All' ? 'bg-[#007BC4] text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
           >
             All Stages
           </button>
@@ -802,76 +1189,110 @@ export default function IncidentsTab() {
             </button>
           ))}
         </div>
+
+        {/* Severity & Sort Dropdowns */}
+        <div className="flex items-center gap-2 w-full lg:w-auto justify-end">
+          <select
+            value={selectedSeverityFilter}
+            onChange={e => setSelectedSeverityFilter(e.target.value as any)}
+            className="p-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300"
+          >
+            <option value="All">All Severities</option>
+            <option value="Critical">Critical Only</option>
+            <option value="High">High Only</option>
+            <option value="Medium">Medium Only</option>
+            <option value="Low">Low Only</option>
+          </select>
+
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as any)}
+            className="p-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300"
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="severity">Highest Severity</option>
+            <option value="threat">Highest AI Threat</option>
+          </select>
+        </div>
       </div>
 
-      {/* Main Split Interface: List Left + Detail Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[550px]">
+      {/* Main Split Interface: Left Roster (4 cols) + Right Workspace (8 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[580px]">
         
-        {/* Incident List Column (4 cols) */}
-        <div className="lg:col-span-4 space-y-3 overflow-y-auto max-h-[700px] pr-1">
-          {filteredIncidents.map(inc => {
-            const isSelected = selectedIncident?.id === inc.id;
-            const catObj = INCIDENT_CATEGORIES.find(c => c.name === inc.category) || INCIDENT_CATEGORIES[0];
-            const Icon = catObj.icon;
+        {/* Incident Roster Left Column */}
+        <div className="lg:col-span-4 space-y-3 overflow-y-auto max-h-[720px] pr-1">
+          {filteredIncidents.length === 0 ? (
+            <div className="p-8 text-center bg-white dark:bg-slate-800 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-slate-400 text-xs">
+              No matching enterprise incidents found.
+            </div>
+          ) : (
+            filteredIncidents.map(inc => {
+              const isSelected = selectedIncident?.id === inc.id;
+              const catObj = INCIDENT_CATEGORIES.find(c => c.name === inc.category) || INCIDENT_CATEGORIES[0];
+              const Icon = catObj.icon;
 
-            return (
-              <div
-                key={inc.id}
-                onClick={() => setSelectedIncident(inc)}
-                className={`p-4 rounded-2xl border transition cursor-pointer shadow-sm relative ${
-                  isSelected
-                    ? 'bg-[#007BC4]/5 border-[#007BC4] ring-2 ring-[#007BC4]/20'
-                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <span className="font-mono text-xs font-black text-[#007BC4] bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded border border-blue-200">
-                    {inc.id}
-                  </span>
+              return (
+                <div
+                  key={inc.id}
+                  onClick={() => setSelectedIncident(inc)}
+                  className={`p-4 rounded-2xl border transition cursor-pointer shadow-sm relative ${
+                    isSelected
+                      ? 'bg-[#007BC4]/5 border-[#007BC4] ring-2 ring-[#007BC4]/20'
+                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-mono text-xs font-black text-[#007BC4] bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                      {inc.id}
+                    </span>
 
-                  <Badge variant="outline" className={
-                    inc.workflowStatus === 'Open' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                    inc.workflowStatus === 'Investigation' ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse' :
-                    inc.workflowStatus === 'Root Cause' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                    inc.workflowStatus === 'Closed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-700'
-                  }>
-                    {inc.workflowStatus}
-                  </Badge>
+                    <Badge variant="outline" className={
+                      inc.workflowStatus === 'Open' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      inc.workflowStatus === 'Investigation' ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse' :
+                      inc.workflowStatus === 'Root Cause' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                      inc.workflowStatus === 'Closed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-700'
+                    }>
+                      {inc.workflowStatus}
+                    </Badge>
+                  </div>
+
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1 mb-1">
+                    {inc.title}
+                  </h3>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                    <span className={`flex items-center gap-1 font-bold ${catObj.color}`}>
+                      <Icon size={12} /> {inc.category}
+                    </span>
+                    •
+                    <span>{inc.locationZone}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                    <span className="text-slate-500 font-medium">
+                      Officer: <strong className="text-slate-800 dark:text-slate-200">{inc.assignedOfficer.split(' ')[0]}</strong>
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      {inc.severity === 'Critical' && <span className="px-2 py-0.5 rounded bg-rose-600 text-white font-black text-[9px] uppercase">Critical</span>}
+                      {inc.severity === 'High' && <span className="px-2 py-0.5 rounded bg-rose-500 text-white font-black text-[9px] uppercase">High</span>}
+                      {inc.severity === 'Medium' && <span className="px-2 py-0.5 rounded bg-amber-500 text-white font-black text-[9px] uppercase">Medium</span>}
+                      {inc.severity === 'Low' && <span className="px-2 py-0.5 rounded bg-slate-400 text-white font-black text-[9px] uppercase">Low</span>}
+                    </div>
+                  </div>
                 </div>
-
-                <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1 mb-1">
-                  {inc.title}
-                </h3>
-
-                <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-                  <span className={`flex items-center gap-1 font-bold ${catObj.color}`}>
-                    <Icon size={12} /> {inc.category}
-                  </span>
-                  •
-                  <span>{inc.locationZone}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-100 dark:border-slate-700/60">
-                  <span className="text-slate-500 font-medium">
-                    Officer: <strong className="text-slate-800 dark:text-slate-200">{inc.assignedOfficer.split(' ')[0]}</strong>
-                  </span>
-
-                  {inc.severity === 'Critical' && <span className="px-2 py-0.5 rounded bg-rose-600 text-white font-black text-[9px] uppercase">Critical</span>}
-                  {inc.severity === 'High' && <span className="px-2 py-0.5 rounded bg-rose-500 text-white font-black text-[9px] uppercase">High</span>}
-                  {inc.severity === 'Medium' && <span className="px-2 py-0.5 rounded bg-amber-500 text-white font-black text-[9px] uppercase">Medium</span>}
-                  {inc.severity === 'Low' && <span className="px-2 py-0.5 rounded bg-slate-400 text-white font-black text-[9px] uppercase">Low</span>}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
 
-        {/* Incident Detailed Workspace (8 cols) */}
+        {/* Detailed Workspace Right Column */}
         <div className="lg:col-span-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm flex flex-col overflow-hidden">
           {selectedIncident ? (
             <div className="flex flex-col h-full">
               
-              {/* Detail Header */}
+              {/* Workspace Top Header */}
               <div className="p-5 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
                 <div className="flex flex-wrap justify-between items-start gap-3">
                   <div>
@@ -881,6 +1302,11 @@ export default function IncidentsTab() {
                       <Badge variant="outline" className="border-rose-200 text-rose-700 bg-rose-50 font-bold">
                         Severity: {selectedIncident.severity}
                       </Badge>
+                      {selectedIncident.equipmentInvolved && (
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">
+                          Equipment: {selectedIncident.equipmentInvolved}
+                        </span>
+                      )}
                     </div>
 
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white leading-snug">
@@ -888,59 +1314,45 @@ export default function IncidentsTab() {
                     </h2>
                   </div>
 
-                  {/* Workflow Advancement Action Buttons */}
-                  <div className="flex items-center gap-2">
-                    {selectedIncident.workflowStatus === 'Open' && (
+                  {/* Header Management Buttons */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={openEditIncident}
+                      className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 text-xs font-bold flex items-center gap-1"
+                      title="Edit Incident Details"
+                    >
+                      <Edit3 size={13} /> Edit
+                    </button>
+
+                    <button
+                      onClick={handleDeleteIncident}
+                      className="p-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-100 text-xs font-bold flex items-center gap-1"
+                      title="Delete Incident"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+
+                    {/* Workflow Stage Quick Progression */}
+                    {selectedIncident.workflowStatus !== 'Closed' && (
                       <button
-                        onClick={() => handleAdvanceWorkflow('Assigned')}
+                        onClick={() => {
+                          const currentIdx = WORKFLOW_STAGES.indexOf(selectedIncident.workflowStatus);
+                          if (currentIdx < WORKFLOW_STAGES.length - 1) {
+                            handleSetWorkflowStage(WORKFLOW_STAGES[currentIdx + 1]);
+                          }
+                        }}
                         className="px-3 py-1.5 bg-[#007BC4] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-blue-700 transition flex items-center gap-1.5"
                       >
-                        Assign Officer <ArrowRight size={13} />
-                      </button>
-                    )}
-
-                    {selectedIncident.workflowStatus === 'Assigned' && (
-                      <button
-                        onClick={() => handleAdvanceWorkflow('Investigation')}
-                        className="px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-amber-700 transition flex items-center gap-1.5"
-                      >
-                        Start Investigation <ArrowRight size={13} />
-                      </button>
-                    )}
-
-                    {selectedIncident.workflowStatus === 'Investigation' && (
-                      <button
-                        onClick={() => handleAdvanceWorkflow('Root Cause')}
-                        className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-indigo-700 transition flex items-center gap-1.5"
-                      >
-                        Proceed to Root Cause <ArrowRight size={13} />
-                      </button>
-                    )}
-
-                    {selectedIncident.workflowStatus === 'Root Cause' && (
-                      <button
-                        onClick={() => handleAdvanceWorkflow('Corrective Action')}
-                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-blue-700 transition flex items-center gap-1.5"
-                      >
-                        Submit CAPA Plan <ArrowRight size={13} />
-                      </button>
-                    )}
-
-                    {selectedIncident.workflowStatus === 'Corrective Action' && (
-                      <button
-                        onClick={() => handleAdvanceWorkflow('Approval')}
-                        className="px-3 py-1.5 bg-violet-600 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-violet-700 transition flex items-center gap-1.5"
-                      >
-                        Request Executive Sign-Off <ArrowRight size={13} />
+                        Advance Stage <ArrowRight size={13} />
                       </button>
                     )}
 
                     {selectedIncident.workflowStatus === 'Approval' && (
                       <button
-                        onClick={() => handleAdvanceWorkflow('Closed')}
+                        onClick={() => setIsSignOffOpen(true)}
                         className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-emerald-700 transition flex items-center gap-1.5"
                       >
-                        Final Approval & Close <CheckCircle2 size={13} />
+                        Sign Off & Close <CheckCircle2 size={13} />
                       </button>
                     )}
                   </div>
@@ -950,15 +1362,38 @@ export default function IncidentsTab() {
                   {selectedIncident.description}
                 </p>
 
-                {/* Sub-Tabs Navigation inside Workspace */}
+                {/* Metadata Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-200 dark:border-slate-700/60 text-[11px]">
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Location Zone</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{selectedIncident.locationZone}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Assigned Lead</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{selectedIncident.assignedOfficer}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Reported By</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{selectedIncident.reportedBy}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block font-semibold">Reported Timestamp</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{new Date(selectedIncident.reportedAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+
+                {/* Sub-Tabs Bar */}
                 <div className="flex items-center gap-1 pt-2 border-t border-slate-200 dark:border-slate-700 overflow-x-auto">
                   {[
-                    { id: 'ai_analysis', label: 'AI Incident RCA', icon: Sparkles },
-                    { id: 'workflow', label: 'Workflow & Stepper', icon: Layers },
-                    { id: 'capa', label: 'Corrective Actions (CAPA)', icon: CheckSquare },
+                    { id: 'ai_analysis', label: 'AI RCA & Analysis', icon: Sparkles },
+                    { id: 'workflow', label: 'Workflow Stepper', icon: ArrowRight },
+                    { id: 'capa', label: `CAPA Actions (${selectedIncident.correctiveActions?.length || 0})`, icon: CheckSquare },
                     { id: 'witnesses', label: `Witnesses (${selectedIncident.witnessStatements?.length || 0})`, icon: MessageSquare },
                     { id: 'attachments', label: `Attachments (${selectedIncident.attachments?.length || 0})`, icon: Paperclip },
-                    { id: 'timeline', label: 'Timeline & History', icon: Clock }
+                    { id: 'timeline', label: `Timeline (${selectedIncident.timeline?.length || 0})`, icon: Clock }
                   ].map(tab => {
                     const Icon = tab.icon;
                     return (
@@ -968,7 +1403,7 @@ export default function IncidentsTab() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
                           activeDetailTab === tab.id
                             ? 'bg-[#007BC4] text-white shadow-sm'
-                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                         }`}
                       >
                         <Icon size={13} />
@@ -979,21 +1414,40 @@ export default function IncidentsTab() {
                 </div>
               </div>
 
-              {/* Detail Content Workspace Area */}
+              {/* Workspace Active Sub-Tab View */}
               <div className="p-5 flex-1 overflow-y-auto space-y-5">
                 
-                {/* 1. AI INCIDENT ANALYSIS TAB */}
+                {/* 1. AI RCA & ANALYSIS TAB */}
                 {activeDetailTab === 'ai_analysis' && (
                   <div className="space-y-4 text-xs">
                     <div className="p-4 bg-blue-50/70 dark:bg-slate-900 border border-blue-200 dark:border-slate-700 rounded-2xl space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <h4 className="font-bold text-blue-900 dark:text-blue-200 text-sm flex items-center gap-2">
                           <Sparkles size={16} className="text-[#007BC4]" />
                           Automated Root Cause Analysis (AI RCA)
                         </h4>
-                        <span className="px-2.5 py-0.5 rounded-full font-black text-xs bg-[#007BC4] text-white">
-                          Threat Score: {selectedIncident.aiAnalysis?.severityScore || 70}/100
-                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleReanalyzeWithAi}
+                            disabled={isAnalyzingAi}
+                            className="px-3 py-1 bg-[#007BC4] text-white rounded-lg font-bold text-xs hover:bg-blue-700 transition flex items-center gap-1 shadow-sm"
+                          >
+                            <RefreshCw size={12} className={isAnalyzingAi ? 'animate-spin' : ''} />
+                            {isAnalyzingAi ? 'Analyzing...' : 'Re-Analyze with AI'}
+                          </button>
+
+                          <button
+                            onClick={openEditRca}
+                            className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-xs hover:bg-slate-50"
+                          >
+                            Edit RCA
+                          </button>
+
+                          <span className="px-2.5 py-0.5 rounded-full font-black text-xs bg-[#007BC4] text-white">
+                            Threat Score: {selectedIncident.aiAnalysis?.severityScore || 70}/100
+                          </span>
+                        </div>
                       </div>
 
                       <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
@@ -1025,9 +1479,20 @@ export default function IncidentsTab() {
                         <span className="font-bold text-slate-500 text-[10px] uppercase block">AI CAPA Recommendations</span>
                         <div className="space-y-1.5">
                           {selectedIncident.aiAnalysis?.capaRecommendations.map((rec, idx) => (
-                            <div key={idx} className="p-2 bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded-lg font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
-                              <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                              {rec}
+                            <div key={idx} className="p-2 bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded-lg font-bold text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-2">
+                              <span className="flex items-center gap-2">
+                                <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                                {rec}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setNewCapa({ actionItem: rec, assignedTo: selectedIncident.assignedOfficer, dueDate: new Date().toISOString().split('T')[0] });
+                                  setIsAddCapaOpen(true);
+                                }}
+                                className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700"
+                              >
+                                Convert to CAPA
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1039,10 +1504,13 @@ export default function IncidentsTab() {
                 {/* 2. WORKFLOW STEPPER TAB */}
                 {activeDetailTab === 'workflow' && (
                   <div className="space-y-6">
-                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">Seven-Stage EHS Incident Investigation Pipeline</h4>
-                    
-                    {/* Stepper Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">Seven-Stage EHS Investigation Pipeline</h4>
+                      <span className="text-xs font-bold text-[#007BC4]">Current Stage: {selectedIncident.workflowStatus}</span>
+                    </div>
+
+                    {/* Stepper Pipeline Bar */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                       {WORKFLOW_STAGES.map((st, idx) => {
                         const currentStageIdx = WORKFLOW_STAGES.indexOf(selectedIncident.workflowStatus);
                         const isDone = idx < currentStageIdx;
@@ -1051,61 +1519,97 @@ export default function IncidentsTab() {
                         return (
                           <div
                             key={st}
-                            className={`p-3 rounded-xl border flex flex-col justify-between h-24 text-xs transition ${
+                            onClick={() => handleSetWorkflowStage(st)}
+                            className={`p-3 rounded-xl border flex flex-col justify-between h-24 text-xs cursor-pointer transition ${
                               isCurrent ? 'bg-[#007BC4] text-white border-[#007BC4] font-bold shadow-md' :
-                              isDone ? 'bg-emerald-50 border-emerald-200 text-emerald-800 font-bold' :
-                              'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400'
+                              isDone ? 'bg-emerald-50 dark:bg-slate-900 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold' :
+                              'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:border-slate-300'
                             }`}
                           >
                             <span className="text-[10px] uppercase font-black opacity-75">Stage 0{idx + 1}</span>
-                            <span className="font-bold">{st}</span>
+                            <span className="font-bold leading-tight">{st}</span>
                             <div className="flex items-center gap-1 text-[10px]">
                               {isDone && <CheckCircle2 size={12} className="text-emerald-600" />}
                               {isCurrent && <Clock size={12} className="text-white animate-spin" />}
-                              <span>{isDone ? 'Completed' : isCurrent ? 'Active Stage' : 'Pending'}</span>
+                              <span>{isDone ? 'Completed' : isCurrent ? 'Active Stage' : 'Click to Jump'}</span>
                             </div>
                           </div>
                         );
                       })}
                     </div>
+
+                    {/* Approval Sign-off details if available */}
+                    {selectedIncident.approvalSignOff && (
+                      <div className="p-4 bg-emerald-50 dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-xs space-y-1">
+                        <span className="font-bold text-emerald-900 dark:text-emerald-200 text-sm flex items-center gap-2">
+                          <CheckCircle2 size={16} className="text-emerald-600" /> Executive Sign-Off Completed
+                        </span>
+                        <p className="text-slate-700 dark:text-slate-300 font-medium">"{selectedIncident.approvalSignOff.comments}"</p>
+                        <span className="text-[10px] text-slate-400 font-bold block">
+                          Signed by {selectedIncident.approvalSignOff.approvedBy} on {new Date(selectedIncident.approvalSignOff.approvedAt).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* 3. CAPA ACTION ITEMS TAB */}
                 {activeDetailTab === 'capa' && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center flex-wrap gap-2">
                       <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                         <CheckSquare size={16} className="text-[#007BC4]" />
                         Corrective & Preventive Action (CAPA) Log
                       </h4>
+                      <button
+                        onClick={() => setIsAddCapaOpen(true)}
+                        className="px-3 py-1.5 bg-[#007BC4] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-blue-700 transition flex items-center gap-1.5"
+                      >
+                        <Plus size={14} /> Add CAPA Action Item
+                      </button>
                     </div>
 
                     <div className="space-y-2 text-xs">
-                      {selectedIncident.correctiveActions?.map(ca => (
-                        <div key={ca.id} className="p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={ca.isCompleted}
-                              onChange={() => handleToggleCapa(ca.id)}
-                              className="w-4 h-4 rounded text-[#007BC4] focus:ring-[#007BC4] cursor-pointer"
-                            />
-                            <div>
-                              <p className={`font-bold ${ca.isCompleted ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
-                                {ca.actionItem}
-                              </p>
-                              <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-                                Assigned: <strong>{ca.assignedTo}</strong> • Due Date: {ca.dueDate}
+                      {selectedIncident.correctiveActions && selectedIncident.correctiveActions.length > 0 ? (
+                        selectedIncident.correctiveActions.map(ca => (
+                          <div key={ca.id} className="p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={ca.isCompleted}
+                                onChange={() => handleToggleCapa(ca.id)}
+                                className="w-4 h-4 rounded text-[#007BC4] focus:ring-[#007BC4] cursor-pointer"
+                              />
+                              <div>
+                                <p className={`font-bold ${ca.isCompleted ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+                                  {ca.actionItem}
+                                </p>
+                                <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                                  Assigned: <strong>{ca.assignedTo}</strong> • Due Date: {ca.dueDate}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <Badge variant="outline" className={ca.isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}>
-                            {ca.isCompleted ? 'Completed' : 'Pending'}
-                          </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className={ca.isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}>
+                                {ca.isCompleted ? 'Completed' : 'Pending'}
+                              </Badge>
+
+                              <button
+                                onClick={() => handleDeleteCapa(ca.id)}
+                                className="text-slate-400 hover:text-rose-600 p-1"
+                                title="Delete CAPA Item"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                          No CAPA action items logged for this incident yet.
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 )}
@@ -1113,7 +1617,7 @@ export default function IncidentsTab() {
                 {/* 4. WITNESS STATEMENTS TAB */}
                 {activeDetailTab === 'witnesses' && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center flex-wrap gap-2">
                       <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                         <MessageSquare size={16} className="text-[#007BC4]" />
                         Recorded Witness & Personnel Statements
@@ -1129,13 +1633,18 @@ export default function IncidentsTab() {
                     <div className="space-y-3 text-xs">
                       {selectedIncident.witnessStatements && selectedIncident.witnessStatements.length > 0 ? (
                         selectedIncident.witnessStatements.map(ws => (
-                          <div key={ws.id} className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2">
+                          <div key={ws.id} className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2 relative">
                             <div className="flex justify-between items-center font-bold text-slate-900 dark:text-white">
                               <span className="flex items-center gap-2">
                                 <HardHat size={14} className="text-[#007BC4]" />
-                                {ws.witnessName} ({ws.witnessRole})
+                                {ws.witnessName} ({ws.witnessRole}) • <span className="text-slate-500 font-normal">{ws.company}</span>
                               </span>
-                              <span className="text-slate-400 font-mono text-[10px]">{ws.timestamp} • Interviewed by {ws.interviewedBy}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-400 font-mono text-[10px]">{ws.timestamp} • Interviewed by {ws.interviewedBy}</span>
+                                <button onClick={() => handleDeleteWitness(ws.id)} className="text-slate-400 hover:text-rose-600">
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
                             <p className="text-slate-700 dark:text-slate-300 italic bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                               "{ws.statement}"
@@ -1154,39 +1663,75 @@ export default function IncidentsTab() {
                 {/* 5. ATTACHMENTS & EVIDENCE TAB */}
                 {activeDetailTab === 'attachments' && (
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-                      <Paperclip size={16} className="text-[#007BC4]" />
-                      Evidence & Digital Attachments
-                    </h4>
+                    <div className="flex justify-between items-center flex-wrap gap-2">
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                        <Paperclip size={16} className="text-[#007BC4]" />
+                        Evidence & Digital Attachments
+                      </h4>
+
+                      <button
+                        onClick={() => setIsAddAttachmentOpen(true)}
+                        className="px-3 py-1.5 bg-[#007BC4] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-blue-700 transition flex items-center gap-1.5"
+                      >
+                        <Upload size={14} /> Add Attachment / Evidence
+                      </button>
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      {selectedIncident.attachments?.map(att => (
-                        <div key={att.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <div className="p-2 bg-[#007BC4]/10 text-[#007BC4] rounded-lg font-bold text-xs">
-                              {att.fileType === 'CCTV Clip' ? 'CCTV' : att.fileType === 'Photo' ? 'IMG' : 'DOC'}
+                      {selectedIncident.attachments && selectedIncident.attachments.length > 0 ? (
+                        selectedIncident.attachments.map(att => (
+                          <div key={att.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                              <div className="p-2 bg-[#007BC4]/10 text-[#007BC4] rounded-lg font-bold text-xs shrink-0">
+                                {att.fileType === 'CCTV Clip' ? 'CCTV' : att.fileType === 'Photo' ? 'IMG' : 'DOC'}
+                              </div>
+                              <div className="truncate">
+                                <p className="font-bold text-slate-900 dark:text-white truncate">{att.fileName}</p>
+                                <span className="text-[10px] text-slate-400 block">{att.fileSize} • Uploaded by {att.uploadedBy}</span>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-bold text-slate-900 dark:text-white">{att.fileName}</p>
-                              <span className="text-[10px] text-slate-400">{att.fileSize} • Uploaded by {att.uploadedBy}</span>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => setViewingAttachment(att)}
+                                className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-bold hover:bg-slate-100 transition"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAttachment(att.id)}
+                                className="p-1 text-slate-400 hover:text-rose-600"
+                              >
+                                <Trash2 size={13} />
+                              </button>
                             </div>
                           </div>
-                          <button className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-bold hover:bg-slate-100 transition">
-                            View
-                          </button>
+                        ))
+                      ) : (
+                        <div className="sm:col-span-2 p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                          No evidence files attached to this incident record yet.
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* 6. TIMELINE & HISTORY TAB */}
+                {/* 6. TIMELINE & LOG HISTORY TAB */}
                 {activeDetailTab === 'timeline' && (
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-                      <Clock size={16} className="text-[#007BC4]" />
-                      Chronological Timeline History
-                    </h4>
+                    <div className="flex justify-between items-center flex-wrap gap-2">
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                        <Clock size={16} className="text-[#007BC4]" />
+                        Chronological Timeline History
+                      </h4>
+
+                      <button
+                        onClick={() => setIsAddTimelineOpen(true)}
+                        className="px-3 py-1.5 bg-[#007BC4] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-blue-700 transition flex items-center gap-1.5"
+                      >
+                        <Plus size={14} /> Add Timeline Note
+                      </button>
+                    </div>
 
                     <div className="space-y-3 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700 pl-8">
                       {selectedIncident.timeline?.map((evt, idx) => (
@@ -1217,10 +1762,10 @@ export default function IncidentsTab() {
         </div>
       </div>
 
-      {/* NEW INCIDENT MODAL */}
+      {/* 1. LOG NEW INCIDENT MODAL */}
       {isNewIncidentOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-lg p-6 relative">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-lg p-6 relative max-h-[90vh] overflow-y-auto">
             <button onClick={() => setIsNewIncidentOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
               <X size={18} />
             </button>
@@ -1229,15 +1774,31 @@ export default function IncidentsTab() {
             </h3>
 
             <form onSubmit={handleCreateIncidentSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Incident Category</label>
-                <select
-                  value={newForm.category}
-                  onChange={e => setNewForm({ ...newForm, category: e.target.value as IncidentCategory })}
-                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
-                >
-                  {INCIDENT_CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Incident Category</label>
+                  <select
+                    value={newForm.category}
+                    onChange={e => setNewForm({ ...newForm, category: e.target.value as IncidentCategory })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    {INCIDENT_CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Severity Rating</label>
+                  <select
+                    value={newForm.severity}
+                    onChange={e => setNewForm({ ...newForm, severity: e.target.value as any })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    <option value="Critical">Critical Severity</option>
+                    <option value="High">High Severity</option>
+                    <option value="Medium">Medium Severity</option>
+                    <option value="Low">Low Severity</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -1254,25 +1815,47 @@ export default function IncidentsTab() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Severity Rating</label>
-                  <select
-                    value={newForm.severity}
-                    onChange={e => setNewForm({ ...newForm, severity: e.target.value as any })}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
-                  >
-                    <option value="Critical">Critical Severity</option>
-                    <option value="High">High Severity</option>
-                    <option value="Medium">Medium Severity</option>
-                    <option value="Low">Low Severity</option>
-                  </select>
-                </div>
-
-                <div>
                   <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Location Zone</label>
                   <input
                     type="text"
+                    required
                     value={newForm.locationZone}
                     onChange={e => setNewForm({ ...newForm, locationZone: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Assigned EHS Officer</label>
+                  <input
+                    type="text"
+                    required
+                    value={newForm.assignedOfficer}
+                    onChange={e => setNewForm({ ...newForm, assignedOfficer: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Equipment Involved (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. CAT Excavator EX-04"
+                    value={newForm.equipmentInvolved}
+                    onChange={e => setNewForm({ ...newForm, equipmentInvolved: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Injured Personnel Count</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newForm.injuredPersonnelCount}
+                    onChange={e => setNewForm({ ...newForm, injuredPersonnelCount: Number(e.target.value) })}
                     className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
                   />
                 </div>
@@ -1294,7 +1877,7 @@ export default function IncidentsTab() {
                 <button
                   type="button"
                   onClick={() => setIsNewIncidentOpen(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold"
                 >
                   Cancel
                 </button>
@@ -1302,7 +1885,7 @@ export default function IncidentsTab() {
                   type="submit"
                   className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold shadow-md hover:bg-blue-700 transition"
                 >
-                  Dispatch Incident File
+                  Save & Save to MongoDB
                 </button>
               </div>
             </form>
@@ -1310,7 +1893,177 @@ export default function IncidentsTab() {
         </div>
       )}
 
-      {/* RECORD WITNESS STATEMENT MODAL */}
+      {/* 2. EDIT INCIDENT MODAL */}
+      {isEditIncidentOpen && selectedIncident && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-lg p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setIsEditIncidentOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <Edit3 size={18} className="text-[#007BC4]" /> Edit Incident Details ({selectedIncident.id})
+            </h3>
+
+            <form onSubmit={handleEditIncidentSubmit} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Category</label>
+                  <select
+                    value={editForm.category}
+                    onChange={e => setEditForm({ ...editForm, category: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    {INCIDENT_CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Severity</label>
+                  <select
+                    value={editForm.severity}
+                    onChange={e => setEditForm({ ...editForm, severity: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Title</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.title}
+                  onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Location Zone</label>
+                  <input
+                    type="text"
+                    value={editForm.locationZone}
+                    onChange={e => setEditForm({ ...editForm, locationZone: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Assigned Officer</label>
+                  <input
+                    type="text"
+                    value={editForm.assignedOfficer}
+                    onChange={e => setEditForm({ ...editForm, assignedOfficer: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Description</label>
+                <textarea
+                  rows={3}
+                  value={editForm.description}
+                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditIncidentOpen(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. ADD CAPA MODAL */}
+      {isAddCapaOpen && selectedIncident && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-md p-6 relative">
+            <button onClick={() => setIsAddCapaOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <CheckSquare size={18} className="text-[#007BC4]" /> Add CAPA Action Item
+            </h3>
+
+            <form onSubmit={handleAddCapaSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Action Description</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Inspect scaffold handrail clamps"
+                  value={newCapa.actionItem}
+                  onChange={e => setNewCapa({ ...newCapa, actionItem: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Assigned To</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCapa.assignedTo}
+                    onChange={e => setNewCapa({ ...newCapa, assignedTo: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={newCapa.dueDate}
+                    onChange={e => setNewCapa({ ...newCapa, dueDate: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddCapaOpen(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold"
+                >
+                  Add CAPA Item
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. RECORD WITNESS STATEMENT MODAL */}
       {isAddWitnessOpen && selectedIncident && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-md p-6 relative">
@@ -1392,6 +2145,303 @@ export default function IncidentsTab() {
                   className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold"
                 >
                   Save Witness Record
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. ADD ATTACHMENT MODAL */}
+      {isAddAttachmentOpen && selectedIncident && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-md p-6 relative">
+            <button onClick={() => setIsAddAttachmentOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <Upload size={18} className="text-[#007BC4]" /> Add Evidence Attachment
+            </h3>
+
+            <form onSubmit={handleAddAttachmentSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">File Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. cctv_camera_gate3_frame.jpg"
+                  value={newAttachment.fileName}
+                  onChange={e => setNewAttachment({ ...newAttachment, fileName: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">File Type</label>
+                  <select
+                    value={newAttachment.fileType}
+                    onChange={e => setNewAttachment({ ...newAttachment, fileType: e.target.value as any })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                  >
+                    <option value="Photo">Photo</option>
+                    <option value="CCTV Clip">CCTV Clip</option>
+                    <option value="Telemetry Log">Telemetry Log</option>
+                    <option value="Inspection PDF">Inspection PDF</option>
+                    <option value="Medical Report">Medical Report</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">File Size</label>
+                  <input
+                    type="text"
+                    value={newAttachment.fileSize}
+                    onChange={e => setNewAttachment({ ...newAttachment, fileSize: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Image URL / File URL</label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={newAttachment.fileUrl}
+                  onChange={e => setNewAttachment({ ...newAttachment, fileUrl: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAttachmentOpen(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold"
+                >
+                  Save Attachment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. VIEW ATTACHMENT LIGHTBOX */}
+      {viewingAttachment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-2xl w-full p-5 relative space-y-4">
+            <button onClick={() => setViewingAttachment(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+              <X size={20} />
+            </button>
+            <div className="flex items-center gap-2">
+              <Paperclip className="text-[#007BC4]" size={18} />
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">{viewingAttachment.fileName}</h3>
+            </div>
+
+            {viewingAttachment.fileUrl.startsWith('http') ? (
+              <img src={viewingAttachment.fileUrl} alt={viewingAttachment.fileName} className="w-full max-h-[400px] object-cover rounded-xl border" />
+            ) : (
+              <div className="p-8 bg-slate-100 dark:bg-slate-800 text-center rounded-xl font-mono text-xs">
+                File Preview: {viewingAttachment.fileName} ({viewingAttachment.fileSize})
+              </div>
+            )}
+
+            <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t">
+              <span>Uploaded by {viewingAttachment.uploadedBy} on {viewingAttachment.uploadedAt}</span>
+              <a
+                href={viewingAttachment.fileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 bg-[#007BC4] text-white rounded-lg font-bold"
+              >
+                Open Original
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. EDIT RCA MODAL */}
+      {isEditRcaOpen && selectedIncident && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-lg p-6 relative">
+            <button onClick={() => setIsEditRcaOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <Sparkles size={18} className="text-[#007BC4]" /> Edit Root Cause Analysis (RCA)
+            </h3>
+
+            <form onSubmit={handleSaveRca} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Probable Root Cause</label>
+                <textarea
+                  rows={2}
+                  value={rcaForm.probableRootCause}
+                  onChange={e => setRcaForm({ ...rcaForm, probableRootCause: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">OSHA / ISO Regulatory Impact</label>
+                <input
+                  type="text"
+                  value={rcaForm.regulatoryImpact}
+                  onChange={e => setRcaForm({ ...rcaForm, regulatoryImpact: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Contributing Factors (1 per line)</label>
+                <textarea
+                  rows={3}
+                  value={rcaForm.contributingFactorText}
+                  onChange={e => setRcaForm({ ...rcaForm, contributingFactorText: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditRcaOpen(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold"
+                >
+                  Save RCA
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 8. ADD TIMELINE NOTE MODAL */}
+      {isAddTimelineOpen && selectedIncident && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-md p-6 relative">
+            <button onClick={() => setIsAddTimelineOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <Clock size={18} className="text-[#007BC4]" /> Add Timeline Log Event
+            </h3>
+
+            <form onSubmit={handleAddTimelineSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Log Event Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Perimeter barrier re-inspected"
+                  value={newTimelineEvent.title}
+                  onChange={e => setNewTimelineEvent({ ...newTimelineEvent, title: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Actor / Field Officer</label>
+                <input
+                  type="text"
+                  value={newTimelineEvent.actor}
+                  onChange={e => setNewTimelineEvent({ ...newTimelineEvent, actor: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Event Details</label>
+                <textarea
+                  rows={3}
+                  value={newTimelineEvent.description}
+                  onChange={e => setNewTimelineEvent({ ...newTimelineEvent, description: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddTimelineOpen(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#007BC4] text-white rounded-xl font-bold"
+                >
+                  Record Log
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 9. EXECUTIVE SIGN OFF MODAL */}
+      {isSignOffOpen && selectedIncident && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl w-full max-w-md p-6 relative">
+            <button onClick={() => setIsSignOffOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <CheckCircle2 size={18} className="text-emerald-600" /> Executive Sign-Off & Close Incident
+            </h3>
+
+            <form onSubmit={handleSignOffSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Approved By (Executive / Director)</label>
+                <input
+                  type="text"
+                  required
+                  value={signOffForm.approvedBy}
+                  onChange={e => setSignOffForm({ ...signOffForm, approvedBy: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Approval Comments & Notes</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={signOffForm.comments}
+                  onChange={e => setSignOffForm({ ...signOffForm, comments: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-medium"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSignOffOpen(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold shadow-md hover:bg-emerald-700"
+                >
+                  Sign Off & Close File
                 </button>
               </div>
             </form>

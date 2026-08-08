@@ -214,7 +214,9 @@ export async function addDoc(colRef: any, data: any): Promise<any> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      return { id: result.doc.id, ...createMockDoc(result.doc) };
+      const savedDoc = result?.doc || result || data;
+      const docId = savedDoc.id || data.id || Math.random().toString(36).substring(2, 11);
+      return { id: docId, ...createMockDoc({ ...savedDoc, id: docId }) };
     } catch (err) {
       console.warn(`addDoc MongoDB API error for ${colName}:`, err);
       const newId = data.id || Math.random().toString(36).substring(2, 11);
@@ -229,7 +231,8 @@ export async function getDoc(docRef: any): Promise<any> {
     const { colName, docId } = getRefInfo(docRef);
     try {
       const result = await safeJsonFetch(`/api/data/${colName}/${docId}`);
-      if (result && result.doc) return createMockDoc(result.doc);
+      const docObj = result?.doc || (result?.id ? result : null);
+      if (docObj) return createMockDoc(docObj);
     } catch (err) {
       console.warn(`getDoc MongoDB API error for ${colName}/${docId}:`, err);
     }
@@ -243,7 +246,8 @@ export async function getDocs(queryRef: any): Promise<any> {
     const { colName } = getRefInfo(queryRef);
     try {
       const result = await safeJsonFetch(`/api/data/${colName}`);
-      return createMockSnapshot(result.data || []);
+      const docsArray = Array.isArray(result) ? result : (result?.data || []);
+      return createMockSnapshot(docsArray);
     } catch (err) {
       console.warn(`getDocs MongoDB API error for ${colName}:`, err);
     }
@@ -277,7 +281,8 @@ export async function getCountFromServer(queryRef: any): Promise<any> {
     const { colName } = getRefInfo(queryRef);
     try {
       const result = await safeJsonFetch(`/api/data/${colName}`);
-      const count = (result.data || []).length;
+      const docsArray = Array.isArray(result) ? result : (result?.data || []);
+      const count = docsArray.length;
       return { data: () => ({ count }) };
     } catch (err) {}
     return { data: () => ({ count: 0 }) };
@@ -296,12 +301,14 @@ export function onSnapshot(ref: any, callback: (snapshot: any) => void, errorCal
         if (docId) {
           const result = await safeJsonFetch(`/api/data/${colName}/${docId}`);
           if (active && result) {
-            callback(createMockDoc(result.doc));
+            const docObj = result?.doc || (result?.id ? result : null);
+            if (docObj) callback(createMockDoc(docObj));
           }
         } else {
           const result = await safeJsonFetch(`/api/data/${colName}`);
           if (active && result) {
-            callback(createMockSnapshot(result.data || []));
+            const docsArray = Array.isArray(result) ? result : (result?.data || []);
+            callback(createMockSnapshot(docsArray));
           }
         }
       } catch (err) {

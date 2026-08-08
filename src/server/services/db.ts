@@ -2,6 +2,7 @@ import { MongoClient, Db } from 'mongodb';
 
 let mongoClient: MongoClient | null = null;
 let mongoDb: Db | null = null;
+let runtimeMongoUri: string | null = null;
 
 // Transient in-memory store for dev fallback when MongoDB is not connected
 const inMemoryStore: Record<string, any[]> = {
@@ -11,31 +12,50 @@ const inMemoryStore: Record<string, any[]> = {
   registered_people: [],
   devices: [],
   visitors: [],
+  visitor_security_list: [],
+  visitor_access_tokens: [],
+  visitor_access_logs: [],
+  attendance_logs: [],
+  leave_requests: [],
+  shift_schedules: [],
   alerts: [],
+  alerts_enterprise: [],
+  alert_rules: [],
+  alert_dispatch_logs: [],
+  emergency_broadcasts: [],
   live_tags: [],
   tag_history: [],
   audit_logs: [],
-  settings: []
+  settings: [],
+  incidents_enterprise: []
 };
 
+const DEFAULT_MONGO_URI = "mongodb+srv://sigmundtd_db_user:Jesuraja123%40@cluster0.lxd6qba.mongodb.net/gao_rfid";
+
 export function getMongoUri(): string {
-  return process.env.MONGODB_URI || '';
+  return runtimeMongoUri || process.env.MONGODB_URI || DEFAULT_MONGO_URI;
 }
 
-export async function initDatabase(): Promise<void> {
-  const uri = getMongoUri();
+export async function initDatabase(customUri?: string): Promise<void> {
+  const uri = customUri || getMongoUri();
   if (!uri) {
     console.warn('[DB Service] MONGODB_URI not set. Operating with transient in-memory storage (NON-PERSISTENT).');
     return;
   }
 
   try {
-    if (!mongoClient) {
-      mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
-      await mongoClient.connect();
-      mongoDb = mongoClient.db();
-      console.log('[DB Service] Successfully connected to MongoDB.');
+    if (mongoClient) {
+      try { await mongoClient.close(); } catch {}
+      mongoClient = null;
+      mongoDb = null;
     }
+    
+    mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
+    await mongoClient.connect();
+    await mongoClient.db().admin().ping();
+    mongoDb = mongoClient.db();
+    runtimeMongoUri = uri;
+    console.log('[DB Service] Successfully connected to MongoDB database.');
   } catch (err: any) {
     console.error('[DB Service] Failed to connect to MongoDB:', err.message);
     console.warn('[DB Service] Falling back to transient in-memory storage (NON-PERSISTENT).');
@@ -55,6 +75,67 @@ export function getDbStatus() {
     provider: isMongoConnected() ? 'mongodb' : 'in_memory',
     uri: uri ? uri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@') : 'None (In-Memory Fallback)'
   };
+}
+
+export async function getMongoStats() {
+  const uri = getMongoUri();
+  const connected = isMongoConnected();
+  let collectionsCount = 0;
+  let totalRecords = 0;
+  let lastError: string | null = null;
+
+  if (connected && mongoDb) {
+    try {
+      const cols = await mongoDb.listCollections().toArray();
+      collectionsCount = cols.length;
+      for (const col of cols) {
+        const count = await mongoDb.collection(col.name).countDocuments();
+        totalRecords += count;
+      }
+    } catch (err: any) {
+      lastError = err.message;
+    }
+  } else {
+    lastError = 'MongoDB is not connected (operating with in-memory fallback)';
+  }
+
+  return {
+    connected,
+    connectionString: uri,
+    engine: connected ? 'MongoDB Cluster' : 'In-Memory Fallback',
+    collectionsCount,
+    totalRecords,
+    lastError
+  };
+}
+
+export async function testMongoConnection(uri: string): Promise<{ success: boolean; error?: string }> {
+  let tempClient: MongoClient | null = null;
+  try {
+    tempClient = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
+    await tempClient.connect();
+    await tempClient.db().admin().ping();
+    await tempClient.close();
+    return { success: true };
+  } catch (err: any) {
+    if (tempClient) {
+      try { await tempClient.close(); } catch {}
+    }
+    return { success: false, error: err.message || 'Failed to connect to MongoDB instance' };
+  }
+}
+
+export async function reconnectDatabase(newUri: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await initDatabase(newUri);
+    if (isMongoConnected()) {
+      return { success: true };
+    } else {
+      return { success: false, error: 'Could not establish connection to MongoDB URI provided' };
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to reconnect to MongoDB' };
+  }
 }
 
 export async function getCollectionDocs(colName: string): Promise<any[]> {

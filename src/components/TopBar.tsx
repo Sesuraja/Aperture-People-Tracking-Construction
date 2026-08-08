@@ -1,11 +1,12 @@
-import { Users, AlertTriangle, Clock, ShieldAlert, Bell, Sun, Moon, Maximize, Calendar, Radio, Sparkles, Download } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Download, Sun, Moon, Calendar, Bell } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect, useContext } from 'react';
 import { AppModeContext } from '../App';
 import ExportReportModal from './ExportReportModal';
 
 export default function TopBar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [isExportOpen, setIsExportOpen] = useState(false);
   const { mode } = useContext(AppModeContext);
@@ -17,6 +18,14 @@ export default function TopBar() {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  // Determine current active view category for compliance export
+  let defaultCategory = 'attendance';
+  if (location.pathname.includes('people')) defaultCategory = 'people';
+  else if (location.pathname.includes('incidents')) defaultCategory = 'incidents';
+  else if (location.pathname.includes('visitors')) defaultCategory = 'visitors';
+  else if (location.pathname.includes('devices')) defaultCategory = 'devices';
+  else if (location.pathname.includes('tags')) defaultCategory = 'tags';
 
   const savedUrl = localStorage.getItem('gao_api_url') || '';
   let displayHost = 'Standard Gateway';
@@ -34,7 +43,7 @@ export default function TopBar() {
       <ExportReportModal
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
-        defaultCategory="attendance"
+        defaultCategory={defaultCategory}
       />
       <div className="flex items-center gap-4">
         <div className="p-2 bg-[#007BC4]/10 rounded border border-[#007BC4]/20 hidden md:block">
@@ -50,11 +59,14 @@ export default function TopBar() {
         {/* Export Data Button */}
         <button
           onClick={() => setIsExportOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold transition shadow-sm"
-          title="Export Attendance, Incidents, Visitors, or Personnel records"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-[#007BC4] hover:from-blue-700 hover:to-[#006aa9] text-white text-xs font-bold transition shadow-md hover:shadow-lg cursor-pointer"
+          title="Download current view data as CSV or PDF report for EHS & site compliance"
         >
-          <Download className="w-3.5 h-3.5 text-[#007BC4]" />
-          <span>Export Data Report</span>
+          <Download className="w-4 h-4 text-white" />
+          <span>Export Data</span>
+          <div className="flex items-center gap-0.5 text-[9px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-bold">
+            CSV / PDF
+          </div>
         </button>
 
         {/* Dynamic Interactive API Connection Pill */}

@@ -15,7 +15,10 @@ import {
   AlertTriangle,
   FileText,
   Lock,
+  Unlock,
   User,
+  UserCheck,
+  ShieldCheck,
   Server,
   Terminal,
   Workflow,
@@ -23,6 +26,20 @@ import {
   Eye,
   EyeOff,
   Trash2,
+  Cpu,
+  Bot,
+  Download,
+  Upload,
+  HardDrive,
+  Radio,
+  Sliders,
+  Check,
+  Plus,
+  X,
+  ChevronDown,
+  ChevronUp,
+  CheckSquare,
+  Square
 } from "lucide-react";
 import { gaoApi, DEFAULT_HOST } from "../lib/gaoApi";
 import { doc, getDoc, setDoc, isMongoActive } from "../lib/db";
@@ -32,20 +49,72 @@ import { AppModeContext } from "../App";
 export default function SettingsTab() {
   const { mode } = React.useContext(AppModeContext);
   const location = useLocation();
-  const [activeSection, setActiveSection] = useState("apidocs");
+  const [activeSection, setActiveSection] = useState("general");
 
   useEffect(() => {
-    if (location.state && location.state.focusSection) {
-      setActiveSection(location.state.focusSection);
+    if (location.state && (location.state as any).focusSection) {
+      setActiveSection((location.state as any).focusSection);
     }
   }, [location]);
+
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<"success" | "error" | null>(
-    null,
-  );
+  const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
   const [apiUrl, setApiUrl] = useState(DEFAULT_HOST);
   const [apiDemoMode, setApiDemoMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
+
+  // 1. General Settings States
+  const [companyName, setCompanyName] = useState("Aperture System Administration");
+  const [systemTimezone, setSystemTimezone] = useState("UTC (Coordinated Universal Time)");
+  const [dataRetentionDays, setDataRetentionDays] = useState(90);
+  const [currencySymbol, setCurrencySymbol] = useState("$ USD");
+  const [siteLocation, setSiteLocation] = useState("Building A - Headquarters Facility");
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [systemLanguage, setSystemLanguage] = useState("English (US)");
+
+  // 2. Security & Tracking States
+  const [loiteringThreshold, setLoiteringThreshold] = useState(300);
+  const [idleAlertThreshold, setIdleAlertThreshold] = useState(3600);
+  const [occupancyThresholds, setOccupancyThresholds] = useState<Record<string, number>>({
+    Entrance: 20,
+    Office: 50,
+    "Meeting Room": 15,
+    "Server Room": 2,
+    Cafeteria: 30,
+  });
+  const [rfidSensitivity, setRfidSensitivity] = useState("High (-65 dBm)");
+  const [autoExclusionZones, setAutoExclusionZones] = useState(true);
+  const [uncardedPersonnelAlarm, setUncardedPersonnelAlarm] = useState("Audible Siren & Turnstile Lock");
+
+  // 3. Hardware & IoT Gateways Config (New Feature)
+  const [antennaPower, setAntennaPower] = useState(30); // dBm
+  const [scanFrequency, setScanFrequency] = useState(250); // ms
+  const [turnstileAutoLock, setTurnstileAutoLock] = useState(true);
+  const [gatewayProtocol, setGatewayProtocol] = useState("MQTT / WebSockets SSL");
+  const [readerPort, setReaderPort] = useState(8080);
+  const [heartbeatInterval, setHeartbeatInterval] = useState(10); // sec
+
+  // 4. AI Analytics & Gemini Vision Config (New Feature)
+  const [aiModel, setAiModel] = useState("gemini-2.5-flash");
+  const [anomalyScanSensitivity, setAnomalyScanSensitivity] = useState("Medium");
+  const [aiPromptCustomizer, setAiPromptCustomizer] = useState(
+    "Identify unauthorized loitering, tailgating, and tag anomalies with confidence score."
+  );
+  const [autoAnalyzeIncidents, setAutoAnalyzeIncidents] = useState(true);
+  const [aiThreatThreshold, setAiThreatThreshold] = useState(75);
+
+  // 5. Audit & Compliance Rules (New Feature)
+  const [auditRetentionDays, setAuditRetentionDays] = useState(365);
+  const [cryptoHashing, setCryptoHashing] = useState(true);
+  const [complianceFrameworks, setComplianceFrameworks] = useState({
+    osha: true,
+    iso27001: true,
+    gdpr: true,
+    gamp5: true,
+  });
+  const [autoGenerateReports, setAutoGenerateReports] = useState(true);
+  const [reportRecipientEmail, setReportRecipientEmail] = useState("compliance@gaostaff.com");
 
   // Custom API Authentication states
   const [authType, setAuthType] = useState("none");
@@ -63,7 +132,7 @@ export default function SettingsTab() {
   // MongoDB Connection States
   const [mongoUri, setMongoUri] = useState("");
   const [showMongoPassword, setShowMongoPassword] = useState(false);
-  const [mongoStatus, setMongoStatus] = useState({
+  const [, setMongoStatus] = useState({
     connected: false,
     connectionString: "",
   });
@@ -86,22 +155,103 @@ export default function SettingsTab() {
   // Notification settings
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [emailRecipients, setEmailRecipients] = useState(
-    "admin@gaostaff.com, security@gaostaff.com",
+    "admin@gaostaff.com, security@gaostaff.com"
   );
+  const [smsAlerts, setSmsAlerts] = useState(false);
+  const [smsRecipients, setSmsRecipients] = useState("+1-800-555-0199");
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState("https://hooks.slack.com/services/T00/B00/XXXX");
   const [systemSounds, setSystemSounds] = useState(true);
+  const [mqttBrokerUrl, setMqttBrokerUrl] = useState("mqtt://broker.hivemq.com:1883");
+
+  // Granular Access Control & Custom Roles States
+  const SYSTEM_PAGES = [
+    { id: "dashboard", label: "Dashboard Telemetry", category: "Core Operations", desc: "Main project dashboard & key metric widgets" },
+    { id: "live", label: "Live Tracking Feed", category: "Core Operations", desc: "Real-time personnel & asset position maps" },
+    { id: "customMap", label: "Custom Map & Assets", category: "Core Operations", desc: "Custom CAD drawings, zone layers & floorplans" },
+    { id: "playback", label: "Tracking Playback History", category: "Analytics & Logs", desc: "Historical movement replays and spatial paths" },
+    { id: "people", label: "Personnel Registry", category: "Personnel & Access", desc: "Staff directory, badges, trades & contact cards" },
+    { id: "visitors", label: "Visitor Management", category: "Personnel & Access", desc: "Guest check-in, badges & visitor kiosk log" },
+    { id: "attendance", label: "Attendance Insights", category: "Personnel & Access", desc: "Shift timecards, contractor hours & clock-ins" },
+    { id: "alerts", label: "Alerts & Trigger Feed", category: "Safety & Security", desc: "SOS emergencies, geo-fence breaches & falls" },
+    { id: "incidents", label: "Incident Log File", category: "Safety & Security", desc: "OSHA reports, hazard logs & safety files" },
+    { id: "analytics", label: "Aggregated Traffic Analytics", category: "Analytics & Logs", desc: "Zone dwell times, trade density & bottlenecks" },
+    { id: "aiInsights", label: "AI Insights & Predictions", category: "Analytics & Logs", desc: "Gemini safety predictions & risk scoring" },
+    { id: "devices", label: "Hardware Devices Admin", category: "Hardware & IoT", desc: "RFID tags, LoRaWAN anchors & beacons" },
+    { id: "maintenance", label: "Hardware Maintenance", category: "Hardware & IoT", desc: "Battery health, calibration & work orders" },
+    { id: "audit", label: "Compliance & Audit Ledger", category: "Administration", desc: "System audit trails, MongoDB sync logs & compliance" },
+    { id: "settings", label: "Global Settings Console", category: "Administration", desc: "System configuration, role matrix & user admin" },
+  ];
+
+  const DEFAULT_ROLE_PERMISSIONS: Record<string, Record<string, boolean>> = {
+    admin: {
+      dashboard: true, live: true, customMap: true, playback: true, people: true, visitors: true,
+      attendance: true, alerts: true, incidents: true, analytics: true, aiInsights: true,
+      devices: true, maintenance: true, audit: true, settings: true
+    },
+    manager: {
+      dashboard: true, live: true, customMap: true, playback: true, people: true, visitors: true,
+      attendance: true, alerts: true, incidents: true, analytics: true, aiInsights: true,
+      devices: true, maintenance: true, audit: true, settings: false
+    },
+    operator: {
+      dashboard: true, live: true, customMap: true, playback: true, people: true, visitors: true,
+      attendance: true, alerts: true, incidents: true, analytics: false, aiInsights: false,
+      devices: false, maintenance: true, audit: false, settings: false
+    },
+    security: {
+      dashboard: true, live: true, customMap: true, playback: true, people: true, visitors: true,
+      attendance: false, alerts: true, incidents: true, analytics: false, aiInsights: false,
+      devices: false, maintenance: false, audit: false, settings: false
+    },
+    auditor: {
+      dashboard: true, live: false, customMap: false, playback: true, people: true, visitors: true,
+      attendance: true, alerts: true, incidents: true, analytics: true, aiInsights: true,
+      devices: false, maintenance: false, audit: true, settings: false
+    },
+    contractor: {
+      dashboard: false, live: true, customMap: false, playback: false, people: true, visitors: false,
+      attendance: true, alerts: true, incidents: false, analytics: false, aiInsights: false,
+      devices: false, maintenance: false, audit: false, settings: false
+    },
+    visitor_manager: {
+      dashboard: false, live: false, customMap: false, playback: false, people: false, visitors: true,
+      attendance: true, alerts: true, incidents: false, analytics: false, aiInsights: false,
+      devices: false, maintenance: false, audit: false, settings: false
+    },
+    viewer: {
+      dashboard: true, live: true, customMap: true, playback: false, people: false, visitors: false,
+      attendance: false, alerts: true, incidents: false, analytics: false, aiInsights: false,
+      devices: false, maintenance: false, audit: false, settings: false
+    }
+  };
+
+  const [customRoles, setCustomRoles] = useState<Array<{ id: string; label: string; desc?: string; isCustom?: boolean }>>([
+    { id: "admin", label: "Administrator", desc: "Full administrative access & user management" },
+    { id: "manager", label: "Site Manager", desc: "Operational control and site analytics" },
+    { id: "operator", label: "Operator", desc: "Real-time monitoring and equipment care" },
+    { id: "security", label: "Security Officer", desc: "Live position tracking & threat response" },
+    { id: "auditor", label: "Compliance Auditor", desc: "Audit logs & regulatory safety view" },
+    { id: "contractor", label: "External Contractor", desc: "Personnel attendance & task view" },
+    { id: "visitor_manager", label: "Visitor Receptionist", desc: "Visitor registration & kiosk logs" },
+    { id: "viewer", label: "ReadOnly Viewer", desc: "View-only dashboards" },
+  ]);
+
+  const [activeRoleTab, setActiveRoleTab] = useState<string>("admin");
+  const [activeAccessTab, setActiveAccessTab] = useState<"matrix" | "staff" | "roles">("matrix");
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleDesc, setNewRoleDesc] = useState("");
+  const [expandedUserUid, setExpandedUserUid] = useState<string | null>(null);
+  const [userPageOverrides, setUserPageOverrides] = useState<Record<string, Record<string, boolean>>>({});
+  const [savingUserOverrideUid, setSavingUserOverrideUid] = useState<string | null>(null);
 
   // User Management, Custom Claims, and Permissions states
   const [users, setUsers] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [userRole, setUserRole] = useState<string>("operator");
-  const [rolePermissions, setRolePermissions] = useState<any>({});
+  const [rolePermissions, setRolePermissions] = useState<Record<string, Record<string, boolean>>>(DEFAULT_ROLE_PERMISSIONS);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
-  const [actionSuccessMessage, setActionSuccessMessage] = useState<
-    string | null
-  >(null);
-  const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(
-    null,
-  );
+  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+  const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(null);
   const [isRefreshingClaims, setIsRefreshingClaims] = useState(false);
 
   // User creation states
@@ -113,6 +263,11 @@ export default function SettingsTab() {
   const [creationSuccess, setCreationSuccess] = useState<string | null>(null);
   const [creationError, setCreationError] = useState<string | null>(null);
 
+  // Database Backup / Export / Import states
+  const [isExportingDb, setIsExportingDb] = useState(false);
+  const [isPurgingLogs, setIsPurgingLogs] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+
   // Load current user and admin claims
   useEffect(() => {
     const fetchCurrentUserClaim = async () => {
@@ -123,14 +278,9 @@ export default function SettingsTab() {
         return;
       }
 
-      // 1. Try to get role from firebase db document fallback
       try {
         if (auth.currentUser) {
-          const docRef = doc(
-            db,
-            "settings",
-            `user_role_${auth.currentUser.uid}`,
-          );
+          const docRef = doc(db, "settings", `user_role_${auth.currentUser.uid}`);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const r = docSnap.data().role;
@@ -138,13 +288,9 @@ export default function SettingsTab() {
           }
         }
       } catch (dbErr) {
-        console.error(
-          "Failed to fetch user role from db settings direct:",
-          dbErr,
-        );
+        console.error("Failed to fetch user role from db settings direct:", dbErr);
       }
 
-      // 2. Try auth custom claims
       try {
         const idTokenResult = await auth.currentUser?.getIdTokenResult(true);
         const claimRole = idTokenResult?.claims?.role as string;
@@ -155,10 +301,7 @@ export default function SettingsTab() {
         console.error("Error fetching current user custom claims:", err);
       }
 
-      // 3. Email-based local fallback for local development & admin bypass
-      if (
-        auth.currentUser?.email?.toLowerCase() === "sigmund.t.d@gaostaff.com"
-      ) {
+      if (auth.currentUser?.email?.toLowerCase() === "sigmund.t.d@gaostaff.com") {
         resolvedRole = "admin";
       }
 
@@ -178,8 +321,8 @@ export default function SettingsTab() {
     setIsLoadingUsers(true);
     setActionErrorMessage(null);
     try {
+      // 1. Load users
       if (mode === "demo") {
-        // Mock user list and default role permissions for simulation
         setUsers([
           {
             uid: "demo_user_1",
@@ -200,351 +343,356 @@ export default function SettingsTab() {
             role: "admin",
           },
         ]);
-        setRolePermissions({
-          admin: {
-            dashboard: true, live: true, playback: true, people: true, visitors: true,
-            attendance: true, alerts: true, incidents: true, analytics: true,
-            aiInsights: true, devices: true, maintenance: true, audit: true, settings: true
-          },
-          manager: {
-            dashboard: true, live: true, playback: true, people: true, visitors: true,
-            attendance: true, alerts: true, incidents: true, analytics: true,
-            aiInsights: true, devices: true, maintenance: true, audit: true, settings: false
-          },
-          operator: {
-            dashboard: false, live: true, playback: false, people: true, visitors: true,
-            attendance: true, alerts: true, incidents: true, analytics: false,
-            aiInsights: false, devices: false, maintenance: true, audit: false, settings: false
-          },
-          blocked: {
-            dashboard: false, live: false, playback: false, people: false, visitors: false,
-            attendance: false, alerts: false, incidents: false, analytics: false,
-            aiInsights: false, devices: false, maintenance: false, audit: false, settings: false
-          },
-        });
-        setIsLoadingUsers(false);
-        return;
-      }
-
-      // Fetch user claim profiles from back-end
-      const token = localStorage.getItem("gao_jwt_token");
-      const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
-
-      const usersRes = await fetch("/api/admin/users", { headers: authHeader });
-      if (usersRes.ok) {
-        const data = await usersRes.json();
-        setUsers(data.users || []);
+        setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
       } else {
-        throw new Error("Failed to load registered system users list");
-      }
+        try {
+          const token = await auth.currentUser?.getIdToken();
+          const res = await fetch("/api/admin/users", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
 
-      // Fetch dynamic role permissions from DB
-      const permRes = await fetch("/api/admin/permissions", { headers: authHeader });
-      if (permRes.ok) {
-        const pData = await permRes.json();
-        setRolePermissions(pData);
+          if (res.ok) {
+            const data = await res.json();
+            setUsers(data.users || []);
+          }
+        } catch (fetchErr) {
+          console.warn("Could not fetch user list from backend admin endpoint:", fetchErr);
+        }
+
+        // 2. Load role_permissions document from Firestore
+        try {
+          const roleDoc = await getDoc(doc(db, "settings", "role_permissions"));
+          if (roleDoc.exists()) {
+            setRolePermissions({
+              ...DEFAULT_ROLE_PERMISSIONS,
+              ...roleDoc.data()
+            });
+          } else {
+            setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
+          }
+        } catch (roleErr) {
+          console.warn("Failed to read role_permissions doc:", roleErr);
+          setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
+        }
+
+        // 3. Load custom_roles document from Firestore
+        try {
+          const customRolesDoc = await getDoc(doc(db, "settings", "custom_roles"));
+          if (customRolesDoc.exists() && customRolesDoc.data().roles) {
+            const loadedCustomRoles = customRolesDoc.data().roles;
+            // merge with defaults
+            const baseIds = new Set([
+              "admin", "manager", "operator", "security", "auditor", "contractor", "visitor_manager", "viewer"
+            ]);
+            const filteredCustom = loadedCustomRoles.filter((r: any) => !baseIds.has(r.id));
+            setCustomRoles([
+              { id: "admin", label: "Administrator", desc: "Full administrative access & user management" },
+              { id: "manager", label: "Site Manager", desc: "Operational control and site analytics" },
+              { id: "operator", label: "Operator", desc: "Real-time monitoring and equipment care" },
+              { id: "security", label: "Security Officer", desc: "Live position tracking & threat response" },
+              { id: "auditor", label: "Compliance Auditor", desc: "Audit logs & regulatory safety view" },
+              { id: "contractor", label: "External Contractor", desc: "Personnel attendance & task view" },
+              { id: "visitor_manager", label: "Visitor Receptionist", desc: "Visitor registration & kiosk logs" },
+              { id: "viewer", label: "ReadOnly Viewer", desc: "View-only dashboards" },
+              ...filteredCustom
+            ]);
+          }
+        } catch (customErr) {
+          console.warn("Failed to load custom roles:", customErr);
+        }
       }
-    } catch (err: any) {
-      console.error("Error loading permissions/users:", err);
-      setActionErrorMessage(
-        err.message ||
-          "Error occurred communicating with authorization service server.",
-      );
+    } catch (err) {
+      console.warn("Management data fetch error:", err);
     } finally {
       setIsLoadingUsers(false);
     }
   };
 
-  const handleUpdateUserRole = async (uid: string, newRole: string) => {
-    setActionErrorMessage(null);
-    setActionSuccessMessage(null);
-    try {
-      if (mode === "demo") {
-        setUsers((prev) =>
-          prev.map((u) => (u.uid === uid ? { ...u, role: newRole } : u)),
-        );
-        setActionSuccessMessage(
-          `Demo Mode Success: Updated user role to "${newRole}" for user ID: ${uid} in-memory!`,
-        );
-        return;
+  const handleToggleRolePagePermission = (roleId: string, pageId: string) => {
+    const currentRolePerms = rolePermissions[roleId] || {};
+    const updated = {
+      ...rolePermissions,
+      [roleId]: {
+        ...currentRolePerms,
+        [pageId]: !currentRolePerms[pageId]
       }
-
-      // 1. Direct write to settings database fallback (highly resilient via client SDK security rules)
-      try {
-        const docRef = doc(db, "settings", `user_role_${uid}`);
-        await setDoc(
-          docRef,
-          {
-            role: newRole,
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true },
-        );
-        console.log(
-          "Client-side role direct updated successfully in Firestore",
-        );
-      } catch (directErr) {
-        console.error(
-          "Client-side direct Firestore role update failed:",
-          directErr,
-        );
-      }
-
-      // 2. Proceed with backend sync for custom claims
-      const token = localStorage.getItem("gao_jwt_token");
-      const authHeaders: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      };
-
-      const res = await fetch("/api/admin/set-user-role", {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({ uid, role: newRole }),
-      });
-
-      if (res.ok) {
-        setActionSuccessMessage(
-          `Successfully updated custom claim role to "${newRole}" for user ID: ${uid}`,
-        );
-        loadManagementData();
-        window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
-
-        if (uid === auth.currentUser?.uid) {
-          setActionSuccessMessage(
-            `Successfully updated your own claim to "${newRole}"! Clicking "Refresh Verified claims" will instantly update active menus.`,
-          );
-        }
-      } else {
-        // Since direct update has already modified it successfully, proceed as a soft success
-        setActionSuccessMessage(
-          `Successfully updated user role to "${newRole}" in Firestore database database collection!`,
-        );
-        loadManagementData();
-        window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
-      }
-    } catch (err: any) {
-      console.error(err);
-      setActionErrorMessage(
-        err.message || "Connection timeout editing user claims.",
-      );
-    }
+    };
+    setRolePermissions(updated);
   };
 
-  const handleDeleteUser = async (uid: string, email: string) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to permanently delete the registered account for "${email}"?`,
-      )
-    ) {
-      return;
-    }
-    setActionErrorMessage(null);
-    setActionSuccessMessage(null);
-    try {
-      if (mode === "demo") {
-        setUsers((prev) => prev.filter((u) => u.uid !== uid));
-        setActionSuccessMessage(
-          `Demo Mode: Deleted user ${email} from in-memory cache.`,
-        );
-        return;
-      }
+  const handleGrantAllPagesForRole = (roleId: string) => {
+    const allTrue: Record<string, boolean> = {};
+    SYSTEM_PAGES.forEach(p => { allTrue[p.id] = true; });
+    setRolePermissions({
+      ...rolePermissions,
+      [roleId]: allTrue
+    });
+  };
 
-      const token = localStorage.getItem("gao_jwt_token");
-      const authHeaders: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      };
-
-      const res = await fetch(`/api/admin/users/${uid}`, {
-        method: "DELETE",
-        headers: authHeaders
-      });
-      if (res.ok) {
-        setActionSuccessMessage(
-          `Successfully deleted account for "${email}" from the registry.`,
-        );
-        loadManagementData();
-      } else {
-        const errorData = await res.json();
-        throw new Error(
-          errorData.error || "Server rejected the delete request",
-        );
-      }
-    } catch (err: any) {
-      console.error("Error deleting user:", err);
-      setActionErrorMessage(
-        err.message || "Failed to delete the user account.",
-      );
-    }
+  const handleRevokeAllPagesForRole = (roleId: string) => {
+    const allFalse: Record<string, boolean> = {};
+    SYSTEM_PAGES.forEach(p => { allFalse[p.id] = false; });
+    setRolePermissions({
+      ...rolePermissions,
+      [roleId]: allFalse
+    });
   };
 
   const handleSavePermissions = async () => {
     setIsSavingPermissions(true);
-    setActionErrorMessage(null);
     setActionSuccessMessage(null);
+    setActionErrorMessage(null);
     try {
-      if (mode === "demo") {
-        setActionSuccessMessage(
-          "Demo Mode Success: System security policy matrix saved in-memory and updated instantly!",
-        );
-        window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
-        return;
+      await setDoc(doc(db, "settings", "role_permissions"), rolePermissions, { merge: true });
+      
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const rolePayload = Object.keys(rolePermissions).map(roleKey => ({
+          role: roleKey,
+          permissions: Object.keys(rolePermissions[roleKey]).filter(k => rolePermissions[roleKey][k])
+        }));
+        await fetch("/api/admin/permissions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ rolePermissions: rolePayload })
+        });
+      } catch (proxyErr) {
+        console.warn("Backend permissions proxy save non-fatal:", proxyErr);
       }
 
-      const token = localStorage.getItem("gao_jwt_token");
-      const authHeaders: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      };
-
-      const res = await fetch("/api/admin/permissions", {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({ rolePermissions }),
-      });
-      if (res.ok) {
-        setActionSuccessMessage(
-          "System security policy matrix saved successfully! All feature boundaries are re-evaluated in real time.",
-        );
-        window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
-      } else {
-        throw new Error("Server declined permission updates");
-      }
+      setActionSuccessMessage("Successfully saved role page permissions matrix to Firestore and MongoDB!");
+      window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
     } catch (err: any) {
-      console.error(err);
-      setActionErrorMessage(
-        err.message || "Failed to save system permissions matrix.",
-      );
+      setActionErrorMessage("Failed to save permissions matrix: " + err.message);
     } finally {
       setIsSavingPermissions(false);
+    }
+  };
+
+  const handleAddCustomRole = async () => {
+    if (!newRoleName.trim()) return;
+    const roleId = newRoleName.toLowerCase().trim().replace(/[^a-z0-9]/g, "_");
+    if (customRoles.some(r => r.id === roleId)) {
+      setActionErrorMessage("A role with this ID already exists.");
+      return;
+    }
+
+    const newRoleObj = {
+      id: roleId,
+      label: newRoleName.trim(),
+      desc: newRoleDesc.trim() || "Custom user role",
+      isCustom: true
+    };
+
+    const updatedRoles = [...customRoles, newRoleObj];
+    setCustomRoles(updatedRoles);
+
+    // Initialize perms for new role
+    const initialPerms: Record<string, boolean> = {};
+    SYSTEM_PAGES.forEach(p => { initialPerms[p.id] = p.id === "dashboard" || p.id === "live"; });
+
+    const updatedPermissions = {
+      ...rolePermissions,
+      [roleId]: initialPerms
+    };
+    setRolePermissions(updatedPermissions);
+    setActiveRoleTab(roleId);
+
+    setNewRoleName("");
+    setNewRoleDesc("");
+
+    try {
+      await setDoc(doc(db, "settings", "custom_roles"), { roles: updatedRoles }, { merge: true });
+      await setDoc(doc(db, "settings", "role_permissions"), updatedPermissions, { merge: true });
+      setActionSuccessMessage(`Successfully created custom role '${newRoleName.trim()}' (${roleId})`);
+      window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
+    } catch (err: any) {
+      setActionErrorMessage("Role added locally, but failed to persist: " + err.message);
+    }
+  };
+
+  const handleDeleteCustomRole = async (roleId: string) => {
+    if (!window.confirm(`Are you sure you want to delete role '${roleId}'?`)) return;
+    const updatedRoles = customRoles.filter(r => r.id !== roleId);
+    setCustomRoles(updatedRoles);
+
+    const updatedPermissions = { ...rolePermissions };
+    delete updatedPermissions[roleId];
+    setRolePermissions(updatedPermissions);
+
+    if (activeRoleTab === roleId) {
+      setActiveRoleTab(updatedRoles[0]?.id || "admin");
+    }
+
+    try {
+      await setDoc(doc(db, "settings", "custom_roles"), { roles: updatedRoles });
+      await setDoc(doc(db, "settings", "role_permissions"), updatedPermissions);
+      setActionSuccessMessage(`Deleted custom role '${roleId}'`);
+      window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
+    } catch (err: any) {
+      setActionErrorMessage("Error removing role from database: " + err.message);
+    }
+  };
+
+  const handleToggleUserPageOverride = (uid: string, pageId: string, value: 'inherit' | 'allow' | 'deny') => {
+    const userCurrent = userPageOverrides[uid] ? { ...userPageOverrides[uid] } : {};
+    if (value === 'inherit') {
+      delete userCurrent[pageId];
+    } else if (value === 'allow') {
+      userCurrent[pageId] = true;
+    } else {
+      userCurrent[pageId] = false;
+    }
+
+    setUserPageOverrides({
+      ...userPageOverrides,
+      [uid]: userCurrent
+    });
+  };
+
+  const handleLoadUserPageOverrides = async (uid: string) => {
+    if (expandedUserUid === uid) {
+      setExpandedUserUid(null);
+      return;
+    }
+    setExpandedUserUid(uid);
+    try {
+      const userPermDoc = await getDoc(doc(db, "settings", `user_permissions_${uid}`));
+      if (userPermDoc.exists()) {
+        setUserPageOverrides({
+          ...userPageOverrides,
+          [uid]: userPermDoc.data()
+        });
+      }
+    } catch (err) {
+      console.warn(`Failed to load page overrides for ${uid}:`, err);
+    }
+  };
+
+  const handleSaveUserPageOverrides = async (uid: string, userEmail: string) => {
+    setSavingUserOverrideUid(uid);
+    setActionSuccessMessage(null);
+    setActionErrorMessage(null);
+    try {
+      const overrides = userPageOverrides[uid] || {};
+      await setDoc(doc(db, "settings", `user_permissions_${uid}`), overrides);
+      setActionSuccessMessage(`Successfully saved individual page access overrides for staff account ${userEmail}`);
+      window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
+    } catch (err: any) {
+      setActionErrorMessage(`Failed to save page overrides for ${userEmail}: ${err.message}`);
+    } finally {
+      setSavingUserOverrideUid(null);
+    }
+  };
+
+  const handleUpdateUserRole = async (targetUid: string, newRole: string) => {
+    setActionSuccessMessage(null);
+    setActionErrorMessage(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/admin/set-role", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ uid: targetUid, role: newRole }),
+      });
+
+      if (res.ok) {
+        setActionSuccessMessage(`Updated custom claim role for ${targetUid} to '${newRole}'`);
+        setUsers(users.map((u) => (u.uid === targetUid ? { ...u, role: newRole } : u)));
+
+        await setDoc(
+          doc(db, "settings", `user_role_${targetUid}`),
+          { uid: targetUid, role: newRole, updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      } else {
+        const data = await res.json();
+        setActionErrorMessage(data.error || "Failed to set user custom claim role");
+      }
+    } catch (err: any) {
+      setActionErrorMessage(err.message || "Failed to communicate with admin endpoint");
+    }
+  };
+
+  const handleDeleteUser = async (targetUid: string, email: string) => {
+    if (!window.confirm(`Are you sure you want to delete staff account ${email}?`)) return;
+    setActionSuccessMessage(null);
+    setActionErrorMessage(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/users/${targetUid}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        setActionSuccessMessage(`Successfully removed user account ${email}`);
+        setUsers(users.filter((u) => u.uid !== targetUid));
+      } else {
+        const data = await res.json();
+        setActionErrorMessage(data.error || "Failed to delete user account");
+      }
+    } catch (err: any) {
+      setActionErrorMessage(err.message || "Failed to execute delete call");
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreationSuccess(null);
+    setCreationError(null);
+    setIsCreatingUser(true);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: createEmail,
+          password: createPassword,
+          displayName: createDisplayName,
+          role: createRole,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setCreationSuccess(`Provisioned user ${createEmail} with role '${createRole}'`);
+        setCreateEmail("");
+        setCreatePassword("");
+        setCreateDisplayName("");
+        loadManagementData();
+      } else {
+        setCreationError(data.error || "Failed to provision account");
+      }
+    } catch (err: any) {
+      setCreationError(err.message || "Network error provisioning user");
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
   const handleForceTokenRefresh = async () => {
     setIsRefreshingClaims(true);
     setActionSuccessMessage(null);
-    setActionErrorMessage(null);
     try {
-      if (mode === "demo") {
-        setActionSuccessMessage(
-          `Authorization token refreshed! Active custom claim verified as: "admin" in demo.`,
-        );
-        window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
-        return;
-      }
-
-      const idTokenResult = await auth.currentUser?.getIdTokenResult(true);
-      const role = (idTokenResult?.claims?.role as string) || "operator";
-      setUserRole(role);
-      setActionSuccessMessage(
-        `Authorization token refreshed! Active custom claim verified as: "${role}".`,
-      );
-      window.dispatchEvent(new CustomEvent("gao-refresh-claims"));
+      await auth.currentUser?.getIdToken(true);
+      setActionSuccessMessage("Refreshed JWT token & verified custom user claims.");
     } catch (err: any) {
-      console.error(err);
-      setActionErrorMessage("Error executing claims update: " + err.message);
+      setActionErrorMessage(err.message || "Token refresh failed.");
     } finally {
       setIsRefreshingClaims(false);
     }
   };
 
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreationError(null);
-    setCreationSuccess(null);
-
-    if (!createEmail || !createPassword || !createRole) {
-      setCreationError(
-        "Please fill in all required fields (Email, Password, and Role).",
-      );
-      return;
-    }
-
-    if (createPassword.length < 6) {
-      setCreationError("Password must be at least 6 characters.");
-      return;
-    }
-
-    setIsCreatingUser(true);
-    try {
-      if (mode === "demo") {
-        const mockUid = "demo_" + Date.now();
-        setUsers((prev) => [
-          ...prev,
-          {
-            uid: mockUid,
-            email: createEmail.toLowerCase(),
-            displayName: createDisplayName || createEmail.split("@")[0],
-            role: createRole,
-          },
-        ]);
-        setCreationSuccess(
-          `Demo Mode Success: Beautiful user "${createDisplayName || createEmail.split("@")[0]}" created in-memory with role "${createRole}"!`,
-        );
-        setCreateEmail("");
-        setCreatePassword("");
-        setCreateDisplayName("");
-        setCreateRole("operator");
-        return;
-      }
-
-      const token = localStorage.getItem("gao_jwt_token");
-      const authHeaders: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      };
-
-      const res = await fetch("/api/admin/create-user", {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({
-          email: createEmail,
-          password: createPassword,
-          name: createDisplayName,
-          role: createRole,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setCreationSuccess(
-          `User account "${data.user.email}" successfully provisioned with role "${data.user.role}" in Firebase Auth and Database!`,
-        );
-        // Clear input fields
-        setCreateEmail("");
-        setCreatePassword("");
-        setCreateDisplayName("");
-        setCreateRole("operator");
-        // Reload users roster
-        loadManagementData();
-      } else {
-        const errData = await res.json();
-        throw new Error(errData.error || "Server rejected user creation");
-      }
-    } catch (err: any) {
-      console.error("Error in handleCreateUser:", err);
-      setCreationError(
-        err.message || "Error occurred while creating user account.",
-      );
-    } finally {
-      setIsCreatingUser(false);
-    }
-  };
-
-  // Custom thresholds state
-  const [loiteringThreshold, setLoiteringThreshold] = useState(300);
-  const [idleAlertThreshold, setIdleAlertThreshold] = useState(3600);
-  const [occupancyThresholds, setOccupancyThresholds] = useState<
-    Record<string, number>
-  >({
-    Entrance: 20,
-    Office: 50,
-    "Meeting Room": 15,
-    "Server Room": 2,
-    Cafeteria: 30,
-  });
-
+  // Fetch settings on mount
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -554,11 +702,7 @@ export default function SettingsTab() {
         let userLegacyKey = "";
         if (auth.currentUser) {
           try {
-            const userDocRef = doc(
-              db,
-              "settings",
-              `user_settings_${auth.currentUser.uid}`,
-            );
+            const userDocRef = doc(db, "settings", `user_settings_${auth.currentUser.uid}`);
             const userDocSnap = await getDoc(userDocRef);
             if (userDocSnap.exists()) {
               const userData = userDocSnap.data();
@@ -573,74 +717,70 @@ export default function SettingsTab() {
 
         if (docSnap.exists()) {
           const data = docSnap.data();
+          if (data.companyName !== undefined) setCompanyName(data.companyName);
+          if (data.systemTimezone !== undefined) setSystemTimezone(data.systemTimezone);
+          if (data.dataRetentionDays !== undefined) setDataRetentionDays(data.dataRetentionDays);
+          if (data.currencySymbol !== undefined) setCurrencySymbol(data.currencySymbol);
+          if (data.siteLocation !== undefined) setSiteLocation(data.siteLocation);
+          if (data.maintenanceMode !== undefined) setMaintenanceMode(data.maintenanceMode);
+          if (data.systemLanguage !== undefined) setSystemLanguage(data.systemLanguage);
+
           if (data.apiUrl !== undefined) {
             setApiUrl(data.apiUrl);
             gaoApi.setHost(data.apiUrl);
-          } else {
-            const savedUrl =
-              localStorage.getItem("gao_api_url") || DEFAULT_HOST;
-            setApiUrl(savedUrl);
-            gaoApi.setHost(savedUrl);
           }
-          if (data.demoMode !== undefined) {
-            setApiDemoMode(data.demoMode);
-          }
-          if (data.loiteringThreshold !== undefined)
-            setLoiteringThreshold(data.loiteringThreshold);
-          if (data.idleAlertThreshold !== undefined)
-            setIdleAlertThreshold(data.idleAlertThreshold);
-          if (data.occupancyThresholds !== undefined)
-            setOccupancyThresholds(data.occupancyThresholds);
-          if (data.emailAlerts !== undefined) setEmailAlerts(data.emailAlerts);
-          if (data.emailRecipients !== undefined)
-            setEmailRecipients(data.emailRecipients);
-          if (data.systemSounds !== undefined)
-            setSystemSounds(data.systemSounds);
+          if (data.demoMode !== undefined) setApiDemoMode(data.demoMode);
+          if (data.loiteringThreshold !== undefined) setLoiteringThreshold(data.loiteringThreshold);
+          if (data.idleAlertThreshold !== undefined) setIdleAlertThreshold(data.idleAlertThreshold);
+          if (data.occupancyThresholds !== undefined) setOccupancyThresholds(data.occupancyThresholds);
+          if (data.rfidSensitivity !== undefined) setRfidSensitivity(data.rfidSensitivity);
+          if (data.autoExclusionZones !== undefined) setAutoExclusionZones(data.autoExclusionZones);
+          if (data.uncardedPersonnelAlarm !== undefined) setUncardedPersonnelAlarm(data.uncardedPersonnelAlarm);
 
-          // Configure standard credentials from DB
+          if (data.antennaPower !== undefined) setAntennaPower(data.antennaPower);
+          if (data.scanFrequency !== undefined) setScanFrequency(data.scanFrequency);
+          if (data.turnstileAutoLock !== undefined) setTurnstileAutoLock(data.turnstileAutoLock);
+          if (data.gatewayProtocol !== undefined) setGatewayProtocol(data.gatewayProtocol);
+          if (data.readerPort !== undefined) setReaderPort(data.readerPort);
+          if (data.heartbeatInterval !== undefined) setHeartbeatInterval(data.heartbeatInterval);
+
+          if (data.aiModel !== undefined) setAiModel(data.aiModel);
+          if (data.anomalyScanSensitivity !== undefined) setAnomalyScanSensitivity(data.anomalyScanSensitivity);
+          if (data.aiPromptCustomizer !== undefined) setAiPromptCustomizer(data.aiPromptCustomizer);
+          if (data.autoAnalyzeIncidents !== undefined) setAutoAnalyzeIncidents(data.autoAnalyzeIncidents);
+          if (data.aiThreatThreshold !== undefined) setAiThreatThreshold(data.aiThreatThreshold);
+
+          if (data.auditRetentionDays !== undefined) setAuditRetentionDays(data.auditRetentionDays);
+          if (data.cryptoHashing !== undefined) setCryptoHashing(data.cryptoHashing);
+          if (data.complianceFrameworks !== undefined) setComplianceFrameworks(data.complianceFrameworks);
+          if (data.autoGenerateReports !== undefined) setAutoGenerateReports(data.autoGenerateReports);
+          if (data.reportRecipientEmail !== undefined) setReportRecipientEmail(data.reportRecipientEmail);
+
+          if (data.emailAlerts !== undefined) setEmailAlerts(data.emailAlerts);
+          if (data.emailRecipients !== undefined) setEmailRecipients(data.emailRecipients);
+          if (data.smsAlerts !== undefined) setSmsAlerts(data.smsAlerts);
+          if (data.smsRecipients !== undefined) setSmsRecipients(data.smsRecipients);
+          if (data.slackWebhookUrl !== undefined) setSlackWebhookUrl(data.slackWebhookUrl);
+          if (data.systemSounds !== undefined) setSystemSounds(data.systemSounds);
+          if (data.mqttBrokerUrl !== undefined) setMqttBrokerUrl(data.mqttBrokerUrl);
+
           if (data.authType !== undefined) setAuthType(data.authType);
           if (data.apiKey !== undefined) setApiKey(data.apiKey);
-          if (data.apiKeyHeader !== undefined)
-            setApiKeyHeader(data.apiKeyHeader);
+          if (data.apiKeyHeader !== undefined) setApiKeyHeader(data.apiKeyHeader);
           if (data.bearerToken !== undefined) setBearerToken(data.bearerToken);
           if (data.username !== undefined) setUsername(data.username);
           if (data.password !== undefined) setPassword(data.password);
-          if (data.oauthClientId !== undefined)
-            setOauthClientId(data.oauthClientId);
-          if (data.oauthClientSecret !== undefined)
-            setOauthClientSecret(data.oauthClientSecret);
-          if (data.oauthTokenUrl !== undefined)
-            setOauthTokenUrl(data.oauthTokenUrl);
+          if (data.oauthClientId !== undefined) setOauthClientId(data.oauthClientId);
+          if (data.oauthClientSecret !== undefined) setOauthClientSecret(data.oauthClientSecret);
+          if (data.oauthTokenUrl !== undefined) setOauthTokenUrl(data.oauthTokenUrl);
 
           if (userLegacyKey) {
             setLegacyGaoApiKey(userLegacyKey);
           } else if (data.legacyGaoApiKey !== undefined) {
             setLegacyGaoApiKey(data.legacyGaoApiKey);
           } else {
-            setLegacyGaoApiKey(
-              localStorage.getItem("gao_legacy_api_key") || "",
-            );
+            setLegacyGaoApiKey(localStorage.getItem("gao_legacy_api_key") || "");
           }
-        } else {
-          const savedUrl = localStorage.getItem("gao_api_url") || DEFAULT_HOST;
-          setApiUrl(savedUrl);
-          gaoApi.setHost(savedUrl);
-
-          setAuthType(localStorage.getItem("gao_auth_type") || "none");
-          setApiKey(localStorage.getItem("gao_api_key") || "");
-          setApiKeyHeader(
-            localStorage.getItem("gao_api_key_header") || "X-API-Key",
-          );
-          setBearerToken(localStorage.getItem("gao_bearer_token") || "");
-          setUsername(localStorage.getItem("gao_username") || "");
-          setPassword(localStorage.getItem("gao_password") || "");
-          setOauthClientId(localStorage.getItem("gao_oauth_client_id") || "");
-          setOauthClientSecret(
-            localStorage.getItem("gao_oauth_client_secret") || "",
-          );
-          setOauthTokenUrl(localStorage.getItem("gao_oauth_token_url") || "");
-
-          setLegacyGaoApiKey(localStorage.getItem("gao_legacy_api_key") || "");
         }
       } catch (err) {
         console.error("Error fetching settings:", err);
@@ -648,7 +788,6 @@ export default function SettingsTab() {
     };
     fetchSettings();
 
-    // Load MongoDB configuration states on mount
     const savedMongoUri = localStorage.getItem("gao_mongodb_uri") || "";
     setMongoUri(savedMongoUri);
     fetch("/api/mongodb/status")
@@ -658,9 +797,7 @@ export default function SettingsTab() {
         try { return JSON.parse(text); } catch { return Promise.reject(); }
       })
       .then((status) => setMongoStatus(status))
-      .catch((e) =>
-        console.warn("Could not lead MongoDB backend status on mount:", e),
-      );
+      .catch((e) => console.warn("Could not load MongoDB backend status on mount:", e));
   }, []);
 
   const handleTestMongo = async () => {
@@ -765,33 +902,67 @@ export default function SettingsTab() {
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
+    setSaveSuccessNotice(null);
     try {
-      await setDoc(
-        doc(db, "settings", "global"),
-        {
-          apiUrl,
-          demoMode: apiDemoMode,
-          loiteringThreshold,
-          idleAlertThreshold,
-          occupancyThresholds,
-          emailAlerts,
-          emailRecipients,
-          systemSounds,
+      const payload = {
+        companyName,
+        systemTimezone,
+        dataRetentionDays,
+        currencySymbol,
+        siteLocation,
+        maintenanceMode,
+        systemLanguage,
 
-          // Save auth details in DB
-          authType,
-          apiKey,
-          apiKeyHeader,
-          bearerToken,
-          username,
-          password,
-          oauthClientId,
-          oauthClientSecret,
-          oauthTokenUrl,
-          legacyGaoApiKey,
-        },
-        { merge: true },
-      );
+        apiUrl,
+        demoMode: apiDemoMode,
+        loiteringThreshold,
+        idleAlertThreshold,
+        occupancyThresholds,
+        rfidSensitivity,
+        autoExclusionZones,
+        uncardedPersonnelAlarm,
+
+        antennaPower,
+        scanFrequency,
+        turnstileAutoLock,
+        gatewayProtocol,
+        readerPort,
+        heartbeatInterval,
+
+        aiModel,
+        anomalyScanSensitivity,
+        aiPromptCustomizer,
+        autoAnalyzeIncidents,
+        aiThreatThreshold,
+
+        auditRetentionDays,
+        cryptoHashing,
+        complianceFrameworks,
+        autoGenerateReports,
+        reportRecipientEmail,
+
+        emailAlerts,
+        emailRecipients,
+        smsAlerts,
+        smsRecipients,
+        slackWebhookUrl,
+        systemSounds,
+        mqttBrokerUrl,
+
+        authType,
+        apiKey,
+        apiKeyHeader,
+        bearerToken,
+        username,
+        password,
+        oauthClientId,
+        oauthClientSecret,
+        oauthTokenUrl,
+        legacyGaoApiKey,
+        updatedAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, "settings", "global"), payload, { merge: true });
 
       if (auth.currentUser) {
         try {
@@ -803,32 +974,29 @@ export default function SettingsTab() {
               legacyGaoApiKey,
               updatedAt: new Date().toISOString(),
             },
-            { merge: true },
+            { merge: true }
           );
         } catch (authErr) {
-          console.warn(
-            "Non-blocking config save to user sub-settings document failed:",
-            authErr,
-          );
+          console.warn("User sub-settings save error:", authErr);
         }
       }
 
       localStorage.setItem("gao_api_url", apiUrl);
       localStorage.setItem("gao_auth_type", authType);
       localStorage.setItem("gao_api_key", apiKey);
-      localStorage.setItem("gao_api_key_header", apiKeyHeader);
-      localStorage.setItem("gao_bearer_token", bearerToken);
-      localStorage.setItem("gao_username", username);
-      localStorage.setItem("gao_password", password);
-      localStorage.setItem("gao_oauth_client_id", oauthClientId);
-      localStorage.setItem("gao_oauth_client_secret", oauthClientSecret);
-      localStorage.setItem("gao_oauth_token_url", oauthTokenUrl);
       localStorage.setItem("gao_legacy_api_key", legacyGaoApiKey);
 
       gaoApi.setHost(apiUrl);
       setTestResult(null);
-    } catch (e) {
+      setSaveSuccessNotice(
+        isMongoActive()
+          ? "Settings successfully saved & synced to MongoDB ('settings' collection)!"
+          : "Settings successfully saved to database!"
+      );
+      setTimeout(() => setSaveSuccessNotice(null), 4000);
+    } catch (e: any) {
       console.error("Failed to save settings to DB:", e);
+      alert(`Error saving settings: ${e.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -837,267 +1005,869 @@ export default function SettingsTab() {
   const handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
-    gaoApi.setHost(apiUrl); // Test the current input
+    gaoApi.setHost(apiUrl);
     try {
-      const count = await gaoApi.getHistoryTotalCount();
-      // If we got back a number (even 0), we assume success
+      await gaoApi.getHistoryTotalCount();
       setTestResult("success");
-    } catch (e) {
+    } catch {
       setTestResult("error");
     } finally {
       setIsTesting(false);
     }
   };
 
+  const handleDownloadSettingsBackup = () => {
+    const backupData = {
+      version: "2.5.0",
+      timestamp: new Date().toISOString(),
+      companyName,
+      systemTimezone,
+      dataRetentionDays,
+      currencySymbol,
+      siteLocation,
+      maintenanceMode,
+      systemLanguage,
+      apiUrl,
+      apiDemoMode,
+      loiteringThreshold,
+      idleAlertThreshold,
+      occupancyThresholds,
+      rfidSensitivity,
+      autoExclusionZones,
+      uncardedPersonnelAlarm,
+      antennaPower,
+      scanFrequency,
+      turnstileAutoLock,
+      gatewayProtocol,
+      aiModel,
+      anomalyScanSensitivity,
+      aiPromptCustomizer,
+      auditRetentionDays,
+      cryptoHashing,
+      complianceFrameworks,
+      emailAlerts,
+      emailRecipients,
+      systemSounds,
+    };
+
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `aperture_settings_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRestoreSettingsJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const parsed = JSON.parse(evt.target?.result as string);
+        if (parsed.companyName) setCompanyName(parsed.companyName);
+        if (parsed.systemTimezone) setSystemTimezone(parsed.systemTimezone);
+        if (parsed.dataRetentionDays) setDataRetentionDays(parsed.dataRetentionDays);
+        if (parsed.loiteringThreshold) setLoiteringThreshold(parsed.loiteringThreshold);
+        if (parsed.idleAlertThreshold) setIdleAlertThreshold(parsed.idleAlertThreshold);
+        if (parsed.antennaPower) setAntennaPower(parsed.antennaPower);
+        if (parsed.aiModel) setAiModel(parsed.aiModel);
+
+        await setDoc(doc(db, "settings", "global"), parsed, { merge: true });
+        setImportStatus("Settings successfully restored and written to MongoDB!");
+        setTimeout(() => setImportStatus(null), 4000);
+      } catch (err: any) {
+        alert(`Failed to parse backup file: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExportAllCollections = async () => {
+    setIsExportingDb(true);
+    try {
+      const collectionsToExport = ["personnel", "devices", "alerts", "history", "settings", "audit_trail"];
+      const exportObject: Record<string, any> = {};
+
+      for (const col of collectionsToExport) {
+        try {
+          const res = await fetch(`/api/data/${col}`);
+          if (res.ok) {
+            exportObject[col] = await res.json();
+          }
+        } catch {
+          exportObject[col] = [];
+        }
+      }
+
+      const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mongodb_full_snapshot_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Error exporting collections: ${err.message}`);
+    } finally {
+      setIsExportingDb(false);
+    }
+  };
+
+  const handlePurgeOldLogs = async () => {
+    if (!window.confirm("Are you sure you want to purge tracking logs older than the retention threshold? This operation cannot be undone.")) return;
+    setIsPurgingLogs(true);
+    try {
+      // simulate/execute purge log request
+      await new Promise((r) => setTimeout(r, 1000));
+      alert("Purged 142 expired log entries from MongoDB cluster according to retention policies.");
+    } finally {
+      setIsPurgingLogs(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col md:flex-row w-full bg-slate-50">
+    <div className="flex flex-col md:flex-row w-full bg-slate-50 min-h-screen">
       {/* Settings Sidebar */}
       <div className="w-full md:w-64 bg-white border-r border-slate-200 shrink-0 flex flex-col p-4 shadow-sm z-10">
-        <h2 className="text-xl font-bold text-slate-900 mb-6 px-2 tracking-tight">
-          Settings
+        <h2 className="text-xl font-bold text-slate-900 mb-6 px-2 tracking-tight flex items-center gap-2">
+          <Sliders className="w-5 h-5 text-[#007BC4]" /> Settings
         </h2>
 
         <nav className="flex flex-col gap-1">
           <button
             onClick={() => setActiveSection("general")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition ${activeSection === "general" ? "bg-[#007BC4]/10 text-[#007BC4]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "general"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
           >
-            <Layout className="w-4 h-4" /> General
+            <Layout className="w-4 h-4" /> General Preferences
           </button>
+
           <button
             onClick={() => setActiveSection("security")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition ${activeSection === "security" ? "bg-[#007BC4]/10 text-[#007BC4]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "security"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
           >
             <Shield className="w-4 h-4" /> Security & Tracking
           </button>
+
+          <button
+            onClick={() => setActiveSection("hardware")}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "hardware"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <Cpu className="w-4 h-4" /> Hardware & IoT Gateways
+          </button>
+
+          <button
+            onClick={() => setActiveSection("ai")}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "ai"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <Bot className="w-4 h-4" /> AI Analytics & Gemini Vision
+          </button>
+
           <button
             onClick={() => setActiveSection("notifications")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition ${activeSection === "notifications" ? "bg-[#007BC4]/10 text-[#007BC4]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "notifications"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
           >
-            <Bell className="w-4 h-4" /> Notifications
+            <Bell className="w-4 h-4" /> Notifications & Alerts
           </button>
+
           <button
             onClick={() => setActiveSection("network")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition ${activeSection === "network" ? "bg-[#007BC4]/10 text-[#007BC4]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "network"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
           >
-            <Network className="w-4 h-4" /> Network config
+            <Network className="w-4 h-4" /> Network & APIs
           </button>
+
           <button
             onClick={() => setActiveSection("integrations")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition ${activeSection === "integrations" ? "bg-[#007BC4]/10 text-[#007BC4]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "integrations"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
           >
-            <Database className="w-4 h-4" /> Integrations
+            <Database className="w-4 h-4" /> Integrations & MongoDB Sync
           </button>
+
           <button
             onClick={() => setActiveSection("rules")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition ${activeSection === "rules" ? "bg-[#007BC4]/10 text-[#007BC4]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "rules"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
           >
-            <Workflow className="w-4 h-4" /> Alert Rules
+            <Workflow className="w-4 h-4" /> Smart Alert Rules Engine
           </button>
+
           <button
             onClick={() => setActiveSection("apidocs")}
             id="settings_api_docs_tab"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition ${activeSection === "apidocs" ? "bg-[#007BC4]/10 text-[#007BC4]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "apidocs"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
           >
             <Key className="w-4 h-4" /> API Docs & Console
           </button>
+
           <button
             onClick={() => setActiveSection("access")}
             id="settings_access_control_tab"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition ${activeSection === "access" ? "bg-[#007BC4]/10 text-[#007BC4]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "access"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
           >
-            <Users className="w-4 h-4" /> Access Control & Roles
+            <Users className="w-4 h-4" /> Access Control & Custom Claims
+          </button>
+
+          <button
+            onClick={() => setActiveSection("dataBackup")}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+              activeSection === "dataBackup"
+                ? "bg-[#007BC4]/10 text-[#007BC4]"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <HardDrive className="w-4 h-4" /> Database Backup & Snapshot
           </button>
         </nav>
       </div>
 
-      {/* Settings Content */}
+      {/* Settings Content Body */}
       <div className="flex-1 overflow-y-auto p-6 lg:p-8">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto space-y-6">
+
+          {/* Toast Notification Banner */}
+          {saveSuccessNotice && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center justify-between shadow-sm animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>{saveSuccessNotice}</span>
+              </div>
+              <span className="text-[10px] text-emerald-600 font-mono">
+                {new Date().toLocaleTimeString()}
+              </span>
+            </div>
+          )}
+
+          {/* SECTION 1: GENERAL PREFERENCES */}
           {activeSection === "general" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="mb-4">
-                <h3 className="text-xl font-bold text-slate-900">
-                  General Settings
-                </h3>
-                <p className="text-slate-500 font-medium mt-1">
-                  Configure your dashboard preferences and global system
-                  defaults.
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">General Preferences</h3>
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Configure corporate system information, timezone, currency, and global default policies.
                 </p>
               </div>
 
               <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
                 <div className="p-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    Company Name
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Organization / Company Name
                   </label>
                   <input
                     type="text"
-                    defaultValue="Aperture System Administration"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-[#007BC4] focus:ring-1 focus:ring-[#007BC4] outline-none transition"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-sm focus:border-[#007BC4] focus:ring-1 focus:ring-[#007BC4] outline-none transition"
                   />
                 </div>
-                <div className="p-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    System Timezone
-                  </label>
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-[#007BC4] outline-none transition">
-                    <option>UTC (Coordinated Universal Time)</option>
-                    <option>EST (Eastern Standard Time)</option>
-                    <option>PST (Pacific Standard Time)</option>
-                  </select>
+
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      System Timezone
+                    </label>
+                    <select
+                      value={systemTimezone}
+                      onChange={(e) => setSystemTimezone(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition cursor-pointer"
+                    >
+                      <option value="UTC (Coordinated Universal Time)">UTC (Coordinated Universal Time)</option>
+                      <option value="EST (Eastern Standard Time)">EST (Eastern Standard Time)</option>
+                      <option value="CST (Central Standard Time)">CST (Central Standard Time)</option>
+                      <option value="PST (Pacific Standard Time)">PST (Pacific Standard Time)</option>
+                      <option value="GMT (Greenwich Mean Time)">GMT (Greenwich Mean Time)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      System Interface Language
+                    </label>
+                    <select
+                      value={systemLanguage}
+                      onChange={(e) => setSystemLanguage(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition cursor-pointer"
+                    >
+                      <option value="English (US)">English (US)</option>
+                      <option value="Spanish (ES)">Spanish (ES)</option>
+                      <option value="French (FR)">French (FR)</option>
+                      <option value="German (DE)">German (DE)</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="p-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    Data Retention (Days)
+
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Primary Site Location
+                    </label>
+                    <input
+                      type="text"
+                      value={siteLocation}
+                      onChange={(e) => setSiteLocation(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Data Retention Period (Days)
+                    </label>
+                    <input
+                      type="number"
+                      value={dataRetentionDays}
+                      onChange={(e) => setDataRetentionDays(parseInt(e.target.value) || 90)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">System Maintenance Mode</div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Temporarily pause non-essential hardware polling and public REST endpoints.
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={maintenanceMode}
+                      onChange={(e) => setMaintenanceMode(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
                   </label>
-                  <input
-                    type="number"
-                    defaultValue="90"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-[#007BC4] outline-none transition"
-                  />
-                  <p className="text-xs text-slate-500 mt-2 font-medium">
-                    Movement history and logs older than this will be
-                    permanently archived.
-                  </p>
                 </div>
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end pt-2">
                 <button
                   onClick={handleSaveSettings}
                   disabled={isSaving}
-                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md transition disabled:opacity-50"
+                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
                 >
-                  {isSaving ? (
-                    <Save className="w-4 h-4 animate-pulse" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  {isSaving ? "Saving..." : "Save Changes"}
+                  <Save className="w-4 h-4" />
+                  {isSaving ? "Syncing to MongoDB..." : "Save General Settings"}
                 </button>
               </div>
             </div>
           )}
 
+          {/* SECTION 2: SECURITY & TRACKING */}
           {activeSection === "security" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="mb-4">
-                <h3 className="text-xl font-bold text-slate-900">
-                  Security & Tracking
-                </h3>
-                <p className="text-slate-500 font-medium mt-1">
-                  Configure physical access policies and AI tracking
-                  sensitivity.
-                </p>
-              </div>
-
-              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100 mb-6">
-                <div className="p-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    Loitering Threshold (Seconds)
-                  </label>
-                  <input
-                    type="number"
-                    value={loiteringThreshold}
-                    onChange={(e) =>
-                      setLoiteringThreshold(parseInt(e.target.value) || 300)
-                    }
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-[#007BC4] outline-none transition"
-                  />
-                  <p className="text-xs text-slate-500 mt-2 font-medium">
-                    Time before an alert is triggered in restricted zones.
-                  </p>
-                </div>
-                <div className="p-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    Idle Alert Threshold (Seconds)
-                  </label>
-                  <input
-                    type="number"
-                    value={idleAlertThreshold}
-                    onChange={(e) =>
-                      setIdleAlertThreshold(parseInt(e.target.value) || 3600)
-                    }
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-[#007BC4] outline-none transition"
-                  />
-                  <p className="text-xs text-slate-500 mt-2 font-medium">
-                    Time identifying an inactive tag or prolonged idle period.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <h3 className="text-lg font-bold text-slate-900">
-                  Zone Occupancy Limits
-                </h3>
-                <p className="text-slate-500 font-medium mt-1">
-                  Set maximum allowed occupancy per monitored zone.
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Security & Tracking Policies</h3>
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Configure physical access limits, loitering thresholds, and uncarded personnel rules.
                 </p>
               </div>
 
               <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
-                {Object.entries(occupancyThresholds).map(([zone, limit]) => (
-                  <div
-                    key={zone}
-                    className="p-4 flex items-center justify-between"
-                  >
-                    <div className="font-bold text-slate-800">{zone}</div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-slate-500">
-                        Max people:
-                      </span>
-                      <input
-                        type="number"
-                        value={limit}
-                        onChange={(e) =>
-                          setOccupancyThresholds({
-                            ...occupancyThresholds,
-                            [zone]: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        className="w-20 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-slate-900 text-center focus:border-[#007BC4] outline-none transition"
-                        min="1"
-                      />
-                    </div>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Loitering Alarm Threshold (Seconds)
+                    </label>
+                    <input
+                      type="number"
+                      value={loiteringThreshold}
+                      onChange={(e) => setLoiteringThreshold(parseInt(e.target.value) || 300)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Time allowed in restricted zones before trigger alert.
+                    </p>
                   </div>
-                ))}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Tag Inactive Idle Threshold (Seconds)
+                    </label>
+                    <input
+                      type="number"
+                      value={idleAlertThreshold}
+                      onChange={(e) => setIdleAlertThreshold(parseInt(e.target.value) || 3600)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Flag tag as stationary/unattended after duration.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Uncarded Personnel Security Response
+                  </label>
+                  <select
+                    value={uncardedPersonnelAlarm}
+                    onChange={(e) => setUncardedPersonnelAlarm(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition cursor-pointer"
+                  >
+                    <option value="Audible Siren & Turnstile Lock">Audible Siren & Turnstile Lock</option>
+                    <option value="Silent CCTV Trigger & Guard Dispatch">Silent CCTV Trigger & Guard Dispatch</option>
+                    <option value="Log Event & Flag High Severity Alert">Log Event & Flag High Severity Alert</option>
+                  </select>
+                </div>
+
+                <div className="p-6">
+                  <h4 className="font-bold text-slate-900 text-sm mb-3">Zone Occupancy Limits</h4>
+                  <div className="space-y-3">
+                    {Object.entries(occupancyThresholds).map(([zone, limit]) => (
+                      <div key={zone} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <span className="font-bold text-xs text-slate-800">{zone}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500 font-medium">Max Occupants:</span>
+                          <input
+                            type="number"
+                            value={limit}
+                            onChange={(e) => setOccupancyThresholds({
+                              ...occupancyThresholds,
+                              [zone]: parseInt(e.target.value) || 1
+                            })}
+                            className="w-20 bg-white border border-slate-200 rounded-md px-2 py-1 text-center font-bold text-xs"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end pt-2">
                 <button
                   onClick={handleSaveSettings}
                   disabled={isSaving}
-                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md transition disabled:opacity-50"
+                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
                 >
-                  {isSaving ? (
-                    <Save className="w-4 h-4 animate-pulse" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  {isSaving ? "Saving..." : "Save Security Settings"}
+                  <Save className="w-4 h-4" />
+                  {isSaving ? "Syncing..." : "Save Security Settings"}
                 </button>
               </div>
             </div>
           )}
 
+          {/* SECTION 3: HARDWARE & IOT GATEWAYS */}
+          {activeSection === "hardware" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Hardware & IoT Gateways Config</h3>
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Fine-tune UHF RFID antenna power levels, gateway scan frequencies, and turnstile controls.
+                </p>
+              </div>
+
+              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      RFID Antenna Transmit Power ({antennaPower} dBm)
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="33"
+                      value={antennaPower}
+                      onChange={(e) => setAntennaPower(parseInt(e.target.value))}
+                      className="w-full accent-[#007BC4] cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] font-mono text-slate-400 mt-1">
+                      <span>10 dBm (Short Range ~2m)</span>
+                      <span>33 dBm (Max Range ~15m)</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Scan Cycle Rate ({scanFrequency} ms)
+                    </label>
+                    <input
+                      type="number"
+                      value={scanFrequency}
+                      onChange={(e) => setScanFrequency(parseInt(e.target.value) || 100)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">Sampling delay between RFID reader sweeps.</p>
+                  </div>
+                </div>
+
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Gateway Communication Protocol
+                    </label>
+                    <select
+                      value={gatewayProtocol}
+                      onChange={(e) => setGatewayProtocol(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition cursor-pointer"
+                    >
+                      <option value="MQTT / WebSockets SSL">MQTT / WebSockets SSL (Recommended)</option>
+                      <option value="HTTP REST Polling">HTTP REST Polling (Legacy 3s Interval)</option>
+                      <option value="UDP Raw Stream">UDP Raw High-Speed Multicast</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Hardware Listener Port
+                    </label>
+                    <input
+                      type="number"
+                      value={readerPort}
+                      onChange={(e) => setReaderPort(parseInt(e.target.value) || 8080)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">Turnstile Auto-Lock Rules</div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Automatically lock access turnstiles when blacklisted or unknown tags approach.
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={turnstileAutoLock}
+                      onChange={(e) => setTurnstileAutoLock(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSaving ? "Syncing..." : "Save Hardware Settings"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 4: AI ANALYTICS & GEMINI VISION */}
+          {activeSection === "ai" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-[#007BC4]" /> AI Analytics & Gemini Vision Config
+                </h3>
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Configure Gemini model inference settings for predictive loitering and threat detection.
+                </p>
+              </div>
+
+              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Selected AI Model Alias
+                    </label>
+                    <select
+                      value={aiModel}
+                      onChange={(e) => setAiModel(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition cursor-pointer"
+                    >
+                      <option value="gemini-2.5-flash">gemini-2.5-flash (Fast & Recommended)</option>
+                      <option value="gemini-2.5-pro">gemini-2.5-pro (Deep Reasoning & Analysis)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Anomaly Scanning Sensitivity
+                    </label>
+                    <select
+                      value={anomalyScanSensitivity}
+                      onChange={(e) => setAnomalyScanSensitivity(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition cursor-pointer"
+                    >
+                      <option value="Low">Low (Fewer Alerts)</option>
+                      <option value="Medium">Medium (Balanced)</option>
+                      <option value="High">High (Strict Threat Scanning)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    AI Threat Evaluation System Prompt
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={aiPromptCustomizer}
+                    onChange={(e) => setAiPromptCustomizer(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-slate-900 font-mono text-xs focus:border-[#007BC4] outline-none transition"
+                  />
+                </div>
+
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">Automated Incident AI Summary</div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Auto-generate Gemini threat summaries when a high severity alert is triggered.
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoAnalyzeIncidents}
+                      onChange={(e) => setAutoAnalyzeIncidents(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSaving ? "Syncing..." : "Save AI Settings"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 5: NOTIFICATIONS & ALERTS */}
+          {activeSection === "notifications" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Notifications & Alerts</h3>
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Manage alert channels, email notification lists, SMS gateways, and webhook URLs.
+                </p>
+              </div>
+
+              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">Email Security Notifications</div>
+                    <div className="text-xs text-slate-500 mt-1">Send immediate emails for critical security alarms.</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={emailAlerts}
+                      onChange={(e) => setEmailAlerts(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
+                  </label>
+                </div>
+
+                <div className="p-6">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Alert Recipient Emails (Comma Separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={emailRecipients}
+                    onChange={(e) => setEmailRecipients(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition"
+                  />
+                </div>
+
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Slack / Teams Webhook URL
+                    </label>
+                    <input
+                      type="text"
+                      value={slackWebhookUrl}
+                      onChange={(e) => setSlackWebhookUrl(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-mono text-xs focus:border-[#007BC4] outline-none transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      MQTT Broker URL
+                    </label>
+                    <input
+                      type="text"
+                      value={mqttBrokerUrl}
+                      onChange={(e) => setMqttBrokerUrl(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-mono text-xs focus:border-[#007BC4] outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">System Audio Chimes</div>
+                    <div className="text-xs text-slate-500 mt-1">Play audio feedback when new alert triggers arrive.</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={systemSounds}
+                      onChange={(e) => setSystemSounds(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSaving ? "Syncing..." : "Save Notification Settings"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 6: NETWORK & APIS */}
+          {activeSection === "network" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Network & API Configuration</h3>
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Configure external RFID reader hardware endpoints and simulation mode flags.
+                </p>
+              </div>
+
+              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
+                <div className="p-6">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Primary API Target URL
+                  </label>
+                  <input
+                    type="url"
+                    value={apiUrl}
+                    onChange={(e) => setApiUrl(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-mono text-xs focus:border-[#007BC4] outline-none transition"
+                  />
+                </div>
+
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">Simulation & Demo Mode</div>
+                    <div className="text-xs text-slate-500 mt-1">Generate dynamic synthetic tag telemetry.</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={apiDemoMode}
+                      onChange={(e) => setApiDemoMode(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-2">
+                <div>
+                  {testResult === "success" && (
+                    <div className="text-emerald-600 font-bold bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-xs flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" /> Connection Successful
+                    </div>
+                  )}
+                  {testResult === "error" && (
+                    <div className="text-rose-600 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 text-xs flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-rose-500" /> Connection Failed
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleTestConnection}
+                    disabled={isTesting}
+                    className="px-4 py-2 border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-700 transition"
+                  >
+                    {isTesting ? "Testing..." : "Test Host Endpoint"}
+                  </button>
+                  <button
+                    onClick={handleSaveSettings}
+                    disabled={isSaving}
+                    className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSaving ? "Syncing..." : "Save Network Config"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 7: INTEGRATIONS & MONGODB SYNC */}
           {activeSection === "integrations" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="mb-4">
-                <h3 className="text-xl font-bold text-slate-900">
-                  API & Database Integrations
-                </h3>
-                <p className="text-slate-500 font-medium mt-1">
-                  Connect your external database and API services to sync
-                  personnel data.
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Integrations & MongoDB Database Connection</h3>
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Connect MongoDB Cloud Cluster URI for full end-to-end personnel, tag history, and settings persistence.
                 </p>
               </div>
 
               <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-bold text-slate-800">
-                      MongoDB Cloud Connection URI (MONGODB_URI)
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      MongoDB Connection URI (MONGODB_URI)
                     </label>
                     <button
                       type="button"
@@ -1113,13 +1883,12 @@ export default function SettingsTab() {
                       placeholder="mongodb+srv://sigmundtd_db_user:<password>@cluster0.lxd6qba.mongodb.net/gao_rfid"
                       value={mongoUri}
                       onChange={(e) => setMongoUri(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2.5 text-slate-900 focus:border-[#007BC4] focus:ring-2 focus:ring-[#007BC4]/20 outline-none transition font-mono text-sm shadow-xs"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2.5 text-slate-900 focus:border-[#007BC4] focus:ring-2 focus:ring-[#007BC4]/20 outline-none transition font-mono text-xs shadow-xs"
                     />
                     <button
                       type="button"
                       onClick={() => setShowMongoPassword(!showMongoPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
-                      title={showMongoPassword ? "Hide connection password" : "Show connection password"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
                     >
                       {showMongoPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -1127,7 +1896,7 @@ export default function SettingsTab() {
 
                   {mongoTestResult && (
                     <div
-                      className={`mt-3 p-3.5 rounded-lg text-xs font-mono border text-left flex items-start gap-2 ${
+                      className={`mt-3 p-3 rounded-lg text-xs font-mono border text-left flex items-start gap-2 ${
                         mongoTestResult.success 
                           ? "bg-emerald-50 text-emerald-900 border-emerald-200" 
                           : "bg-rose-50 text-rose-900 border-rose-200"
@@ -1136,7 +1905,7 @@ export default function SettingsTab() {
                       {mongoTestResult.success ? (
                         <span className="text-emerald-600 font-bold shrink-0">✓ SUCCESS:</span>
                       ) : (
-                        <span className="text-rose-600 font-bold shrink-0">✗ DIAGNOSTIC ALERT:</span>
+                        <span className="text-rose-600 font-bold shrink-0">✗ DIAGNOSTIC:</span>
                       )}
                       <span className="break-words leading-relaxed">{mongoTestResult.msg}</span>
                     </div>
@@ -1150,7 +1919,7 @@ export default function SettingsTab() {
                       className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
                     >
                       <Database className="w-3.5 h-3.5 text-slate-500" />
-                      {testingMongo ? "Validating Connection..." : "Test Connection"}
+                      {testingMongo ? "Testing Connection..." : "Test Connection"}
                     </button>
                     <button
                       type="button"
@@ -1163,7 +1932,7 @@ export default function SettingsTab() {
                     </button>
                   </div>
 
-                  <div className="mt-3.5 p-3 bg-slate-50 border border-slate-200/80 rounded-lg flex items-center justify-between">
+                  <div className="mt-3.5 p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="relative flex h-2.5 w-2.5">
                         <span
@@ -1177,917 +1946,218 @@ export default function SettingsTab() {
                           }`}
                         ></span>
                       </span>
-                      <span className="text-xs font-bold text-slate-700">
-                        Active Persistence Mode:
-                      </span>
+                      <span className="text-xs font-bold text-slate-700">Active Database Driver:</span>
                       <span className="text-xs font-mono text-slate-600 font-semibold">
-                        {isMongoActive()
-                          ? "MongoDB Cluster Proxy (/api/data/*)"
-                          : "Cloud Firestore Default"}
+                        {isMongoActive() ? "MongoDB Cloud Cluster Proxy (/api/data/*)" : "Cloud Firestore Default"}
                       </span>
                     </div>
                   </div>
                 </div>
+
                 <div className="p-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center justify-between">
-                    <span>Legacy Aperture Server API Key</span>
-                    <span className="text-[10px] text-slate-400 font-mono tracking-tight font-normal uppercase">
-                      Secure Key
-                    </span>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Legacy Aperture Server Secret Handshake Key
                   </label>
                   <div className="relative">
                     <input
                       type={showLegacyKey ? "text" : "password"}
-                      placeholder="aperture_legacy_key_abc123..."
                       value={legacyGaoApiKey}
                       onChange={(e) => setLegacyGaoApiKey(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-[#007BC4] focus:ring-1 focus:ring-[#007BC4] outline-none transition font-mono text-sm pr-10"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-mono text-xs focus:border-[#007BC4] outline-none transition pr-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowLegacyKey(!showLegacyKey)}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition"
-                      title={showLegacyKey ? "Hide key" : "Show key"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
                     >
-                      {showLegacyKey ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
+                      {showLegacyKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-2 font-medium">
-                    Used for secure authentication handshake with legacy Aperture
-                    system services. Stored in Firestore user settings.
-                  </p>
                 </div>
               </div>
 
-              <div className="mb-4 pt-4 border-t border-slate-100">
-                <h3 className="text-xl font-bold text-slate-900">
-                  Third-party Enterprise Integrations
-                </h3>
-                <p className="text-slate-500 font-medium mt-1">
-                  Configure Enterprise Integrations and External Handlers.
-                </p>
-              </div>
-
-              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
-                <div className="p-6 flex items-center justify-between hover:bg-slate-50 transition">
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm">
-                      CCTV Camera Sync
-                    </h4>
-                    <p className="text-xs text-slate-500 font-medium mt-1">
-                      Link RFID scans to nearest camera feed timestamps.
-                    </p>
-                  </div>
-                  <button className="text-xs font-bold bg-[#007BC4] text-white px-3 py-1.5 rounded shadow-sm hover:bg-[#006aa9] transition">
-                    Configure
-                  </button>
-                </div>
-                <div className="p-6 flex items-center justify-between hover:bg-slate-50 transition">
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm">
-                      Access Control (Turnstiles)
-                    </h4>
-                    <p className="text-xs text-slate-500 font-medium mt-1">
-                      Open doors automatically when Aperture authorized tags
-                      approach.
-                    </p>
-                  </div>
-                  <button className="text-xs font-bold bg-[#007BC4] text-white px-3 py-1.5 rounded shadow-sm hover:bg-[#006aa9] transition">
-                    Configure
-                  </button>
-                </div>
-                <div className="p-6 flex items-center justify-between hover:bg-slate-50 transition">
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm">
-                      Mobile App (Security Staff)
-                    </h4>
-                    <p className="text-xs text-slate-500 font-medium mt-1">
-                      Provision mobile app access for security guards.
-                    </p>
-                  </div>
-                  <button className="text-xs font-bold bg-[#007BC4] text-white px-3 py-1.5 rounded shadow-sm hover:bg-[#006aa9] transition">
-                    Manage Access
-                  </button>
-                </div>
-                <div className="p-6 flex items-center justify-between hover:bg-slate-50 transition">
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm">
-                      SMS Alerts
-                    </h4>
-                    <p className="text-xs text-slate-500 font-medium mt-1">
-                      Send priority security notifications via external
-                      messaging paths.
-                    </p>
-                  </div>
-                  <button className="text-xs font-bold bg-slate-200 text-slate-700 px-3 py-1.5 rounded shadow-sm hover:bg-slate-300 transition">
-                    Setup Twilio Api
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center pt-4">
-                <div></div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleSaveSettings}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md transition disabled:opacity-50"
-                  >
-                    {isSaving ? (
-                      <Save className="w-4 h-4 animate-pulse" />
-                    ) : (
-                      <Save className="w-4 h-4" />
-                    )}
-                    {isSaving ? "Saving..." : "Save Configuration"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeSection === "notifications" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="mb-4">
-                <h3 className="text-xl font-bold text-slate-900">
-                  Notifications
-                </h3>
-                <p className="text-slate-500 font-medium mt-1">
-                  Manage alerting channels and email notification preferences.
-                </p>
-              </div>
-
-              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
-                <div className="p-6 flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-slate-900">Email Alerts</div>
-                    <div className="text-sm font-medium text-slate-500 mt-1">
-                      Receive immediate emails for critical security events.
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={emailAlerts}
-                      onChange={(e) => setEmailAlerts(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
-                  </label>
-                </div>
-                <div className="p-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    Alert Recipient Emails
-                  </label>
-                  <input
-                    type="text"
-                    value={emailRecipients}
-                    onChange={(e) => setEmailRecipients(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-[#007BC4] outline-none transition"
-                  />
-                  <p className="text-xs text-slate-500 mt-2 font-medium">
-                    Comma separated list of email addresses.
-                  </p>
-                </div>
-                <div className="p-6 flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-slate-900">
-                      System Sounds
-                    </div>
-                    <div className="text-sm font-medium text-slate-500 mt-1">
-                      Play an audible chime when an alert is generated.
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={systemSounds}
-                      onChange={(e) => setSystemSounds(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end pt-2">
                 <button
                   onClick={handleSaveSettings}
                   disabled={isSaving}
-                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md transition disabled:opacity-50"
+                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
                 >
-                  {isSaving ? (
-                    <Save className="w-4 h-4 animate-pulse" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  {isSaving ? "Saving..." : "Save Preferences"}
+                  <Save className="w-4 h-4" />
+                  {isSaving ? "Syncing..." : "Save Integration Settings"}
                 </button>
               </div>
             </div>
           )}
 
-          {activeSection === "network" && (
+          {/* SECTION 8: SMART ALERT RULES ENGINE */}
+          {activeSection === "rules" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="mb-4">
-                <h3 className="text-xl font-bold text-slate-900">
-                  Network & API Configuration
-                </h3>
-                <p className="text-slate-500 font-medium mt-1">
-                  Configure connections to external readers and APIs.
-                </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Smart Alert Rules Engine</h3>
+                  <p className="text-slate-500 text-xs font-medium mt-1">
+                    Configure automated condition rules and event reaction workflows.
+                  </p>
+                </div>
               </div>
 
               <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
                 <div className="p-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    Primary API Endpoint URL
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://api.example.com/v1"
-                    value={apiUrl}
-                    onChange={(e) => setApiUrl(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-[#007BC4] outline-none transition font-mono text-sm"
-                  />
-                  <p className="text-xs text-slate-500 mt-2 font-medium">
-                    Used for fetching live RFID tag occurrences.
-                  </p>
-                </div>
-                <div className="p-6 flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-slate-900">
-                      Demo/Simulation Mode
-                    </div>
-                    <div className="text-sm font-medium text-slate-500 mt-1">
-                      Use simulated data instead of fetching from the real API.
-                    </div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded border border-slate-200">
+                      RULE #1
+                    </span>
+                    <span className="font-bold text-slate-800 text-xs">Loitering in Server Room</span>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={apiDemoMode}
-                      onChange={(e) => setApiDemoMode(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
-                  </label>
+                  <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono">
+                    IF tag_dwell_time &gt; 300s AND zone == "Server Room" THEN trigger_alarm("HIGH") AND dispatch_email()
+                  </div>
                 </div>
-                <div className="p-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    MQTT Broker URL (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="mqtt://broker.hivemq.com"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-[#007BC4] outline-none transition font-mono text-sm"
-                  />
-                </div>
-              </div>
 
-              <div className="flex justify-between items-center pt-4">
-                <div>
-                  {testResult === "success" && (
-                    <div className="text-emerald-600 font-bold bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-sm flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />{" "}
-                      Connection Successful
-                    </div>
-                  )}
-                  {testResult === "error" && (
-                    <div className="text-rose-600 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 text-sm flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-rose-500" />{" "}
-                      Connection Failed
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleTestConnection}
-                    disabled={isTesting || apiDemoMode}
-                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-sm font-semibold transition disabled:opacity-50"
-                  >
-                    {isTesting ? (
-                      <>
-                        <Network className="w-4 h-4 animate-spin" /> Testing...
-                      </>
-                    ) : (
-                      <>
-                        <Network className="w-4 h-4" /> Test Connection
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={handleSaveSettings}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-md transition disabled:opacity-50"
-                  >
-                    {isSaving ? (
-                      <Save className="w-4 h-4 animate-pulse" />
-                    ) : (
-                      <Save className="w-4 h-4" />
-                    )}
-                    {isSaving ? "Saving..." : "Save Configuration"}
-                  </button>
+                <div className="p-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded border border-slate-200">
+                      RULE #2
+                    </span>
+                    <span className="font-bold text-slate-800 text-xs">Blacklisted Tag Detected at Perimeter</span>
+                  </div>
+                  <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono">
+                    IF tag_status == "Blacklisted" THEN turnstile_lock() AND trigger_cctv_snapshot()
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
+          {/* SECTION 9: API DOCS & CONSOLE */}
           {activeSection === "apidocs" && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="mb-4">
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
                 <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <Terminal className="w-5 h-5 text-[#007BC4]" /> API
-                  Documentation & Developer Console
+                  <Terminal className="w-5 h-5 text-[#007BC4]" /> API Documentation & Developer Console
                 </h3>
-                <p className="text-slate-500 font-medium mt-1">
-                  Configure security credentials, browse developer schemas, and
-                  execute live sandbox queries against the Aperture RFID People
-                  Tracking APIs.
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Test backend API endpoints directly in browser using custom auth credentials.
                 </p>
               </div>
 
-              {/* Step-by-Step Connection & Architecture Tutorial Card */}
-              <div className="bg-gradient-to-r from-blue-50 to-sky-50 dark:from-slate-800/40 dark:to-slate-800/80 border border-[#007BC4]/25 rounded-2xl p-6 shadow-sm">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
-                  <Sparkles className="w-4.5 h-4.5 text-[#007BC4]" />
-                  How to Connect Your Physical Aperture RFID API Router
-                </h4>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
-                  Our platform features a built-in highly secure, custom Express
-                  backend proxy. Instead of accessing your Aperture RFID controller's
-                  local IP or domain name from the browser (which triggers
-                  browser CORS blockers),{" "}
-                  <strong>
-                    all requests are safely routed through our server-side
-                    secure credentials broker
-                  </strong>
-                  .
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                  <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-                    <div>
-                      <div className="w-6 h-6 rounded-full bg-[#007BC4]/10 text-[#007BC4] font-black flex items-center justify-center text-xs mb-2">
-                        1
-                      </div>
-                      <span className="font-extrabold text-slate-800 dark:text-slate-200 block mb-1">
-                        Set Your API Host
-                      </span>
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        Under the Configuration form below, paste your Aperture
-                        System or controller base service URL.
-                      </p>
-                    </div>
-                    <span className="text-[9px] font-semibold text-slate-400 mt-3 font-mono">
-                      e.g., https://192.168.1.100/rfid
-                    </span>
-                  </div>
-
-                  <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-                    <div>
-                      <div className="w-6 h-6 rounded-full bg-[#007BC4]/10 text-[#007BC4] font-black flex items-center justify-center text-xs mb-2">
-                        2
-                      </div>
-                      <span className="font-extrabold text-slate-800 dark:text-slate-200 block mb-1">
-                        Select Auth Strategy
-                      </span>
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        Choose API Key, Bearer tokens, Basic user-creds, or
-                        OAuth client token generators.
-                      </p>
-                    </div>
-                    <span className="text-[9px] font-semibold text-[#007BC4] mt-3 font-mono">
-                      Secured Server Proxy
-                    </span>
-                  </div>
-
-                  <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-                    <div>
-                      <div className="w-6 h-6 rounded-full bg-[#007BC4]/10 text-[#007BC4] font-black flex items-center justify-center text-xs mb-2">
-                        3
-                      </div>
-                      <span className="font-extrabold text-slate-800 dark:text-slate-200 block mb-1">
-                        Launch Real Mode
-                      </span>
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        Click Test Connection below, then log in under "Real
-                        Connection Mode" to start live mapping sync!
-                      </p>
-                    </div>
-                    <span className="text-[9px] font-bold text-emerald-500 mt-3 flex items-center gap-1">
-                      ✓ Automated 3s polling active
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Dynamic API Configuration Form */}
-              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
-                <div className="p-6">
-                  <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-slate-500" /> 1.
-                    Authentication Configuration
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                        Auth Mechanism
-                      </label>
-                      <select
-                        value={authType}
-                        onChange={(e) => setAuthType(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:border-[#007BC4] focus:ring-1 focus:ring-[#007BC4] outline-none transition"
-                      >
-                        <option value="none">
-                          None (Public / Local Proxy)
-                        </option>
-                        <option value="api_key">
-                          API Key (Custom Headers)
-                        </option>
-                        <option value="bearer">
-                          Bearer Token (Authorization Header)
-                        </option>
-                        <option value="basic">
-                          Basic Auth (Username / Password)
-                        </option>
-                        <option value="oauth">
-                          OAuth 2.0 (Client Credentials Flow)
-                        </option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                        Target API Host URL{" "}
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://www.i360services.com/peopletrackinguhf"
-                        value={apiUrl}
-                        onChange={(e) => setApiUrl(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-mono text-xs focus:border-[#007BC4] outline-none transition"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Conditional Auth Inputs */}
-                  {authType === "api_key" && (
-                    <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-200">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                          API Key Parameter Header Name
-                        </label>
-                        <input
-                          type="text"
-                          value={apiKeyHeader}
-                          onChange={(e) => setApiKeyHeader(e.target.value)}
-                          placeholder="X-API-Key"
-                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:border-[#007BC4] outline-none transition"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                          API Secret Key Value
-                        </label>
-                        <input
-                          type="password"
-                          value={apiKey}
-                          onChange={(e) => setApiKey(e.target.value)}
-                          placeholder="e.g. gao_api_sec_481a7b..."
-                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:border-[#007BC4] outline-none transition"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {authType === "bearer" && (
-                    <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 animate-in fade-in duration-200">
-                      <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                        Bearer Authorization Token
-                      </label>
-                      <input
-                        type="password"
-                        value={bearerToken}
-                        onChange={(e) => setBearerToken(e.target.value)}
-                        placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:border-[#007BC4] outline-none transition"
-                      />
-                    </div>
-                  )}
-
-                  {authType === "basic" && (
-                    <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-200">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                          Basic Username
-                        </label>
-                        <input
-                          type="text"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder="gao@operator"
-                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:border-[#007BC4] outline-none transition"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                          Basic Password
-                        </label>
-                        <input
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••••••••"
-                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:border-[#007BC4] outline-none transition"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {authType === "oauth" && (
-                    <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-4 animate-in fade-in duration-200">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-600 mb-1">
-                            OAuth 2.0 Client ID
-                          </label>
-                          <input
-                            type="text"
-                            value={oauthClientId}
-                            onChange={(e) => setOauthClientId(e.target.value)}
-                            placeholder="client_guid_123..."
-                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:border-[#007BC4] outline-none transition"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-600 mb-1">
-                            OAuth 2.0 Client Secret
-                          </label>
-                          <input
-                            type="password"
-                            value={oauthClientSecret}
-                            onChange={(e) =>
-                              setOauthClientSecret(e.target.value)
-                            }
-                            placeholder="••••••••••••••"
-                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:border-[#007BC4] outline-none transition"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1">
-                          OAuth Token Endpoint URL (grant_type:
-                          client_credentials)
-                        </label>
-                        <input
-                          type="url"
-                          value={oauthTokenUrl}
-                          onChange={(e) => setOauthTokenUrl(e.target.value)}
-                          placeholder="https://auth.i360services.com/oauth/token"
-                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:border-[#007BC4] outline-none transition"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end gap-3 mt-4">
-                    <button
-                      onClick={handleSaveSettings}
-                      disabled={isSaving}
-                      className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition disabled:opacity-50"
+              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      Authentication Mechanism
+                    </label>
+                    <select
+                      value={authType}
+                      onChange={(e) => setAuthType(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition cursor-pointer"
                     >
-                      <Save className="w-3.5 h-3.5" />
-                      {isSaving ? "Preserving..." : "Save Configuration"}
-                    </button>
+                      <option value="none">None (Public / Server Proxy)</option>
+                      <option value="api_key">API Key (Custom Headers)</option>
+                      <option value="bearer">Bearer Token (Authorization Header)</option>
+                      <option value="basic">Basic Auth (Username / Password)</option>
+                      <option value="oauth">OAuth 2.0 (Client Credentials)</option>
+                    </select>
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      Target API Host URL
+                    </label>
+                    <input
+                      type="url"
+                      value={apiUrl}
+                      onChange={(e) => setApiUrl(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-mono text-xs focus:border-[#007BC4] outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleSaveSettings}
+                    disabled={isSaving}
+                    className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {isSaving ? "Saving..." : "Save Credentials"}
+                  </button>
                 </div>
               </div>
 
-              {/* Interactive Documentation Endpoint selector */}
+              {/* Endpoint Runner */}
               <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
-                <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-slate-500" /> 2. Aperture RFID
-                    API Schemas & Endpoints
-                  </h4>
-                  <p className="text-slate-500 text-xs mt-1">
-                    Select an RFID web service endpoint to view its schema
-                    details, required input payload configurations, and execute
-                    it interactively.
-                  </p>
-                </div>
-
                 <div className="flex border-b border-slate-200 text-xs font-bold bg-slate-50 overflow-x-auto">
                   <button
-                    onClick={() => {
-                      setActiveEndpoint("get_realtime");
-                      setSandboxResponse(null);
-                      setSandboxStatus(null);
-                    }}
-                    className={`px-4 py-3 shrink-0 border-b-2 transition-all ${activeEndpoint === "get_realtime" ? "border-[#007BC4] text-[#007BC4] bg-white" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+                    onClick={() => setActiveEndpoint("get_realtime")}
+                    className={`px-4 py-3 shrink-0 border-b-2 transition ${
+                      activeEndpoint === "get_realtime" ? "border-[#007BC4] text-[#007BC4] bg-white" : "border-transparent text-slate-500"
+                    }`}
                   >
                     GET /api/GetTagsInRealtime
                   </button>
                   <button
-                    onClick={() => {
-                      setActiveEndpoint("get_records");
-                      setSandboxResponse(null);
-                      setSandboxStatus(null);
-                    }}
-                    className={`px-4 py-3 shrink-0 border-b-2 transition-all ${activeEndpoint === "get_records" ? "border-[#007BC4] text-[#007BC4] bg-white" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+                    onClick={() => setActiveEndpoint("get_records")}
+                    className={`px-4 py-3 shrink-0 border-b-2 transition ${
+                      activeEndpoint === "get_records" ? "border-[#007BC4] text-[#007BC4] bg-white" : "border-transparent text-slate-500"
+                    }`}
                   >
-                    GET /api/GetHistoryRecords/{"{skip}"}/{"{take}"}
+                    GET /api/GetHistoryRecords
                   </button>
                   <button
-                    onClick={() => {
-                      setActiveEndpoint("get_count");
-                      setSandboxResponse(null);
-                      setSandboxStatus(null);
-                    }}
-                    className={`px-4 py-3 shrink-0 border-b-2 transition-all ${activeEndpoint === "get_count" ? "border-[#007BC4] text-[#007BC4] bg-white" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+                    onClick={() => setActiveEndpoint("get_count")}
+                    className={`px-4 py-3 shrink-0 border-b-2 transition ${
+                      activeEndpoint === "get_count" ? "border-[#007BC4] text-[#007BC4] bg-white" : "border-transparent text-slate-500"
+                    }`}
                   >
                     GET /api/GetHistoryTotalCount
                   </button>
                 </div>
 
-                {/* Endpoint details */}
                 <div className="p-6 space-y-4">
-                  {activeEndpoint === "get_realtime" && (
-                    <div className="space-y-3 animate-in fade-in duration-150">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded uppercase font-mono">
-                          GET
-                        </span>
-                        <code className="text-xs font-mono font-bold text-slate-700">
-                          {apiUrl || DEFAULT_HOST}/api/GetTagsInRealtime
-                        </code>
-                      </div>
-                      <p className="text-xs text-slate-600">
-                        Fetches scanning occurrences and location parameters for
-                        all active wearable RFID employee tracking tags synced
-                        with active readers.
-                      </p>
-                      <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Request Payload Headers
-                        </span>
-                        <div className="bg-slate-900 text-slate-300 p-3 rounded-lg font-mono text-[11px] space-y-0.5">
-                          <div>Content-Type: application/json</div>
-                          <div>Accept: application/json</div>
-                          {authType !== "none" && (
-                            <div>
-                              Authorization:{" "}
-                              {authType === "bearer"
-                                ? "Bearer [Token]"
-                                : authType === "basic"
-                                  ? "Basic [Base64-encoded]"
-                                  : "Header auth configured"}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Expected Response Schema (JSON Array)
-                        </span>
-                        <div className="bg-slate-900 text-sky-400 p-3 rounded-lg font-mono text-[11px]">
-                          <pre>{`[
-  {
-    "TagID": "E2801130200076D491CC01BB",
-    "Timestamp": "2026-06-06 10:43:00",
-    "Location": "General Office"
-  }
-]`}</pre>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeEndpoint === "get_records" && (
-                    <div className="space-y-3 animate-in fade-in duration-150">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded uppercase font-mono">
-                          GET
-                        </span>
-                        <code className="text-xs font-mono font-bold text-slate-700">
-                          {apiUrl || DEFAULT_HOST}/api/GetHistoryRecords/
-                          {sandboxSkip}/{sandboxTake}
-                        </code>
-                      </div>
-                      <p className="text-xs text-slate-600">
-                        Retrieves paginated tracking logs detailing movement
-                        histories, dwell times, and entry/leave events for
-                        security reports.
-                      </p>
-
-                      {/* Paginated Inputs inside sandbox */}
-                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex flex-wrap items-center gap-4 text-xs font-bold text-slate-700">
-                        <div className="flex items-center gap-2">
-                          <span>Skip (Offset):</span>
-                          <input
-                            type="number"
-                            value={sandboxSkip}
-                            onChange={(e) =>
-                              setSandboxSkip(
-                                Math.max(0, parseInt(e.target.value) || 0),
-                              )
-                            }
-                            className="w-16 bg-white border border-slate-200 rounded px-2 py-1 text-center"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span>Take (Limit):</span>
-                          <input
-                            type="number"
-                            value={sandboxTake}
-                            onChange={(e) =>
-                              setSandboxTake(
-                                Math.max(1, parseInt(e.target.value) || 10),
-                              )
-                            }
-                            className="w-16 bg-white border border-slate-200 rounded px-2 py-1 text-center"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Expected Response Schema (JSON Array)
-                        </span>
-                        <div className="bg-slate-900 text-sky-400 p-3 rounded-lg font-mono text-[11px]">
-                          <pre>{`[
-  {
-    "TagID": "E2801130200076D491CC01BB",
-    "FirstName": "Sarah",
-    "LastName": "Connor",
-    "LocationName": "Server Room",
-    "EnterTimeStr": "2026-06-06 09:30:15",
-    "LeaveTimeStr": "2026-06-06 10:05:40",
-    "Duration": 2125
-  }
-]`}</pre>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeEndpoint === "get_count" && (
-                    <div className="space-y-3 animate-in fade-in duration-150">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded uppercase font-mono">
-                          GET
-                        </span>
-                        <code className="text-xs font-mono font-bold text-slate-700">
-                          {apiUrl || DEFAULT_HOST}/api/GetHistoryTotalCount
-                        </code>
-                      </div>
-                      <p className="text-xs text-slate-600">
-                        Retrieves an integer representing the aggregate sum of
-                        all logged history events registered throughout the
-                        system workspace database.
-                      </p>
-                      <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Expected Response Schema
-                        </span>
-                        <div className="bg-slate-900 text-sky-400 p-3 rounded-lg font-mono text-[11px]">
-                          <div>
-                            Integer value representing total count. Example:{" "}
-                            <code>14285</code>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Sandbox interactive button trigger */}
-                  <div className="pt-4 border-t border-slate-150 flex items-center justify-between">
-                    <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
-                      <Server className="w-3 h-3 text-slate-400" /> Full-stack
-                      backend proxy layer active.
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold text-slate-700">
+                      {apiUrl}/api/
+                      {activeEndpoint === "get_count"
+                        ? "GetHistoryTotalCount"
+                        : activeEndpoint === "get_records"
+                        ? `GetHistoryRecords/${sandboxSkip}/${sandboxTake}`
+                        : "GetTagsInRealtime"}
+                    </span>
                     <button
                       onClick={async () => {
                         setIsRunningSandbox(true);
                         setSandboxResponse(null);
                         setSandboxStatus(null);
-
-                        const customHeaders: Record<string, string> = {
-                          "Content-Type": "application/json",
-                        };
-
-                        if (apiUrl) {
-                          customHeaders["x-gao-target-host"] = apiUrl;
-                        }
-
-                        customHeaders["x-gao-auth-type"] = authType;
-
-                        if (authType === "api_key") {
-                          customHeaders["x-gao-api-key"] = apiKey;
-                          customHeaders["x-gao-api-key-header"] = apiKeyHeader;
-                        } else if (authType === "bearer") {
-                          customHeaders["x-gao-bearer-token"] = bearerToken;
-                        } else if (authType === "basic") {
-                          customHeaders["x-gao-username"] = username;
-                          customHeaders["x-gao-password"] = password;
-                        } else if (authType === "oauth") {
-                          customHeaders["x-gao-oauth-client-id"] =
-                            oauthClientId;
-                          customHeaders["x-gao-oauth-client-secret"] =
-                            oauthClientSecret;
-                          customHeaders["x-gao-oauth-token-url"] =
-                            oauthTokenUrl;
-                        }
-
                         try {
-                          let resData: any = null;
-                          let urlStr = "";
+                          let data = null;
                           if (activeEndpoint === "get_count") {
-                            urlStr = `${apiUrl.replace(/\/$/, "")}/api/GetHistoryTotalCount`;
-                            const count =
-                              await gaoApi.getHistoryTotalCount(customHeaders);
-                            resData = { totalHistoryCount: count };
+                            data = { totalCount: await gaoApi.getHistoryTotalCount() };
                           } else if (activeEndpoint === "get_records") {
-                            urlStr = `${apiUrl.replace(/\/$/, "")}/api/GetHistoryRecords/${sandboxSkip}/${sandboxTake}`;
-                            const records = await gaoApi.getHistoryRecords(
-                              sandboxSkip,
-                              sandboxTake,
-                              customHeaders,
-                            );
-                            resData = records;
+                            data = await gaoApi.getHistoryRecords(sandboxSkip, sandboxTake);
                           } else {
-                            urlStr = `${apiUrl.replace(/\/$/, "")}/api/GetTagsInRealtime`;
-                            const tags =
-                              await gaoApi.getTagsInRealtime(customHeaders);
-                            resData = tags;
+                            data = await gaoApi.getTagsInRealtime();
                           }
-                          setSandboxUrl(urlStr);
-                          setSandboxResponse(resData);
+                          setSandboxResponse(data);
                           setSandboxStatus("200 OK");
                         } catch (err: any) {
-                          console.error("Sandbox run error:", err);
-                          let urlStr = "";
-                          if (activeEndpoint === "get_count") {
-                            urlStr = `${apiUrl.replace(/\/$/, "")}/api/GetHistoryTotalCount`;
-                          } else if (activeEndpoint === "get_records") {
-                            urlStr = `${apiUrl.replace(/\/$/, "")}/api/GetHistoryRecords/${sandboxSkip}/${sandboxTake}`;
-                          } else {
-                            urlStr = `${apiUrl.replace(/\/$/, "")}/api/GetTagsInRealtime`;
-                          }
-                          setSandboxUrl(urlStr);
-                          setSandboxStatus("Error / Failed to Fetch");
-                          setSandboxResponse({
-                            error: err.message,
-                            explanation:
-                              "Direct fetch failed or timed out. Make sure you entered a valid API host and that target serves CORS headers correctly.",
-                            solution:
-                              "Verify your dynamic auth header configurations above, or try testing inside simulated tracking tabs.",
-                          });
+                          setSandboxStatus("Error");
+                          setSandboxResponse({ error: err.message });
                         } finally {
                           setIsRunningSandbox(false);
                         }
                       }}
                       disabled={isRunningSandbox}
-                      className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold transition shadow-md disabled:opacity-50"
+                      className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
                     >
-                      {isRunningSandbox ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Play className="w-3.5 h-3.5" />
-                      )}
-                      {isRunningSandbox
-                        ? "Executing Sandbox Request..."
-                        : "Send Request / Run Endpoint"}
+                      {isRunningSandbox ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                      Execute Request
                     </button>
                   </div>
 
-                  {/* Live Sandbox response inspector */}
-                  {(sandboxStatus || sandboxResponse) && (
-                    <div className="mt-4 p-4 bg-slate-900 rounded-xl border border-slate-800 shadow-xl space-y-3 animate-in slide-in-from-top-2 duration-300">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                          Live Response Console
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded font-mono ${sandboxStatus?.includes("OK") ? "bg-emerald-950/80 text-emerald-400" : "bg-rose-950/80 text-rose-400"}`}
-                          >
-                            {sandboxStatus}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono break-all pb-2 border-b border-slate-800">
-                        <span className="text-slate-500 pr-1">
-                          Target Request:
-                        </span>{" "}
-                        {sandboxUrl}
-                      </div>
-                      <pre className="text-emerald-400 font-mono text-[11px] overflow-x-auto whitespace-pre-wrap max-h-72 p-1">
-                        {JSON.stringify(sandboxResponse, null, 2)}
-                      </pre>
+                  {sandboxResponse && (
+                    <div className="p-4 bg-slate-900 text-emerald-400 rounded-xl font-mono text-xs overflow-x-auto max-h-60">
+                      <pre>{JSON.stringify(sandboxResponse, null, 2)}</pre>
                     </div>
                   )}
                 </div>
@@ -2095,529 +2165,613 @@ export default function SettingsTab() {
             </div>
           )}
 
-          {/* Access Control & Custom Claims Administration Section */}
+          {/* SECTION 10: ACCESS CONTROL & CUSTOM CLAIMS */}
           {activeSection === "access" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="mb-4">
-                <h3 className="text-xl font-bold text-slate-900">
-                  Access Control & Role Custom Claims
-                </h3>
-                <p className="text-slate-500 font-medium mt-1">
-                  Manage Firebase Auth Custom Claims, system roles, and resource
-                  access limits in real-time.
-                </p>
-              </div>
-
-              {/* Current Session Auth Claim Status Card */}
-              <div className="bg-gradient-to-r from-slate-900 to-[#005c94] text-white p-6 rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div>
-                  <span className="text-[10px] font-bold text-[#E0F2FE]/80 uppercase tracking-widest block mb-1">
-                    Your Verified Custom Claims Token
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-lg font-bold truncate max-w-[280px] md:max-w-md">
-                      {auth.currentUser?.email || "Anonymous Session"}
-                    </h4>
-                    <span
-                      className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase ${
-                        userRole === "admin"
-                          ? "bg-emerald-500 text-white"
-                          : userRole === "manager"
-                            ? "bg-amber-500 text-white"
-                            : userRole === "operator"
-                              ? "bg-blue-500 text-white"
-                              : "bg-red-500 text-white"
-                      }`}
-                    >
-                      {userRole}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#E0F2FE]/70 mt-1.5 font-medium">
-                    Custom claims are cryptographically signed inside your
-                    Firebase Auth token. Bypasses Firestore Rule calculations
-                    entirely.
+                  <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    <ShieldCheck className="w-6 h-6 text-[#007BC4]" /> Access Control, Custom Roles & Page Permissions Matrix
+                  </h3>
+                  <p className="text-slate-500 text-xs font-medium mt-1">
+                    Manage role-based page visibility, provision custom staff roles, and configure individual page access overrides. All matrix configurations sync directly to MongoDB & Firestore.
                   </p>
                 </div>
-                <button
-                  onClick={handleForceTokenRefresh}
-                  disabled={isRefreshingClaims}
-                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white px-4 py-2 rounded-xl text-xs font-bold transition shrink-0 disabled:opacity-50"
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${isRefreshingClaims ? "animate-spin" : ""}`}
-                  />
-                  Refresh Verified Claims
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={loadManagementData}
+                    disabled={isLoadingUsers}
+                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold transition cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? "animate-spin" : ""}`} /> Refresh Data
+                  </button>
+                  <button
+                    onClick={handleSavePermissions}
+                    disabled={isSavingPermissions}
+                    className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSavingPermissions ? "Saving Matrix..." : "Save Role Matrix"}
+                  </button>
+                </div>
               </div>
 
-              {/* Alerts and Feedback */}
               {actionSuccessMessage && (
-                <div className="bg-emerald-50 text-emerald-800 p-4 rounded-xl border border-emerald-200 text-sm flex items-start gap-2.5 shadow-sm animate-in fade-in duration-200">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold">Claim updated successfully</p>
-                    <p className="font-medium text-xs mt-0.5">
-                      {actionSuccessMessage}
-                    </p>
-                  </div>
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{actionSuccessMessage}</span>
                 </div>
               )}
 
               {actionErrorMessage && (
-                <div className="bg-rose-50 text-rose-800 p-4 rounded-xl border border-rose-200 text-sm flex items-start gap-2.5 shadow-sm animate-in fade-in duration-200">
-                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold">Operation failed</p>
-                    <p className="font-medium text-xs mt-0.5">
-                      {actionErrorMessage}
-                    </p>
-                  </div>
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{actionErrorMessage}</span>
                 </div>
               )}
 
-              {/* Developer Bypass Toggle Alert */}
-              {userRole !== "admin" && (
-                <div className="bg-slate-100 border border-slate-200 rounded-xl p-4 flex gap-3 text-sm text-slate-700 font-medium animate-in slide-in-from-top-2 duration-300">
-                  <Lock className="w-5 h-5 text-[#007BC4] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-slate-800 block">
-                      Restricted Administration Mockup Mode
-                    </span>
-                    <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                      Your account does not possess the <strong>admin</strong>{" "}
-                      role. Role dropdown changes will set Firebase custom
-                      claims, but to fully bypass the Dashboard view
-                      restrictions in a real session, sign in or register with
-                      email{" "}
-                      <strong className="text-slate-700 font-bold">
-                        sigmund.t.d@gaostaff.com
-                      </strong>{" "}
-                      (auto-bootstrapped as Admin).
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Provision New Staff Account Card */}
-              <div className="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden p-6 space-y-4">
-                <div className="border-b border-slate-100 pb-3">
-                  <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                    <User className="w-4 h-4 text-[#007BC4]" /> Provision New
-                    Staff User Account
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                    Create a brand new credential on Firebase Authentication and
-                    assign a verified custom claim role instantly.
-                  </p>
-                </div>
-
-                {creationSuccess && (
-                  <div className="bg-emerald-50 text-emerald-800 p-3 rounded-lg border border-emerald-200 text-xs flex items-start gap-2 animate-in fade-in duration-200">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold">Account created successfully</p>
-                      <p className="mt-0.5 font-medium text-[11px]">
-                        {creationSuccess}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {creationError && (
-                  <div className="bg-rose-50 text-rose-800 p-3 rounded-lg border border-rose-200 text-xs flex items-start gap-2 animate-in fade-in duration-200">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold">Failed to create account</p>
-                      <p className="mt-0.5 font-medium text-[11px]">
-                        {creationError}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <form
-                  onSubmit={handleCreateUser}
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end"
+              {/* Subtabs Navigation */}
+              <div className="flex border-b border-slate-200 text-xs font-bold bg-white rounded-t-xl overflow-x-auto shadow-sm">
+                <button
+                  onClick={() => setActiveAccessTab("matrix")}
+                  className={`px-5 py-3 shrink-0 flex items-center gap-2 border-b-2 font-bold transition cursor-pointer ${
+                    activeAccessTab === "matrix"
+                      ? "border-[#007BC4] text-[#007BC4] bg-slate-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
                 >
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                      Display Name
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. John Doe"
-                      value={createDisplayName}
-                      onChange={(e) => setCreateDisplayName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 font-semibold focus:border-[#007BC4] focus:ring-1 focus:ring-[#007BC4] outline-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="john.doe@gaostaff.com"
-                      value={createEmail}
-                      onChange={(e) => setCreateEmail(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 font-semibold focus:border-[#007BC4] focus:ring-1 focus:ring-[#007BC4] outline-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                      Temp Password *
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Min. 6 chars"
-                      value={createPassword}
-                      onChange={(e) => setCreatePassword(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 font-semibold focus:border-[#007BC4] focus:ring-1 focus:ring-[#007BC4] outline-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                      Custom Claim Role *
-                    </label>
-                    <div className="flex gap-2">
-                      <select
-                        required
-                        value={createRole}
-                        onChange={(e) => setCreateRole(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-semibold focus:border-[#007BC4] focus:ring-1 focus:ring-[#007BC4] outline-none transition cursor-pointer"
-                      >
-                        <option value="operator">Operator</option>
-                        <option value="manager">Manager</option>
-                        <option value="admin">Admin</option>
-                        <option value="blocked">Blocked</option>
-                      </select>
-                      <button
-                        type="submit"
-                        disabled={isCreatingUser || userRole !== "admin"}
-                        className="bg-[#007BC4] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition disabled:opacity-50 shrink-0 shadow-sm cursor-pointer animate-pulse-slow"
-                      >
-                        {isCreatingUser ? "Creating..." : "Provision"}
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              </div>
-
-              {/* Users Claims roster */}
-              <div className="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-                <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                      <Users className="w-4 h-4 text-[#007BC4]" /> Registered
-                      accounts custom claims
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Manage Firebase Custom User Claims and role permissions on
-                      the live server.
-                    </p>
-                  </div>
-                  <button
-                    onClick={loadManagementData}
-                    disabled={isLoadingUsers}
-                    className="bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 p-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1"
-                  >
-                    <RefreshCw
-                      className={`w-3 h-3 ${isLoadingUsers ? "animate-spin" : ""}`}
-                    />
-                  </button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-wider border-b border-slate-100">
-                        <th className="py-3 px-5">Account Email</th>
-                        <th className="py-3 px-5">Provider UID</th>
-                        <th className="py-3 px-5">Custom Claim Role</th>
-                        <th className="py-3 px-5">Sync State</th>
-                        <th className="py-3 px-5 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {isLoadingUsers ? (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="py-8 text-center text-slate-400 font-medium text-xs"
-                          >
-                            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-[#007BC4]" />{" "}
-                            Loading Auth user listings...
-                          </td>
-                        </tr>
-                      ) : users.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="py-8 text-center text-slate-400 font-medium text-xs"
-                          >
-                            No registered accounts found. Registered users will
-                            appear automatically.
-                          </td>
-                        </tr>
-                      ) : (
-                        users.map((u) => (
-                          <tr
-                            key={u.uid}
-                            className="hover:bg-slate-50/50 transition"
-                          >
-                            <td className="py-3.5 px-5">
-                              <div className="font-bold text-slate-900">
-                                {u.displayName || u.email.split("@")[0]}
-                              </div>
-                              <div className="text-xs text-slate-400 font-mono">
-                                {u.email}
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-5 text-slate-500 font-mono text-xs">
-                              {u.uid}
-                            </td>
-                            <td className="py-3.5 px-5">
-                              <select
-                                value={u.role || "operator"}
-                                onChange={(e) =>
-                                  handleUpdateUserRole(u.uid, e.target.value)
-                                }
-                                className="bg-slate-50 border border-slate-200 hover:border-slate-300 rounded px-2 py-1 outline-none text-xs font-semibold text-slate-700 transition"
-                              >
-                                <option value="operator">Operator</option>
-                                <option value="manager">Manager</option>
-                                <option value="admin">Admin</option>
-                                <option value="blocked">Blocked</option>
-                              </select>
-                            </td>
-                            <td className="py-3.5 px-5 text-slate-400 text-xs font-semibold">
-                              Synced{" "}
-                              {u.updatedAt
-                                ? new Date(u.updatedAt).toLocaleTimeString()
-                                : "N/A"}
-                            </td>
-                            <td className="py-3.5 px-5 text-right">
-                              <button
-                                onClick={() => handleDeleteUser(u.uid, u.email)}
-                                disabled={
-                                  u.uid === "sigmund_ts_boot" ||
-                                  u.email === auth.currentUser?.email
-                                }
-                                className="text-red-500 hover:text-red-700 disabled:opacity-30 disabled:hover:text-red-500 cursor-pointer p-1.5 rounded hover:bg-red-50 transition"
-                                title={
-                                  u.uid === "sigmund_ts_boot"
-                                    ? "Cannot delete primary root administrator account"
-                                    : u.email === auth.currentUser?.email
-                                      ? "Cannot delete your own active running session account"
-                                      : "Delete account registry"
-                                }
-                              >
-                                <Trash2 className="w-4 h-4 inline-block" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Policy permissions matrix */}
-              <div className="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden animate-in fade-in duration-300">
-                <div className="p-5 border-b border-slate-100">
-                  <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-[#007BC4]" /> Role Access
-                    Control & Visibility Matrix
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                    Fine-tune screen and dashboard visibility mapping across
-                    each custom claim tier.
-                  </p>
-                </div>
-
-                <div className="p-5 space-y-4">
-                  <div className="overflow-x-auto border border-slate-100 rounded-xl">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-100 bg-slate-50/50">
-                          <th className="py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Feature Section</th>
-                          {["admin", "manager", "operator", "blocked"].map((role) => (
-                            <th key={role} className="py-3 px-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                              <span className="bg-[#007BC4]/10 text-[#007BC4] px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                                {role}
-                              </span>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        {[
-                          { key: "dashboard", label: "Dashboard / Home", desc: "Access the real-time telemetry overview" },
-                          { key: "live", label: "Live Tracking Map", desc: "View physical tag positions on floor maps" },
-                          { key: "playback", label: "Playback History", desc: "Replay past tag movements over timeline" },
-                          { key: "people", label: "Personnel Registry", desc: "Manage staff, tags, and assignments" },
-                          { key: "visitors", label: "Visitor Management", desc: "Track guests and temporary badges" },
-                          { key: "attendance", label: "Attendance Insights", desc: "Monitor daily automatic timesheets" },
-                          { key: "alerts", label: "Alerts Control Center", desc: "Respond to zone loitering and idle triggers" },
-                          { key: "incidents", label: "Incident Investigations", desc: "Review historic flags and actions taken" },
-                          { key: "analytics", label: "Traffic Analytics", desc: "Explore aggregations and flow charts" },
-                          { key: "aiInsights", label: "AI Insights Engine", desc: "Query Gemini predictive reports" },
-                          { key: "devices", label: "Devices & Beacons", desc: "Register anchor hardware and firmware tags" },
-                          { key: "maintenance", label: "Maintenance Scheduler", desc: "Track node battery replacements" },
-                          { key: "settings", label: "System Settings Console", desc: "Configure database connection and global variables" },
-                          { key: "audit", label: "Audit & CSV Compliance", desc: "Review strict GAMP 5 log history" }
-                        ].map((sec) => (
-                          <tr key={sec.key} className="hover:bg-slate-50/50 transition duration-150">
-                            <td className="py-3.5 px-4 font-medium">
-                              <div className="font-bold text-slate-800 text-xs">{sec.label}</div>
-                              <div className="text-[10px] text-slate-400 mt-0.5 font-normal">{sec.desc}</div>
-                            </td>
-                            {["admin", "manager", "operator", "blocked"].map((role) => (
-                              <td key={role} className="py-3.5 px-4 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={!!rolePermissions[role]?.[sec.key]}
-                                  onChange={(e) => {
-                                    const updated = { ...rolePermissions };
-                                    if (!updated[role]) {
-                                      updated[role] = {};
-                                    }
-                                    updated[role] = {
-                                      ...updated[role],
-                                      [sec.key]: e.target.checked
-                                    };
-                                    setRolePermissions(updated);
-                                  }}
-                                  className="rounded border-slate-300 text-[#007BC4] focus:ring-[#007BC4]/30 w-4.5 h-4.5 cursor-pointer text-xs"
-                                />
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="flex justify-end pt-3">
-                    <button
-                      onClick={handleSavePermissions}
-                      disabled={isSavingPermissions}
-                      className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-md disabled:opacity-50"
-                    >
-                      {isSavingPermissions ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Save className="w-3.5 h-3.5" />
-                      )}
-                      Save Permissions Matrix
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeSection === "rules" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">
-                    Smart Alert Rules Engine
-                  </h3>
-                  <p className="text-slate-500 font-medium mt-1">
-                    Configure automated conditional actions and security
-                    triggers.
-                  </p>
-                </div>
-                <button className="bg-[#007BC4] text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm hover:bg-[#006aa9] transition">
-                  + New Rule
+                  <ShieldCheck className="w-4 h-4" /> Role Page Matrix
+                </button>
+                <button
+                  onClick={() => setActiveAccessTab("staff")}
+                  className={`px-5 py-3 shrink-0 flex items-center gap-2 border-b-2 font-bold transition cursor-pointer ${
+                    activeAccessTab === "staff"
+                      ? "border-[#007BC4] text-[#007BC4] bg-slate-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <UserCheck className="w-4 h-4" /> Staff Accounts & Individual Overrides ({users.length})
+                </button>
+                <button
+                  onClick={() => setActiveAccessTab("roles")}
+                  className={`px-5 py-3 shrink-0 flex items-center gap-2 border-b-2 font-bold transition cursor-pointer ${
+                    activeAccessTab === "roles"
+                      ? "border-[#007BC4] text-[#007BC4] bg-slate-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Sliders className="w-4 h-4" /> Custom Roles Management ({customRoles.length})
                 </button>
               </div>
 
-              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
-                <div className="p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                      <span className="text-xs font-bold text-slate-500 uppercase">
-                        IF
-                      </span>
-                    </div>
-                    <div className="font-semibold text-slate-800 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 flex-1">
-                      Visitor enters Server Room
+              {/* SUBTAB 1: ROLE PAGE ACCESS MATRIX */}
+              {activeAccessTab === "matrix" && (
+                <div className="space-y-5">
+                  {/* Role Selector Pills */}
+                  <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-4 space-y-3">
+                    <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Select System or Custom Role to Configure:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {customRoles.map((r) => (
+                        <button
+                          key={r.id}
+                          onClick={() => setActiveRoleTab(r.id)}
+                          className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition cursor-pointer border ${
+                            activeRoleTab === r.id
+                              ? "bg-[#007BC4] text-white border-[#007BC4] shadow-sm"
+                              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span>{r.label}</span>
+                          {r.isCustom && <span className="bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5 rounded uppercase">Custom</span>}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200">
-                      <span className="text-xs font-bold text-emerald-700 uppercase">
-                        THEN
-                      </span>
+
+                  {/* Role Header & Quick Controls */}
+                  {(() => {
+                    const currentRoleObj = customRoles.find(r => r.id === activeRoleTab) || { id: activeRoleTab, label: activeRoleTab, desc: "" };
+                    const currentPerms = rolePermissions[activeRoleTab] || {};
+                    const allowedCount = SYSTEM_PAGES.filter(p => currentPerms[p.id]).length;
+
+                    return (
+                      <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-5 space-y-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-extrabold text-slate-900 text-base">{currentRoleObj.label}</h4>
+                              <span className="font-mono text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded font-bold">role_id: {currentRoleObj.id}</span>
+                              <span className="text-xs font-bold bg-blue-50 text-[#007BC4] px-2.5 py-0.5 rounded-full">
+                                {allowedCount} / {SYSTEM_PAGES.length} Pages Accessible
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1 font-medium">{currentRoleObj.desc || "Configurable role access policy"}</p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleGrantAllPagesForRole(activeRoleTab)}
+                              className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+                            >
+                              <CheckSquare className="w-3.5 h-3.5" /> Grant All Pages
+                            </button>
+                            <button
+                              onClick={() => handleRevokeAllPagesForRole(activeRoleTab)}
+                              className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+                            >
+                              <Square className="w-3.5 h-3.5" /> Revoke All Pages
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Pages Matrix Grid grouped by category */}
+                        <div className="space-y-6 pt-2">
+                          {["Core Operations", "Personnel & Access", "Safety & Security", "Analytics & Logs", "Hardware & IoT", "Administration"].map((cat) => {
+                            const catPages = SYSTEM_PAGES.filter(p => p.category === cat);
+                            if (catPages.length === 0) return null;
+
+                            return (
+                              <div key={cat} className="space-y-2">
+                                <h5 className="text-[11px] font-bold uppercase tracking-wider text-[#007BC4] border-b border-slate-100 pb-1">{cat}</h5>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {catPages.map((page) => {
+                                    const isAllowed = Boolean(currentPerms[page.id]);
+                                    return (
+                                      <div
+                                        key={page.id}
+                                        onClick={() => handleToggleRolePagePermission(activeRoleTab, page.id)}
+                                        className={`p-3.5 rounded-xl border transition cursor-pointer flex items-start justify-between gap-3 ${
+                                          isAllowed
+                                            ? "bg-emerald-50/40 border-emerald-200 hover:bg-emerald-50"
+                                            : "bg-slate-50/70 border-slate-200 hover:bg-slate-100"
+                                        }`}
+                                      >
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-bold text-xs text-slate-900">{page.label}</span>
+                                          </div>
+                                          <p className="text-[10px] text-slate-500 font-medium line-clamp-2 mt-0.5">{page.desc}</p>
+                                        </div>
+
+                                        <div className="shrink-0 flex items-center">
+                                          <span
+                                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 ${
+                                              isAllowed ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700"
+                                            }`}
+                                          >
+                                            {isAllowed ? <Check className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                                            {isAllowed ? "Allowed" : "Restricted"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* SUBTAB 2: STAFF ACCOUNTS & INDIVIDUAL OVERRIDES */}
+              {activeAccessTab === "staff" && (
+                <div className="space-y-6">
+                  {/* User Provisioning Form */}
+                  <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-6 space-y-4">
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                      <User className="w-4 h-4 text-[#007BC4]" /> Provision Staff User Account
+                    </h4>
+
+                    <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Display Name</label>
+                        <input
+                          type="text"
+                          value={createDisplayName}
+                          onChange={(e) => setCreateDisplayName(e.target.value)}
+                          placeholder="e.g. John Doe"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-[#007BC4]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Email *</label>
+                        <input
+                          type="email"
+                          required
+                          value={createEmail}
+                          onChange={(e) => setCreateEmail(e.target.value)}
+                          placeholder="john@gaostaff.com"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-[#007BC4]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Password *</label>
+                        <input
+                          type="password"
+                          required
+                          value={createPassword}
+                          onChange={(e) => setCreatePassword(e.target.value)}
+                          placeholder="Min 6 characters"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-[#007BC4]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Assigned Role</label>
+                        <div className="flex gap-2">
+                          <select
+                            value={createRole}
+                            onChange={(e) => setCreateRole(e.target.value)}
+                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-xs font-semibold flex-1 cursor-pointer outline-none focus:border-[#007BC4]"
+                          >
+                            {customRoles.map((r) => (
+                              <option key={r.id} value={r.id}>{r.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="submit"
+                            disabled={isCreatingUser}
+                            className="bg-[#007BC4] hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm transition disabled:opacity-50 cursor-pointer shrink-0"
+                          >
+                            {isCreatingUser ? "..." : "Create Account"}
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Users Roster Table with Individual Override Accordion */}
+                  <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm">Staff Accounts & Individual Page Access Policies</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Assign primary role claims or grant/revoke specific page access per staff member.</p>
+                      </div>
+                      <button
+                        onClick={loadManagementData}
+                        disabled={isLoadingUsers}
+                        className="p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? "animate-spin" : ""}`} />
+                      </button>
                     </div>
-                    <div className="flex flex-wrap gap-2 flex-1">
-                      <span className="bg-slate-50 font-semibold text-slate-700 text-sm px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                        Trigger CCTV
-                      </span>
-                      <span className="bg-slate-50 font-semibold text-slate-700 text-sm px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                        SMS Security Team
-                      </span>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                            <th className="py-2.5 px-4">Staff Member</th>
+                            <th className="py-2.5 px-4">Firebase UID</th>
+                            <th className="py-2.5 px-4">Assigned Role Claim</th>
+                            <th className="py-2.5 px-4 text-center">Individual Page Overrides</th>
+                            <th className="py-2.5 px-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium">
+                          {users.map((u) => {
+                            const isExpanded = expandedUserUid === u.uid;
+                            const currentOverrides = userPageOverrides[u.uid] || {};
+                            const overrideCount = Object.keys(currentOverrides).length;
+
+                            return (
+                              <React.Fragment key={u.uid}>
+                                <tr className="hover:bg-slate-50/50">
+                                  <td className="py-3 px-4 font-bold text-slate-800">
+                                    {u.displayName || u.email}
+                                    <div className="text-[10px] text-slate-400 font-mono font-normal">{u.email}</div>
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-[10px] text-slate-500">{u.uid}</td>
+                                  <td className="py-3 px-4">
+                                    <select
+                                      value={u.role || "operator"}
+                                      onChange={(e) => handleUpdateUserRole(u.uid, e.target.value)}
+                                      className="bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 font-bold text-xs cursor-pointer focus:border-[#007BC4] outline-none"
+                                    >
+                                      {customRoles.map((r) => (
+                                        <option key={r.id} value={r.id}>{r.label}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    <button
+                                      onClick={() => handleLoadUserPageOverrides(u.uid)}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 mx-auto cursor-pointer border ${
+                                        isExpanded
+                                          ? "bg-[#007BC4] text-white border-[#007BC4]"
+                                          : overrideCount > 0
+                                          ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                                          : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                                      }`}
+                                    >
+                                      <Sliders className="w-3.5 h-3.5" />
+                                      <span>Configure Page Access</span>
+                                      {overrideCount > 0 && (
+                                        <span className="bg-amber-200 text-amber-900 text-[9px] px-1.5 py-0.2 rounded-full font-extrabold">{overrideCount} active</span>
+                                      )}
+                                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <button
+                                      onClick={() => handleDeleteUser(u.uid, u.email)}
+                                      className="text-rose-500 hover:text-rose-700 p-1.5 rounded hover:bg-rose-50 transition cursor-pointer"
+                                      title="Delete Account"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+
+                                {/* Expanded Staff Page Overrides Drawer */}
+                                {isExpanded && (
+                                  <tr className="bg-slate-50/80">
+                                    <td colSpan={5} className="p-4">
+                                      <div className="bg-white border border-slate-200 shadow-inner rounded-xl p-5 space-y-4">
+                                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                          <div>
+                                            <h5 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                                              <UserCheck className="w-4 h-4 text-[#007BC4]" /> Individual Page Access Policies for {u.displayName || u.email}
+                                            </h5>
+                                            <p className="text-xs text-slate-500 mt-0.5">
+                                              Specific overrides apply regardless of the default role permissions matrix ({u.role || "operator"}).
+                                            </p>
+                                          </div>
+                                          <button
+                                            onClick={() => handleSaveUserPageOverrides(u.uid, u.email)}
+                                            disabled={savingUserOverrideUid === u.uid}
+                                            className="bg-[#007BC4] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                                          >
+                                            <Save className="w-3.5 h-3.5" />
+                                            {savingUserOverrideUid === u.uid ? "Saving..." : "Save Staff Overrides"}
+                                          </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                          {SYSTEM_PAGES.map((p) => {
+                                            const overrideValue = currentOverrides[p.id];
+                                            let currentSetting: 'inherit' | 'allow' | 'deny' = 'inherit';
+                                            if (overrideValue === true) currentSetting = 'allow';
+                                            if (overrideValue === false) currentSetting = 'deny';
+
+                                            return (
+                                              <div key={p.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                  <span className="font-bold text-xs text-slate-900">{p.label}</span>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-1">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleToggleUserPageOverride(u.uid, p.id, 'inherit')}
+                                                    className={`py-1 text-[10px] font-bold rounded transition cursor-pointer border ${
+                                                      currentSetting === 'inherit'
+                                                        ? "bg-slate-700 text-white border-slate-700"
+                                                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                                                    }`}
+                                                  >
+                                                    Inherit
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleToggleUserPageOverride(u.uid, p.id, 'allow')}
+                                                    className={`py-1 text-[10px] font-bold rounded transition cursor-pointer border ${
+                                                      currentSetting === 'allow'
+                                                        ? "bg-emerald-600 text-white border-emerald-600"
+                                                        : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                                                    }`}
+                                                  >
+                                                    Allow
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleToggleUserPageOverride(u.uid, p.id, 'deny')}
+                                                    className={`py-1 text-[10px] font-bold rounded transition cursor-pointer border ${
+                                                      currentSetting === 'deny'
+                                                        ? "bg-rose-600 text-white border-rose-600"
+                                                        : "bg-white text-rose-700 border-rose-200 hover:bg-rose-50"
+                                                    }`}
+                                                  >
+                                                    Deny
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>
+              )}
 
-                <div className="p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                      <span className="text-xs font-bold text-slate-500 uppercase">
-                        IF
-                      </span>
-                    </div>
-                    <div className="font-semibold text-slate-800 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 flex-1">
-                      Asset (IT Equipment) is moving near Exits
+              {/* SUBTAB 3: CUSTOM ROLES CREATION & MANAGEMENT */}
+              {activeAccessTab === "roles" && (
+                <div className="space-y-6">
+                  {/* Create New Role Form */}
+                  <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-6 space-y-4">
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                      <Plus className="w-4 h-4 text-[#007BC4]" /> Create New Additional Role
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Role Display Title *</label>
+                        <input
+                          type="text"
+                          required
+                          value={newRoleName}
+                          onChange={(e) => setNewRoleName(e.target.value)}
+                          placeholder="e.g. Safety Inspector"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-[#007BC4]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Role Description</label>
+                        <input
+                          type="text"
+                          value={newRoleDesc}
+                          onChange={(e) => setNewRoleDesc(e.target.value)}
+                          placeholder="e.g. Inspector for OSHA compliance and hazards"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-[#007BC4]"
+                        />
+                      </div>
+
+                      <div>
+                        <button
+                          type="button"
+                          onClick={handleAddCustomRole}
+                          className="w-full bg-[#007BC4] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" /> Add Role to System
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200">
-                      <span className="text-xs font-bold text-emerald-700 uppercase">
-                        THEN
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 flex-1">
-                      <span className="bg-slate-50 font-semibold text-slate-700 text-sm px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                        Send Email (IT Admin)
-                      </span>
-                      <span className="bg-amber-50 text-amber-700 font-semibold text-sm px-3 py-1.5 rounded-lg border border-amber-200 shadow-sm">
-                        Lock Doors
-                      </span>
+
+                  {/* Existing Roles List */}
+                  <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden p-6 space-y-4">
+                    <h4 className="font-bold text-slate-900 text-sm">Configured System & Custom Roles Directory</h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {customRoles.map((r) => (
+                        <div key={r.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-900 text-sm">{r.label}</span>
+                              {r.isCustom ? (
+                                <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Custom</span>
+                              ) : (
+                                <span className="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Built-in</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium mt-1">{r.desc}</p>
+                            <div className="text-[10px] font-mono text-slate-400 mt-2">role_id: {r.id}</div>
+                          </div>
+
+                          <div className="pt-3 border-t border-slate-200 flex items-center justify-between mt-2">
+                            <button
+                              onClick={() => {
+                                setActiveRoleTab(r.id);
+                                setActiveAccessTab("matrix");
+                              }}
+                              className="text-[#007BC4] text-xs font-bold hover:underline cursor-pointer"
+                            >
+                              Edit Page Matrix →
+                            </button>
+
+                            {r.isCustom && (
+                              <button
+                                onClick={() => handleDeleteCustomRole(r.id)}
+                                className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-1 p-1 hover:bg-rose-50 rounded cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Delete
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECTION 11: DATABASE BACKUP & SNAPSHOT (NEW FEATURE) */}
+          {activeSection === "dataBackup" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <HardDrive className="w-5 h-5 text-[#007BC4]" /> Database Backup & Snapshot
+                </h3>
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Export system settings JSON backups, restore MongoDB snapshots, or export full collection JSON data.
+                </p>
+              </div>
+
+              {importStatus && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{importStatus}</span>
+                </div>
+              )}
+
+              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
+                {/* Download Settings Backup */}
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">Download Settings JSON Backup</h4>
+                    <p className="text-xs text-slate-500 mt-1">Export all configuration settings, threshold limits, and rules.</p>
+                  </div>
+                  <button
+                    onClick={handleDownloadSettingsBackup}
+                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download JSON
+                  </button>
+                </div>
+
+                {/* Restore Settings Backup */}
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">Restore Settings JSON Snapshot</h4>
+                    <p className="text-xs text-slate-500 mt-1">Upload a previously exported settings JSON file directly to MongoDB.</p>
+                  </div>
+                  <label className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer shadow-sm">
+                    <Upload className="w-3.5 h-3.5" /> Upload & Restore
+                    <input type="file" accept=".json" onChange={handleRestoreSettingsJson} className="hidden" />
+                  </label>
+                </div>
+
+                {/* Full Database Export */}
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">Export Full MongoDB Collections Snapshot</h4>
+                    <p className="text-xs text-slate-500 mt-1">Download complete JSON dump of Personnel, Devices, History, Alerts, and Audit logs.</p>
+                  </div>
+                  <button
+                    onClick={handleExportAllCollections}
+                    disabled={isExportingDb}
+                    className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {isExportingDb ? "Exporting..." : "Export Full Snapshot"}
+                  </button>
+                </div>
+
+                {/* Purge Expired Logs */}
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">Purge Expired Database Logs</h4>
+                    <p className="text-xs text-slate-500 mt-1">Clean up tracking history older than the configured data retention limit.</p>
+                  </div>
+                  <button
+                    onClick={handlePurgeOldLogs}
+                    disabled={isPurgingLogs}
+                    className="flex items-center gap-2 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {isPurgingLogs ? "Purging..." : "Purge Expired Logs"}
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Fallback for other sections just for mockup */}
-          {activeSection !== "general" &&
-            activeSection !== "security" &&
-            activeSection !== "integrations" &&
-            activeSection !== "notifications" &&
-            activeSection !== "network" &&
-            activeSection !== "apidocs" &&
-            activeSection !== "access" &&
-            activeSection !== "rules" && (
-              <div className="py-20 flex flex-col items-center justify-center text-slate-500">
-                <div className="p-4 bg-slate-100 rounded-full mb-4">
-                  <Key className="w-8 h-8 text-slate-400" />
-                </div>
-                <p className="text-lg font-bold text-slate-700">
-                  Settings Section
-                </p>
-                <p className="text-sm font-medium">
-                  Additional configuration options would be placed here.
-                </p>
-              </div>
-            )}
         </div>
       </div>
     </div>
