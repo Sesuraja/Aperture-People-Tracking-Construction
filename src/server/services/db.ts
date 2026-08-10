@@ -262,3 +262,138 @@ export async function getAuditLogs(limitCount = 100): Promise<any[]> {
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, limitCount);
 }
+
+/**
+ * Bulk writes real-time tag documents into MongoDB collection 'real_time_tags'
+ */
+export async function bulkWriteRealtimeTags(tags: any[]): Promise<{ insertedCount: number; updatedCount: number; totalProcessed: number }> {
+  if (!Array.isArray(tags) || tags.length === 0) {
+    return { insertedCount: 0, updatedCount: 0, totalProcessed: 0 };
+  }
+
+  let insertedCount = 0;
+  let updatedCount = 0;
+
+  if (mongoDb) {
+    try {
+      const operations = tags.map((rawTag) => {
+        const tagId = rawTag.TagID || rawTag.tagId || rawTag.epc || `TAG_${Date.now()}`;
+        const docToUpsert = {
+          id: tagId,
+          TagID: tagId,
+          Timestamp: rawTag.Timestamp || new Date().toISOString(),
+          Location: rawTag.Location || rawTag.LocationName || rawTag.zone || 'Zone1',
+          FirstName: rawTag.FirstName || 'Staff',
+          LastName: rawTag.LastName || 'User',
+          rssi: rawTag.rssi !== undefined ? Number(rawTag.rssi) : -60,
+          status: rawTag.status || 'Active',
+          lastSyncAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        return {
+          updateOne: {
+            filter: { TagID: tagId },
+            update: { $set: docToUpsert },
+            upsert: true
+          }
+        };
+      });
+
+      const result = await mongoDb.collection('real_time_tags').bulkWrite(operations, { ordered: false });
+      insertedCount = result.upsertedCount || 0;
+      updatedCount = result.modifiedCount || 0;
+      
+      // Also mirror to live_tags collection
+      for (const t of tags) {
+        await upsertDoc('live_tags', t);
+      }
+
+      return { insertedCount, updatedCount, totalProcessed: tags.length };
+    } catch (err: any) {
+      console.error('[DB Service] Error during bulkWriteRealtimeTags to MongoDB:', err);
+    }
+  }
+
+  // Fallback for in-memory store
+  for (const t of tags) {
+    const tagId = t.TagID || t.tagId || t.epc || `TAG_${Date.now()}`;
+    const cleanDoc = {
+      id: tagId,
+      TagID: tagId,
+      Timestamp: t.Timestamp || new Date().toISOString(),
+      Location: t.Location || t.LocationName || t.zone || 'Zone1',
+      FirstName: t.FirstName || 'Staff',
+      LastName: t.LastName || 'User',
+      rssi: t.rssi !== undefined ? Number(t.rssi) : -60,
+      status: t.status || 'Active',
+      lastSyncAt: new Date().toISOString()
+    };
+    await upsertDoc('real_time_tags', cleanDoc);
+    await upsertDoc('live_tags', cleanDoc);
+    updatedCount++;
+  }
+
+  return { insertedCount: tags.length, updatedCount, totalProcessed: tags.length };
+}
+
+/**
+ * Periodically cleans up stale real-time tag data older than specified threshold (minutes) from MongoDB 'real_time_tags'
+ */
+export async function cleanupStaleRealTimeTags(maxAgeMinutes: number = 60): Promise<{ cleanedCount: number; remainingCount: number }> {
+  const cutoffTime = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
+  let cleanedCount = 0;
+
+  console.log(`[DB Service] Running stale real-time tags cleanup (Threshold: ${maxAgeMinutes} mins / Cutoff: ${cutoffTime.toISOString()})...`);
+
+  if (mongoDb) {
+    try {
+      const filter = {
+        $or: [
+          { Timestamp: { $lt: cutoffTime.toISOString() } },
+          { lastSyncAt: { $lt: cutoffTime.toISOString() } }
+        ]
+      };
+
+      const result = await mongoDb.collection('real_time_tags').deleteMany(filter);
+      cleanedCount = result.deletedCount || 0;
+      
+      const remainingCount = await mongoDb.collection('real_time_tags').countDocuments();
+      console.log(`[DB Service] Cleaned up ${cleanedCount} stale real-time tags from MongoDB. Remaining: ${remainingCount}`);
+      return { cleanedCount, remainingCount };
+    } catch (err: any) {
+      console.error('[DB Service] Error cleaning up stale real-time tags in MongoDB:', err);
+    }
+  }
+
+  // In-memory cleanup fallback
+  if (inMemoryStore['real_time_tags']) {
+    const initialLen = inMemoryStore['real_time_tags'].length;
+    inMemoryStore['real_time_tags'] = inMemoryStore['real_time_tags'].filter((doc: any) => {
+      const ts = new Date(doc.Timestamp || doc.lastSyncAt || doc.timestamp || Date.now());
+      return !isNaN(ts.getTime()) && ts.getTime() >= cutoffTime.getTime();
+    });
+    cleanedCount = initialLen - inMemoryStore['real_time_tags'].length;
+  }
+
+  const remainingCount = (inMemoryStore['real_time_tags'] || []).length;
+  return { cleanedCount, remainingCount };
+}
+
+/**
+ * Background job runner that runs real-time tag cleanup periodically (e.g. every 15 minutes)
+ */
+let cleanupTimer: any = null;
+export function startRealTimeTagsCleanupJob(intervalMinutes: number = 15, maxAgeMinutes: number = 60) {
+  if (cleanupTimer) return;
+
+  console.log(`[DB Service] Starting periodic real-time tags background cleanup job (Interval: ${intervalMinutes}m, MaxAge: ${maxAgeMinutes}m)`);
+  
+  // Run once on start
+  cleanupStaleRealTimeTags(maxAgeMinutes).catch(err => console.error('[DB Service] Cleanup job initial run error:', err));
+
+  cleanupTimer = setInterval(() => {
+    cleanupStaleRealTimeTags(maxAgeMinutes).catch(err => console.error('[DB Service] Cleanup job periodic run error:', err));
+  }, intervalMinutes * 60 * 1000);
+}
+

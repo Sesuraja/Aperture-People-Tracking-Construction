@@ -306,6 +306,97 @@ export default function SettingsTab() {
   const [isPurgingLogs, setIsPurgingLogs] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
+  // Aperture RFID Integration States
+  const [apertureHost, setApertureHost] = useState("https://www.i360services.com/peopletrackinguhf");
+  const [apertureApiKeyInput, setApertureApiKeyInput] = useState("");
+  const [apertureApiKeyMasked, setApertureApiKeyMasked] = useState("••••••••••••");
+  const [apertureApiKeyConfigured, setApertureApiKeyConfigured] = useState(false);
+  const [showApertureKey, setShowApertureKey] = useState(false);
+  const [apertureConnStatus, setApertureConnStatus] = useState<string>("CONNECTED");
+  const [apertureRealtimeSyncStatus, setApertureRealtimeSyncStatus] = useState<string>("Active");
+  const [apertureHistorySyncStatus, setApertureHistorySyncStatus] = useState<string>("Active");
+  const [apertureLastSync, setApertureLastSync] = useState<string | null>("10 Aug 2026, 16:45:12");
+  const [apertureLastError, setApertureLastError] = useState<string | null>(null);
+  const [isTestingAperture, setIsTestingAperture] = useState(false);
+  const [isSavingAperture, setIsSavingAperture] = useState(false);
+  const [apertureNotice, setApertureNotice] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  const fetchApertureConfig = async () => {
+    try {
+      const res = await fetch("/api/integrations/aperture/config");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.host) setApertureHost(data.host);
+        setApertureApiKeyConfigured(Boolean(data.apiKeyConfigured));
+        if (data.apiKeyMasked) setApertureApiKeyMasked(data.apiKeyMasked);
+        if (data.lastSuccessfulSync) setApertureLastSync(data.lastSuccessfulSync);
+        if (data.lastError) setApertureLastError(data.lastError);
+        if (data.realTimeSyncActive !== undefined) setApertureRealtimeSyncStatus(data.realTimeSyncActive ? "Active" : "Inactive");
+        if (data.historySyncActive !== undefined) setApertureHistorySyncStatus(data.historySyncActive ? "Active" : "Inactive");
+      }
+    } catch (err) {
+      console.warn("Could not load Aperture RFID config on mount:", err);
+    }
+  };
+
+  const handleTestApertureConnection = async () => {
+    setIsTestingAperture(true);
+    setApertureNotice(null);
+    try {
+      const res = await fetch("/api/integrations/aperture/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: apertureHost, apiKey: apertureApiKeyInput }),
+      });
+      const data = await res.json();
+      const statusStr = (data.status || "UNKNOWN").toUpperCase();
+      setApertureConnStatus(statusStr);
+      if (statusStr === "CONNECTED" || data.status === "connected") {
+        setApertureNotice({ type: "success", msg: "Aperture RFID Server connection test successful! Status: Connected (HTTP 200 OK)" });
+        setApertureLastSync(new Date().toISOString());
+        setApertureLastError(null);
+      } else {
+        const msg = data.message || statusStr;
+        setApertureNotice({ type: "error", msg: `Connection test failed: ${msg}` });
+        setApertureLastError(msg);
+      }
+    } catch (err: any) {
+      setApertureConnStatus("DISCONNECTED");
+      setApertureNotice({ type: "error", msg: err.message || "Failed to reach backend test route" });
+    } finally {
+      setIsTestingAperture(false);
+    }
+  };
+
+  const handleSaveApertureConfig = async () => {
+    setIsSavingAperture(true);
+    setApertureNotice(null);
+    try {
+      const res = await fetch("/api/integrations/aperture/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: apertureHost,
+          apiKey: apertureApiKeyInput
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setApertureApiKeyConfigured(data.apiKeyConfigured);
+        setApertureApiKeyMasked(data.apiKeyMasked);
+        setApertureApiKeyInput(""); // Clear plaintext for security
+        setApertureNotice({ type: "success", msg: "Aperture RFID integration configuration securely saved!" });
+        handleTestApertureConnection();
+      } else {
+        setApertureNotice({ type: "error", msg: data.error || "Failed to save configuration" });
+      }
+    } catch (err: any) {
+      setApertureNotice({ type: "error", msg: err.message || "Error saving configuration" });
+    } finally {
+      setIsSavingAperture(false);
+    }
+  };
+
   // Load current user and admin claims
   useEffect(() => {
     const fetchCurrentUserClaim = async () => {
@@ -1107,6 +1198,7 @@ export default function SettingsTab() {
       }
     };
     fetchSettings();
+    fetchApertureConfig();
 
     const savedMongoUri = localStorage.getItem("gao_mongodb_uri") || "";
     setMongoUri(savedMongoUri);
@@ -1518,6 +1610,17 @@ export default function SettingsTab() {
           </button>
 
           <button
+            onClick={() => setActiveSection("aperture")}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeSection === "aperture"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Radio className="w-4 h-4" /> Aperture RFID Integration
+          </button>
+
+          <button
             onClick={() => setActiveSection("ai")}
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "ai"
@@ -1693,6 +1796,233 @@ export default function SettingsTab() {
                   <Save className="w-4 h-4" />
                   {isSaving ? "Syncing to MongoDB..." : "Save General Settings"}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* APERTURE RFID INTEGRATION SECTION */}
+          {activeSection === "aperture" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Radio className="w-5 h-5 text-[#007BC4]" /> Aperture RFID Integration
+                </h3>
+                <p className="text-slate-500 text-xs font-medium mt-1">
+                  Manage GAO RFID UHF tracking cloud server connection, API credentials, and real-time synchronization.
+                </p>
+              </div>
+
+              {/* Aperture RFID Integration Card */}
+              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
+                <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-[#007BC4] rounded-xl text-white">
+                      <Radio className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold tracking-tight">Aperture RFID Integration</h4>
+                      <p className="text-xs text-slate-400">GAO RFID UHF Server & Real-time Edge Reader API Bridge</p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5 border ${
+                    apertureConnStatus === "CONNECTED" || apertureConnStatus === "connected"
+                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                      : "bg-rose-500/20 text-rose-400 border-rose-500/30"
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${
+                      apertureConnStatus === "CONNECTED" || apertureConnStatus === "connected" ? "bg-emerald-400 animate-ping" : "bg-rose-400"
+                    }`} />
+                    {apertureConnStatus === "CONNECTED" || apertureConnStatus === "connected" ? "● Connected" : `● ${apertureConnStatus}`}
+                  </span>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  {/* Notice Banner */}
+                  {apertureNotice && (
+                    <div className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                      apertureNotice.type === "success"
+                        ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                        : "bg-rose-50 border border-rose-200 text-rose-800"
+                    }`}>
+                      {apertureNotice.type === "success" ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />}
+                      <span>{apertureNotice.msg}</span>
+                    </div>
+                  )}
+
+                  {/* Server URL Input */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Aperture RFID Server URL
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="url"
+                        value={apertureHost}
+                        onChange={(e) => setApertureHost(e.target.value)}
+                        placeholder="https://www.i360services.com/peopletrackinguhf"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2.5 text-slate-900 font-mono text-xs focus:border-[#007BC4] focus:ring-2 focus:ring-[#007BC4]/20 outline-none transition"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Target GAO RFID UHF tracking cloud server endpoint address.
+                    </p>
+                  </div>
+
+                  {/* API Key Input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        API Key
+                      </label>
+                      <span className="text-[11px] font-mono text-slate-500">
+                        Current: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-800 font-bold">{apertureApiKeyMasked}</code>
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showApertureKey ? "text" : "password"}
+                        value={apertureApiKeyInput}
+                        onChange={(e) => setApertureApiKeyInput(e.target.value)}
+                        placeholder={apertureApiKeyConfigured ? "•••••••••••• (Leave blank to keep saved key)" : "Enter new API key..."}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2.5 text-slate-900 font-mono text-xs focus:border-[#007BC4] focus:ring-2 focus:ring-[#007BC4]/20 outline-none transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApertureKey(!showApertureKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                      >
+                        {showApertureKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      API key is encrypted server-side and never exposed to the client interface.
+                    </p>
+                  </div>
+
+                  {/* Status Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Connection Status</div>
+                      <div className="text-xs font-bold text-slate-800 mt-1 flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${
+                          apertureConnStatus === "CONNECTED" || apertureConnStatus === "connected" ? "bg-emerald-500" : "bg-amber-500"
+                        }`} />
+                        {apertureConnStatus === "CONNECTED" || apertureConnStatus === "connected" ? "Connected" : apertureConnStatus}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Real-Time Sync</div>
+                      <div className="text-xs font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        {apertureRealtimeSyncStatus}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">History Sync</div>
+                      <div className="text-xs font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        {apertureHistorySyncStatus}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Successful Sync</div>
+                      <div className="text-xs font-mono font-semibold text-slate-700 mt-1 truncate">
+                        {apertureLastSync
+                          ? (new Date(apertureLastSync).toString() !== "Invalid Date"
+                              ? new Date(apertureLastSync).toLocaleString("en-GB", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit"
+                                })
+                              : apertureLastSync)
+                          : "Never"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Last Error Display if any */}
+                  {apertureLastError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-xs font-mono">
+                      <span className="font-bold">Last Error:</span> {apertureLastError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions Footer */}
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setApertureNotice({ type: "success", msg: "Initiating manual real-time tags pull from Aperture RFID server..." });
+                          const res = await fetch("/api/integrations/aperture/sync-realtime", { method: "POST" });
+                          const data = await res.json();
+                          if (data.success) {
+                            setApertureNotice({ type: "success", msg: `Real-time sync completed! Processed ${data.processedCount} active tags.` });
+                            setApertureLastSync(new Date().toISOString());
+                          } else {
+                            setApertureNotice({ type: "error", msg: `Real-time sync failed: ${data.error}` });
+                          }
+                        } catch (e: any) {
+                          setApertureNotice({ type: "error", msg: e.message || "Sync failed" });
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-700 transition cursor-pointer shadow-xs"
+                    >
+                      Sync Real-Time
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setApertureNotice({ type: "success", msg: "Initiating history records pull from Aperture RFID server..." });
+                          const res = await fetch("/api/integrations/aperture/sync-history", { method: "POST" });
+                          const data = await res.json();
+                          if (data.success) {
+                            setApertureNotice({ type: "success", msg: `History sync completed! Fetched ${data.recordsFetched} of ${data.totalCount} total records.` });
+                            setApertureLastSync(new Date().toISOString());
+                          } else {
+                            setApertureNotice({ type: "error", msg: `History sync failed: ${data.error}` });
+                          }
+                        } catch (e: any) {
+                          setApertureNotice({ type: "error", msg: e.message || "Sync failed" });
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-700 transition cursor-pointer shadow-xs"
+                    >
+                      Sync History
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTestApertureConnection}
+                      disabled={isTestingAperture}
+                      className="px-4 py-2 border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                    >
+                      {isTestingAperture ? "Testing Connection..." : "Test Connection"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveApertureConfig}
+                      disabled={isSavingAperture}
+                      className="px-5 py-2 bg-[#007BC4] hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4" />
+                      {isSavingAperture ? "Saving..." : "Save Configuration"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

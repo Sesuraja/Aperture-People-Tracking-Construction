@@ -10,6 +10,7 @@ import {
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from '../lib/db';
 import { db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
+import webSocketService, { WSConnectionStatus } from '../lib/webSocketService';
 
 export interface DeviceItem {
   id: string;
@@ -247,6 +248,18 @@ export default function DevicesTab() {
   const [devices, setDevices] = useState<DeviceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbSynced, setDbSynced] = useState(false);
+
+  // Real-time WebSocket Status & Synchronization
+  const [wsStatus, setWsStatus] = useState<WSConnectionStatus>('Disconnected');
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubWs = webSocketService.subscribeStatus((status, syncTime) => {
+      setWsStatus(status);
+      setLastSyncTime(syncTime);
+    });
+    return () => unsubWs();
+  }, []);
   
   // View & Tab State
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
@@ -810,7 +823,7 @@ export default function DevicesTab() {
       {/* 1. PAGE HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
               <Cpu className="w-7 h-7 text-[#007BC4]" />
               Enterprise Hardware & Device Management
@@ -818,6 +831,37 @@ export default function DevicesTab() {
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-50 text-[#007BC4] border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300">
               {dbSynced ? 'MongoDB Connected' : 'Live Sensor Fabric'}
             </span>
+
+            {/* Real-time WebSocket Connection Status Indicator */}
+            <div className="flex items-center gap-2 ml-1 flex-wrap">
+              {wsStatus === 'Connected' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <Wifi size={12} className="text-emerald-600" />
+                  WebSocket Connected
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800 flex items-center gap-1.5 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <WifiOff size={12} className="text-rose-600" />
+                  WebSocket {wsStatus}
+                </span>
+              )}
+
+              {/* Synchronization Time */}
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                <Clock size={11} className="text-slate-400" />
+                Last Sync: {lastSyncTime ? new Date(lastSyncTime).toLocaleTimeString() : 'Syncing...'}
+              </span>
+
+              <button
+                onClick={() => webSocketService.connect()}
+                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 transition"
+                title="Reconnect WebSocket Stream"
+              >
+                <RotateCcw size={12} />
+              </button>
+            </div>
           </div>
           <p className="text-slate-500 dark:text-slate-400 font-medium text-xs md:text-sm mt-0.5">
             Real-time telemetry, firmware, health diagnostics, coverage heatmaps & dead zone detection with end-to-end MongoDB database sync

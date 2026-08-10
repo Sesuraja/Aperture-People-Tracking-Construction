@@ -4,7 +4,7 @@ import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createServer as createViteServer } from 'vite';
-import { initDatabase } from './src/server/services/db.js';
+import { initDatabase, startRealTimeTagsCleanupJob } from './src/server/services/db.js';
 import { authRouter, bootstrapAdminUser } from './src/server/routes/auth.js';
 import { adminRouter } from './src/server/routes/admin.js';
 import { rfidRouter } from './src/server/routes/rfid.js';
@@ -12,6 +12,7 @@ import { aiRouter } from './src/server/routes/ai.js';
 import { dataRouter } from './src/server/routes/data.js';
 import { eventsRouter } from './src/server/routes/events.js';
 import { mongodbRouter } from './src/server/routes/mongodb.js';
+import { apertureRouter } from './src/server/routes/aperture.js';
 import { errorHandler } from './src/server/middleware/errorHandler.js';
 import { initWebSocketServer } from './src/server/services/websocket.js';
 
@@ -24,6 +25,7 @@ async function startServer() {
 
   // Initialize DB and bootstrap Admin user if specified
   await initDatabase();
+  startRealTimeTagsCleanupJob(15, 60);
   await bootstrapAdminUser();
 
   // Initialize WebSocket Server for real-time live tracking and safety alerts
@@ -66,11 +68,17 @@ async function startServer() {
   app.use('/api/auth', authRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/rfid', rfidRouter);
-  app.use('/api', rfidRouter); // Register root alias routes like /api/GetTagsInRealtime
+  app.use('/api', rfidRouter); // Register alias routes like /api/GetTagsInRealtime
   app.use('/api', aiRouter);
   app.use('/api/data', dataRouter);
   app.use('/api/events', eventsRouter);
   app.use('/api/mongodb', mongodbRouter);
+  app.use('/api/integrations/aperture', apertureRouter);
+
+  // Direct GAO RFID Root Aliases (allowing ${host}/GetHistoryTotalCount, ${host}/GetHistoryRecords/10/30, ${host}/GetTagsInRealtime)
+  app.use('/GetHistoryTotalCount', rfidRouter);
+  app.use('/GetHistoryRecords', rfidRouter);
+  app.use('/GetTagsInRealtime', rfidRouter);
 
   // Centralized Error Handler Middleware
   app.use(errorHandler);
