@@ -188,6 +188,20 @@
         "timestamp": { "type": "string" }
       },
       "required": ["id", "tokenId", "status"]
+    },
+    "QuickNote": {
+      "title": "Quick Note",
+      "description": "Supervisor zone quick notes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "zone": { "type": "string" },
+        "note": { "type": "string" },
+        "status": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "author": { "type": "string" }
+      },
+      "required": ["zone", "note", "status"]
     }
   },
   "firestore": {
@@ -242,6 +256,10 @@
     "/visitor_access_logs/{logId}": {
       "schema": "VisitorAccessLog",
       "description": "Logs of scanner token validations"
+    },
+    "/quick_notes/{noteId}": {
+      "schema": "QuickNote",
+      "description": "Supervisor temporary observations or status flags on specific zones"
     }
   }
 }

@@ -19,6 +19,13 @@ export const adminRouter = Router();
 // Apply auth middleware to all admin routes
 adminRouter.use(requireAuth);
 
+async function findUserByIdOrUid(userId: string) {
+  const user = await getDocById('users', userId);
+  if (user) return user;
+  const users = await getCollectionDocs('users');
+  return users.find((u: any) => u.id === userId || u.uid === userId || (u.id && userId && u.id.toString() === userId.toString())) || null;
+}
+
 const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -28,7 +35,13 @@ const createUserSchema = z.object({
 
 const setRoleSchema = z.object({
   userId: z.string().optional(),
+  uid: z.string().optional(),
   email: z.string().optional(),
+  role: z.string().min(1)
+});
+
+const bulkSetRoleSchema = z.object({
+  userIds: z.array(z.string()).min(1),
   role: z.string().min(1)
 });
 
@@ -77,7 +90,9 @@ adminRouter.post('/create-user', requirePermission('settings'), async (req: Auth
       name: name || lowerEmail.split('@')[0],
       role,
       passwordHash,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      invited: true,
+      hasLoggedIn: false
     };
 
     await upsertDoc('users', newUser);
@@ -102,7 +117,7 @@ adminRouter.post('/create-user', requirePermission('settings'), async (req: Auth
 });
 
 // POST /api/admin/set-user-role
-adminRouter.post('/set-user-role', requirePermission('settings'), async (req: AuthRequest, res: Response) => {
+adminRouter.post(['/set-user-role', '/set-role'], requirePermission('settings'), async (req: AuthRequest, res: Response) => {
   const parseResult = setRoleSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({
@@ -111,12 +126,13 @@ adminRouter.post('/set-user-role', requirePermission('settings'), async (req: Au
     });
   }
 
-  const { userId, email, role } = parseResult.data;
+  const { userId, uid, email, role } = parseResult.data;
+  const targetId = userId || uid;
 
   try {
     const users = await getCollectionDocs('users');
     const user = users.find((u: any) =>
-      (userId && u.id === userId) || (email && u.email?.toLowerCase() === email.toLowerCase())
+      (targetId && u.id === targetId) || (email && u.email?.toLowerCase() === email.toLowerCase())
     );
 
     if (!user) {
@@ -146,12 +162,51 @@ adminRouter.post('/set-user-role', requirePermission('settings'), async (req: Au
   }
 });
 
+// POST /api/admin/bulk-set-role
+adminRouter.post('/bulk-set-role', requirePermission('settings'), async (req: AuthRequest, res: Response) => {
+  const parseResult = bulkSetRoleSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: 'userIds array and role string are required' });
+  }
+  const { userIds, role } = parseResult.data;
+  try {
+    const users = await getCollectionDocs('users');
+    let updatedCount = 0;
+
+    for (const user of users) {
+      if (userIds.includes(user.id) || userIds.includes(user.uid)) {
+        const prevRole = user.role;
+        user.role = role;
+        await upsertDoc('users', user);
+        updatedCount++;
+
+        await logAuditEvent({
+          userId: req.user?.id,
+          userEmail: req.user?.email,
+          action: 'ADMIN_CHANGE_USER_ROLE_BULK',
+          resource: 'users',
+          details: { targetUser: user.email, prevRole, newRole: role },
+          ip: req.ip
+        });
+      }
+    }
+
+    return res.json({
+      message: `Successfully updated role for ${updatedCount} users`,
+      updatedCount
+    });
+  } catch (err: any) {
+    console.error('[Admin Route] Bulk set role error:', err);
+    return res.status(500).json({ error: 'Failed to assign role to selected users' });
+  }
+});
+
 // DELETE /api/admin/users/:id
 adminRouter.delete('/users/:id', requirePermission('settings'), async (req: AuthRequest, res: Response) => {
   const userId = req.params.id;
 
   try {
-    const user = await getDocById('users', userId);
+    const user = await findUserByIdOrUid(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -160,7 +215,7 @@ adminRouter.delete('/users/:id', requirePermission('settings'), async (req: Auth
       return res.status(400).json({ error: 'Cannot delete your own admin account' });
     }
 
-    await deleteDocById('users', userId);
+    await deleteDocById('users', user.id);
 
     await logAuditEvent({
       userId: req.user?.id,
@@ -238,11 +293,36 @@ adminRouter.get('/audit-logs', requirePermission('audit'), async (req: AuthReque
   }
 });
 
+// GET /api/admin/user-activity-logs
+adminRouter.get('/user-activity-logs', requirePermission('settings'), async (req: AuthRequest, res: Response) => {
+  try {
+    const logs = await getAuditLogs(500);
+    const userLogs = logs.filter(log => {
+      const act = (log.action || '').toUpperCase();
+      const resName = (log.resource || '').toUpperCase();
+      return (
+        act.includes('USER') ||
+        act.includes('ROLE') ||
+        act.includes('PERMISSION') ||
+        act.includes('INVITE') ||
+        act.includes('MEMBER') ||
+        resName.includes('USER') ||
+        resName.includes('ROLE') ||
+        resName.includes('PERMISSION')
+      );
+    });
+    return res.json({ logs: userLogs });
+  } catch (err: any) {
+    console.error('[Admin Route] Get user activity logs error:', err);
+    return res.status(500).json({ error: 'Failed to fetch user activity logs' });
+  }
+});
+
 // POST /api/admin/users/:id/revoke-sessions
 adminRouter.post('/users/:id/revoke-sessions', requirePermission('settings'), async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   try {
-    const userDoc = await getDocById('users', id);
+    const userDoc = await findUserByIdOrUid(id);
     if (!userDoc) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -263,6 +343,115 @@ adminRouter.post('/users/:id/revoke-sessions', requirePermission('settings'), as
   } catch (err: any) {
     console.error('[Admin Route] Revoke sessions error:', err);
     return res.status(500).json({ error: 'Failed to revoke user sessions' });
+  }
+});
+
+// POST /api/admin/users/:id/update-name
+adminRouter.post('/users/:id/update-name', requirePermission('settings'), async (req: AuthRequest, res: Response) => {
+  const userId = req.params.id;
+  const { name, displayName } = req.body || {};
+  const newName = name || displayName;
+
+  if (!newName || typeof newName !== 'string' || !newName.trim()) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+
+  try {
+    const user = await findUserByIdOrUid(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const prevName = user.name || user.displayName;
+    user.name = newName.trim();
+    user.displayName = newName.trim();
+    await upsertDoc('users', user);
+
+    await logAuditEvent({
+      userId: req.user?.id,
+      userEmail: req.user?.email,
+      action: 'ADMIN_UPDATE_USER_NAME',
+      resource: 'users',
+      details: { targetUserId: userId, targetUser: user.email, prevName, newName: newName.trim() },
+      ip: req.ip
+    });
+
+    return res.json({
+      message: 'User name updated successfully',
+      user: sanitizeUser(user)
+    });
+  } catch (err: any) {
+    console.error('[Admin Route] Update name error:', err);
+    return res.status(500).json({ error: 'Failed to update user name' });
+  }
+});
+
+// POST /api/admin/users/:id/reset-password
+adminRouter.post('/users/:id/reset-password', requirePermission('settings'), async (req: AuthRequest, res: Response) => {
+  const userId = req.params.id;
+  const { password } = req.body || {};
+
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+  }
+
+  try {
+    const user = await findUserByIdOrUid(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    user.passwordHash = passwordHash;
+    // Revoke any active sessions too
+    user.tokenVersion = (user.tokenVersion || 1) + 1;
+    await upsertDoc('users', user);
+
+    await logAuditEvent({
+      userId: req.user?.id,
+      userEmail: req.user?.email,
+      action: 'ADMIN_RESET_USER_PASSWORD',
+      resource: 'users',
+      details: { targetUserId: userId, targetUser: user.email },
+      ip: req.ip
+    });
+
+    return res.json({
+      message: 'User password reset successfully',
+      user: sanitizeUser(user)
+    });
+  } catch (err: any) {
+    console.error('[Admin Route] Reset password error:', err);
+    return res.status(500).json({ error: 'Failed to reset user password' });
+  }
+});
+
+// POST /api/admin/users/:id/resend-invite
+adminRouter.post('/users/:id/resend-invite', requirePermission('settings'), async (req: AuthRequest, res: Response) => {
+  const userId = req.params.id;
+
+  try {
+    const user = await findUserByIdOrUid(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await logAuditEvent({
+      userId: req.user?.id,
+      userEmail: req.user?.email,
+      action: 'ADMIN_RESEND_INVITE_EMAIL',
+      resource: 'users',
+      details: { targetUserId: userId, targetUser: user.email },
+      ip: req.ip
+    });
+
+    return res.json({
+      message: `Invitation email resent successfully to ${user.email}`,
+      user: sanitizeUser(user)
+    });
+  } catch (err: any) {
+    console.error('[Admin Route] Resend invite error:', err);
+    return res.status(500).json({ error: 'Failed to resend invite' });
   }
 });
 

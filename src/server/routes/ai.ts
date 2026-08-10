@@ -5,6 +5,39 @@ import { GoogleGenAI } from '@google/genai';
 
 export const aiRouter = Router();
 
+let runtimeGeminiKey: string | null = null;
+
+export function setRuntimeGeminiKey(key: string) {
+  runtimeGeminiKey = key;
+}
+
+export function getGeminiApiKey(): string | undefined {
+  return runtimeGeminiKey || process.env.GEMINI_API_KEY || undefined;
+}
+
+// GET /api/ai/status
+aiRouter.get('/ai/status', (req: Request, res: Response) => {
+  const key = getGeminiApiKey();
+  return res.json({
+    configured: Boolean(key),
+    source: runtimeGeminiKey ? 'frontend_runtime' : process.env.GEMINI_API_KEY ? 'environment_variable' : 'none'
+  });
+});
+
+// POST /api/ai/config-key
+aiRouter.post('/ai/config-key', (req: Request, res: Response) => {
+  const { geminiApiKey } = req.body || {};
+  if (typeof geminiApiKey === 'string') {
+    setRuntimeGeminiKey(geminiApiKey.trim());
+    return res.json({
+      success: true,
+      configured: Boolean(getGeminiApiKey()),
+      message: geminiApiKey.trim() ? 'Gemini API key connected to server backend successfully.' : 'Gemini API key cleared from runtime.'
+    });
+  }
+  return res.status(400).json({ success: false, error: 'geminiApiKey must be a string' });
+});
+
 // Rate limiter for AI analysis endpoints: 60 requests per 15 minutes
 export const aiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -39,7 +72,7 @@ aiRouter.post('/analyze-rfid-results', aiRateLimiter, async (req: Request, res: 
 
   const { liveTags, historyRecords, scans, zones, context } = parseResult.data;
   const combinedScans = liveTags.length > 0 ? liveTags : scans;
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getGeminiApiKey();
 
   if (!apiKey) {
     // Graceful structured fallback when GEMINI_API_KEY is not configured or in offline mode
@@ -218,7 +251,7 @@ Respond ONLY with valid JSON with the exact structure:
 
     return res.json(parsed);
   } catch (err: any) {
-    console.error('[AI Route] Gemini analysis error:', err.message);
+    console.warn('[AI Route] Gemini analysis warning (using offline fallback):', err.message);
     return res.json({
       executiveSummary: "UHF hardhat RFID personnel scans are active across the facility. Telemetry monitoring is operational with real-time zone security.",
       safetyComplianceScore: 89,
@@ -274,7 +307,7 @@ aiRouter.post('/ai-copilot', aiRateLimiter, async (req: Request, res: Response) 
   }
 
   const { question, context } = parseResult.data;
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getGeminiApiKey();
 
   if (!apiKey) {
     return res.json({
@@ -315,7 +348,7 @@ Provide a clear, professional, markdown-formatted response with key safety insig
       suggestedActions: parsed.suggestedActions || ['Audit active reader gates', 'Verify lone worker safety pings']
     });
   } catch (err: any) {
-    console.error('[AI Copilot] Gemini response error:', err.message);
+    console.warn('[AI Copilot] Gemini response warning (using offline fallback):', err.message);
     return res.json({
       answer: `🤖 **AI Safety Assistant response for:** "${question}"\n\nAll RFID tags and worker badges are connected to zero-latency real-time tracking. Current site status shows high safety compliance across all active zones.`,
       suggestedActions: ["Check Live Map", "Review Alert Center"]
@@ -326,7 +359,7 @@ Provide a clear, professional, markdown-formatted response with key safety insig
 // POST /api/analyze-incident - Dedicated AI Root Cause Analysis (RCA) Generator
 aiRouter.post('/analyze-incident', aiRateLimiter, async (req: Request, res: Response) => {
   const { title, category, severity, locationZone, description, equipmentInvolved } = req.body || {};
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getGeminiApiKey();
 
   if (!apiKey) {
     const sevScore = severity === 'Critical' ? 92 : severity === 'High' ? 78 : severity === 'Medium' ? 52 : 30;
@@ -387,7 +420,7 @@ Respond strictly with a JSON object with the following fields:
       regulatoryImpact: parsed.regulatoryImpact || 'OSHA EHS Protocol Recordable.'
     });
   } catch (err: any) {
-    console.error('[AI Incident RCA] Gemini error:', err.message);
+    console.warn('[AI Incident RCA] Gemini warning (using offline fallback):', err.message);
     return res.json({
       severityScore: 70,
       aiSummary: `AI RCA generated for ${category} at ${locationZone}.`,
@@ -402,7 +435,7 @@ Respond strictly with a JSON object with the following fields:
 // POST /api/analyze-telemetry - Dedicated AI Site Telemetry & BI Analytics Synthesizer
 aiRouter.post('/analyze-telemetry', aiRateLimiter, async (req: Request, res: Response) => {
   const { prompt, dateRange, selectedSite, metricsContext } = req.body || {};
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getGeminiApiKey();
 
   if (!apiKey) {
     return res.json({
@@ -459,7 +492,7 @@ Provide a clear, highly structured, executive-level BI summary in markdown style
       ]
     });
   } catch (err: any) {
-    console.error('[AI Telemetry] Gemini error:', err.message);
+    console.warn('[AI Telemetry] Gemini warning (using offline fallback):', err.message);
     return res.json({
       synthesis: `🤖 Gemini Enterprise BI Synthesis (${dateRange || '7d'}):
 1. Attendance & Productivity: Shift arrivals peaked with 96.8% on-time rate. Rigging & Electrical trades demonstrated 84%+ tool-time productivity.

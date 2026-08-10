@@ -349,7 +349,7 @@ export default function AIInsightsTab({ people = [] }: AIInsightsTabProps) {
     }, (err) => console.error("Error reading analytics_metrics:", err));
 
     // 1.5 Saved Copilot Sessions
-    const qChat = query(collection(db, 'ai_copilot_chats'), orderBy('createdAt', 'desc'));
+    const qChat = collection(db, 'ai_copilot_chats');
     const unsubChat = onSnapshot(qChat, (snapshot) => {
       const list: CopilotSession[] = [];
       snapshot.forEach((d) => {
@@ -361,8 +361,9 @@ export default function AIInsightsTab({ people = [] }: AIInsightsTabProps) {
           createdAt: data.createdAt
         });
       });
+      list.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
       setSavedCopilotSessions(list);
-    }, (err) => console.error("Error reading ai_copilot_chats:", err));
+    }, (err) => console.warn("Error reading ai_copilot_chats:", err));
 
     return () => {
       unsubRecs();

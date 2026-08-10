@@ -1,5 +1,62 @@
 /**
- * Utility functions for exporting data to CSV and generating formatted PDF printable reports.
+ * Converts array of objects to a downloadable JSON backup file.
+ */
+export function exportToJSON(filename: string, rows: Record<string, any>[]) {
+  if (!rows || rows.length === 0) {
+    alert('No data available to export.');
+    return;
+  }
+
+  const jsonContent = JSON.stringify(rows, null, 2);
+  const cleanFilename = `${filename.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
+
+  try {
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', cleanFilename);
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      if (document.body.contains(link)) document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 1500);
+  } catch (err) {
+    console.warn('JSON download failed, copying to clipboard:', err);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(jsonContent);
+    }
+  }
+}
+
+/**
+ * Copies formatted data directly to clipboard.
+ */
+export function copyToClipboard(rows: Record<string, any>[], columns: ExportColumn[]): boolean {
+  if (!rows || rows.length === 0) return false;
+  const cols = columns && columns.length > 0 
+    ? columns 
+    : Object.keys(rows[0]).map(key => ({ key, label: key.toUpperCase() }));
+
+  const headers = cols.map(c => c.label).join('\t');
+  const body = rows.map(r => cols.map(c => {
+    let val = r[c.key];
+    if (val === null || val === undefined) val = '';
+    if (typeof val === 'object') val = JSON.stringify(val);
+    return String(val).replace(/[\t\n\r]/g, ' ');
+  }).join('\t')).join('\n');
+
+  const text = `${headers}\n${body}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Utility functions for exporting data to CSV, JSON, Clipboard, and generating formatted PDF printable reports.
  * Includes robust multi-method fallbacks for sandboxed iFrames and popup blockers.
  */
 

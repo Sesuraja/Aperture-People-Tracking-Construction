@@ -16,22 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db as firebaseDb } from './firebase';
 
-const DEFAULT_MONGO_URI = "mongodb+srv://sigmundtd_db_user:Jesuraja123%40@cluster0.lxd6qba.mongodb.net/gao_rfid";
-
-// Ensure default MongoDB connection string is saved in localStorage if not set
-if (typeof window !== 'undefined') {
-  if (!localStorage.getItem("gao_mongodb_uri") && localStorage.getItem("gao_mongodb_uri") !== "none") {
-    localStorage.setItem("gao_mongodb_uri", DEFAULT_MONGO_URI);
-  }
-}
-
 export function isMongoActive(): boolean {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem("gao_mongodb_uri");
-    if (saved === "none" || saved === "false") {
-      return false;
-    }
-  }
   return true;
 }
 
@@ -174,10 +159,26 @@ export async function setDoc(docRef: any, data: any, options?: any): Promise<voi
     }
     return;
   }
-  if (options) {
-    return fbSetDoc(docRef, data, options);
+  try {
+    if (options) {
+      return await fbSetDoc(docRef, data, options);
+    }
+    return await fbSetDoc(docRef, data);
+  } catch (err: any) {
+    console.warn('Firestore setDoc failed, falling back to REST API:', err?.message || err);
+    const { colName, docId } = getRefInfo(docRef);
+    if (colName && docId) {
+      try {
+        await fetch(`/api/data/${colName}/${docId}`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(data)
+        });
+      } catch (restErr) {
+        console.warn(`REST setDoc fallback error for ${colName}/${docId}:`, restErr);
+      }
+    }
   }
-  return fbSetDoc(docRef, data);
 }
 
 function getAuthHeaders(): Record<string, string> {
@@ -223,7 +224,25 @@ export async function addDoc(colRef: any, data: any): Promise<any> {
       return { id: newId, ...createMockDoc({ id: newId, ...data }) };
     }
   }
-  return fbAddDoc(colRef, data);
+  try {
+    return await fbAddDoc(colRef, data);
+  } catch (err: any) {
+    console.warn('Firestore addDoc failed, falling back to REST API:', err?.message || err);
+    const { colName } = getRefInfo(colRef);
+    const newId = data.id || Math.random().toString(36).substring(2, 11);
+    if (colName) {
+      try {
+        const result = await safeJsonFetch(`/api/data/${colName}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...data, id: newId })
+        });
+        const savedDoc = result?.doc || result || data;
+        return { id: newId, ...createMockDoc({ ...savedDoc, id: newId }) };
+      } catch {}
+    }
+    return { id: newId, ...createMockDoc({ id: newId, ...data }) };
+  }
 }
 
 export async function getDoc(docRef: any): Promise<any> {
@@ -238,7 +257,20 @@ export async function getDoc(docRef: any): Promise<any> {
     }
     return { id: docId || 'unknown', exists: () => false, data: () => null };
   }
-  return fbGetDoc(docRef);
+  try {
+    return await fbGetDoc(docRef);
+  } catch (err: any) {
+    console.warn('Firestore getDoc failed, falling back to REST API:', err?.message || err);
+    const { colName, docId } = getRefInfo(docRef);
+    if (colName && docId) {
+      try {
+        const result = await safeJsonFetch(`/api/data/${colName}/${docId}`);
+        const docObj = result?.doc || (result?.id ? result : null);
+        if (docObj) return createMockDoc(docObj);
+      } catch {}
+    }
+    return { id: docId || 'unknown', exists: () => false, data: () => null };
+  }
 }
 
 export async function getDocs(queryRef: any): Promise<any> {
@@ -253,14 +285,32 @@ export async function getDocs(queryRef: any): Promise<any> {
     }
     return createMockSnapshot([]);
   }
-  return fbGetDocs(queryRef);
+  try {
+    return await fbGetDocs(queryRef);
+  } catch (err: any) {
+    console.warn('Firestore getDocs failed, falling back to REST API:', err?.message || err);
+    const { colName } = getRefInfo(queryRef);
+    if (colName) {
+      try {
+        const result = await safeJsonFetch(`/api/data/${colName}`);
+        const docsArray = Array.isArray(result) ? result : (result?.data || []);
+        return createMockSnapshot(docsArray);
+      } catch {}
+    }
+    return createMockSnapshot([]);
+  }
 }
 
 export async function updateDoc(docRef: any, data: any): Promise<void> {
   if (isMongoActive()) {
     return setDoc(docRef, data, { merge: true });
   }
-  return fbUpdateDoc(docRef, data);
+  try {
+    return await fbUpdateDoc(docRef, data);
+  } catch (err: any) {
+    console.warn('Firestore updateDoc failed, falling back to REST API:', err?.message || err);
+    return setDoc(docRef, data, { merge: true });
+  }
 }
 
 export async function deleteDoc(docRef: any): Promise<void> {
@@ -273,7 +323,17 @@ export async function deleteDoc(docRef: any): Promise<void> {
     }
     return;
   }
-  return fbDeleteDoc(docRef);
+  try {
+    return await fbDeleteDoc(docRef);
+  } catch (err: any) {
+    console.warn('Firestore deleteDoc failed, falling back to REST API:', err?.message || err);
+    const { colName, docId } = getRefInfo(docRef);
+    if (colName && docId) {
+      try {
+        await fetch(`/api/data/${colName}/${docId}`, { method: 'DELETE', headers: getAuthHeaders() });
+      } catch {}
+    }
+  }
 }
 
 export async function getCountFromServer(queryRef: any): Promise<any> {
@@ -287,7 +347,19 @@ export async function getCountFromServer(queryRef: any): Promise<any> {
     } catch (err) {}
     return { data: () => ({ count: 0 }) };
   }
-  return fbGetCountFromServer(queryRef);
+  try {
+    return await fbGetCountFromServer(queryRef);
+  } catch (err: any) {
+    const { colName } = getRefInfo(queryRef);
+    if (colName) {
+      try {
+        const result = await safeJsonFetch(`/api/data/${colName}`);
+        const docsArray = Array.isArray(result) ? result : (result?.data || []);
+        return { data: () => ({ count: docsArray.length }) };
+      } catch {}
+    }
+    return { data: () => ({ count: 0 }) };
+  }
 }
 
 export function onSnapshot(ref: any, callback: (snapshot: any) => void, errorCallback?: (error: any) => void): () => void {
@@ -327,8 +399,66 @@ export function onSnapshot(ref: any, callback: (snapshot: any) => void, errorCal
     };
   }
 
-  return fbOnSnapshot(ref, callback, errorCallback || ((err) => console.warn('Snapshot listener error:', err)));
+  let isPollingFallback = false;
+  let pollingInterval: any = null;
+  let active = true;
+
+  const startPollingFallback = () => {
+    if (isPollingFallback || !active) return;
+    isPollingFallback = true;
+    const { colName, docId } = getRefInfo(ref);
+
+    const poll = async () => {
+      if (!active) return;
+      try {
+        if (docId) {
+          const result = await safeJsonFetch(`/api/data/${colName}/${docId}`);
+          if (active && result) {
+            const docObj = result?.doc || (result?.id ? result : null);
+            if (docObj) callback(createMockDoc(docObj));
+          }
+        } else if (colName) {
+          const result = await safeJsonFetch(`/api/data/${colName}`);
+          if (active && result) {
+            const docsArray = Array.isArray(result) ? result : (result?.data || []);
+            callback(createMockSnapshot(docsArray));
+          }
+        }
+      } catch {}
+    };
+
+    poll();
+    pollingInterval = setInterval(poll, 4000);
+  };
+
+  try {
+    const unsub = fbOnSnapshot(
+      ref,
+      callback,
+      (err) => {
+        console.warn('Firestore snapshot listener connection issue, switching to polling fallback:', err?.message || err);
+        startPollingFallback();
+        if (errorCallback) {
+          try { errorCallback(err); } catch {}
+        }
+      }
+    );
+
+    return () => {
+      active = false;
+      if (pollingInterval) clearInterval(pollingInterval);
+      try { unsub(); } catch {}
+    };
+  } catch (setupErr) {
+    console.warn('fbOnSnapshot setup failed, starting REST polling fallback:', setupErr);
+    startPollingFallback();
+    return () => {
+      active = false;
+      if (pollingInterval) clearInterval(pollingInterval);
+    };
+  }
 }
+
 
 
 

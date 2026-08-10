@@ -30,16 +30,14 @@ const inMemoryStore: Record<string, any[]> = {
   incidents_enterprise: []
 };
 
-const DEFAULT_MONGO_URI = "mongodb+srv://sigmundtd_db_user:Jesuraja123%40@cluster0.lxd6qba.mongodb.net/gao_rfid";
-
 export function getMongoUri(): string {
-  return runtimeMongoUri || process.env.MONGODB_URI || DEFAULT_MONGO_URI;
+  return runtimeMongoUri || process.env.MONGODB_URI || "";
 }
 
 export async function initDatabase(customUri?: string): Promise<void> {
   const uri = customUri || getMongoUri();
   if (!uri) {
-    console.warn('[DB Service] MONGODB_URI not set. Operating with transient in-memory storage (NON-PERSISTENT).');
+    console.warn('[DB Service] MONGODB_URI not set in environment or settings. Operating with transient in-memory storage.');
     return;
   }
 
@@ -99,9 +97,11 @@ export async function getMongoStats() {
     lastError = 'MongoDB is not connected (operating with in-memory fallback)';
   }
 
+  const maskedUri = uri ? uri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@') : '';
+
   return {
     connected,
-    connectionString: uri,
+    connectionString: maskedUri,
     engine: connected ? 'MongoDB Cluster' : 'In-Memory Fallback',
     collectionsCount,
     totalRecords,

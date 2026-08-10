@@ -175,6 +175,12 @@ authRouter.post('/login', authRateLimiter, async (req: Request, res: Response) =
     }
 
     const tokenVersion = user.tokenVersion || 1;
+    
+    // Update login audit/session metadata
+    user.hasLoggedIn = true;
+    user.lastLogin = new Date().toISOString();
+    await upsertDoc('users', user);
+
     const token = generateToken({
       id: user.id,
       email: user.email,

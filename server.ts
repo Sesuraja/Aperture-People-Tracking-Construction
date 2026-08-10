@@ -16,6 +16,7 @@ import { errorHandler } from './src/server/middleware/errorHandler.js';
 import { initWebSocketServer } from './src/server/services/websocket.js';
 
 export const app = express();
+app.set('trust proxy', 1);
 
 async function startServer() {
   const PORT = 3000;

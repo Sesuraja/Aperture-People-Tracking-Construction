@@ -118,7 +118,7 @@ export default function App() {
         if (data && data.connected) {
           const currentUri = localStorage.getItem('gao_mongodb_uri');
           if (!currentUri) {
-            localStorage.setItem('gao_mongodb_uri', 'mongodb+srv://sigmundtd_db_user:Jesuraja123%40@cluster0.lxd6qba.mongodb.net/gao_rfid?retryWrites=true&w=majority');
+            localStorage.setItem('gao_mongodb_uri', 'active_env');
           }
         }
       })
@@ -469,7 +469,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
             <Routes>
               <Route path="/" element={
                  <ProtectedRoute 
-                   element={<DashboardTab people={people} alerts={alerts} zones={ZONES} highlightedPersonId={highlightedPersonId}  />}
+                   element={<DashboardTab people={people} alerts={alerts} zones={ZONES} highlightedPersonId={highlightedPersonId} vehicles={vehicles} />}
                    userRole={userRole}
                    userUid={auth.currentUser?.uid}
                    permissionKey="dashboard"
@@ -480,7 +480,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
               } />
               <Route path="/dashboard" element={
                  <ProtectedRoute 
-                   element={<DashboardTab people={people} alerts={alerts} zones={ZONES} highlightedPersonId={highlightedPersonId}  />}
+                   element={<DashboardTab people={people} alerts={alerts} zones={ZONES} highlightedPersonId={highlightedPersonId} vehicles={vehicles} />}
                    userRole={userRole}
                    userUid={auth.currentUser?.uid}
                    permissionKey="dashboard"

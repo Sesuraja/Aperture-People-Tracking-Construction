@@ -50,28 +50,28 @@ export function useWebSocket(onMessageReceived?: (msg: WSMessage) => void): UseW
             onMessageReceived(parsed);
           }
         } catch (err) {
-          console.error('[useWebSocket] Failed to parse websocket message:', err);
+          console.warn('[useWebSocket] Failed to parse websocket message:', err);
         }
       };
 
       ws.onclose = () => {
-        console.log('[useWebSocket] Connection closed. Retrying in 3s...');
+        console.log('[useWebSocket] Connection closed. Retrying in 10s...');
         setIsConnected(false);
         socketRef.current = null;
 
-        // Auto-reconnect after 3 seconds
+        // Auto-reconnect after 10 seconds
         if (!reconnectTimerRef.current) {
           reconnectTimerRef.current = setTimeout(() => {
             connect();
-          }, 3000);
+          }, 10000);
         }
       };
 
       ws.onerror = (error) => {
-        console.error('[useWebSocket] Socket error:', error);
+        console.warn('[useWebSocket] Socket connection failed (this is expected in some iframe environments):', error);
       };
     } catch (err) {
-      console.error('[useWebSocket] Connection setup failed:', err);
+      console.warn('[useWebSocket] Connection setup failed:', err);
     }
   }, [onMessageReceived]);
 

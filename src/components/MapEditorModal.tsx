@@ -52,6 +52,8 @@ export interface ZoneBounds {
   isLocked?: boolean;
   groupId?: string | null;
   zIndex?: number;
+  proximityAlertEnabled?: boolean;
+  polygonPoints?: { x: number; y: number }[];
 }
 
 interface MapEditorModalProps {

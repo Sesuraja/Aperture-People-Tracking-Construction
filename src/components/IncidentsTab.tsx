@@ -32,6 +32,25 @@ const WORKFLOW_STAGES: IncidentWorkflowStatus[] = [
   'Open', 'Assigned', 'Investigation', 'Root Cause', 'Corrective Action', 'Approval', 'Closed'
 ];
 
+function formatIncidentTimestamp(ts: any): string {
+  if (!ts) return '';
+  if (typeof ts === 'string') return ts;
+  if (ts instanceof Date) {
+    return ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  if (typeof ts.toDate === 'function') {
+    return ts.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  if (typeof ts.seconds === 'number') {
+    return new Date(ts.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  try {
+    return String(ts);
+  } catch {
+    return '';
+  }
+}
+
 const INITIAL_MOCK_INCIDENTS: EnterpriseIncident[] = [
   {
     id: 'INC-2026-101',
@@ -1640,7 +1659,7 @@ export default function IncidentsTab() {
                                 {ws.witnessName} ({ws.witnessRole}) • <span className="text-slate-500 font-normal">{ws.company}</span>
                               </span>
                               <div className="flex items-center gap-2">
-                                <span className="text-slate-400 font-mono text-[10px]">{ws.timestamp} • Interviewed by {ws.interviewedBy}</span>
+                                <span className="text-slate-400 font-mono text-[10px]">{formatIncidentTimestamp(ws.timestamp)} • Interviewed by {ws.interviewedBy}</span>
                                 <button onClick={() => handleDeleteWitness(ws.id)} className="text-slate-400 hover:text-rose-600">
                                   <Trash2 size={13} />
                                 </button>
@@ -1741,7 +1760,7 @@ export default function IncidentsTab() {
                           </div>
                           <div className="flex justify-between items-center text-xs font-bold text-slate-900 dark:text-white">
                             <span>{evt.title}</span>
-                            <span className="text-slate-400 font-mono text-[10px]">{evt.timestamp}</span>
+                            <span className="text-slate-400 font-mono text-[10px]">{formatIncidentTimestamp(evt.timestamp)}</span>
                           </div>
                           <p className="text-xs text-slate-600 dark:text-slate-300">{evt.description}</p>
                           <span className="text-[10px] text-slate-400 font-semibold">Actor: {evt.actor}</span>

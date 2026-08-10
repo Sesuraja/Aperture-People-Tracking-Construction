@@ -12,9 +12,11 @@ import {
   AlertTriangle, Layers, Activity, Building2, Clock,
   Loader2, RefreshCw, SlidersHorizontal, BadgeCheck, Save,
   PlusCircle, Database, CheckSquare, Square, Bell, Send, Check,
-  FileSpreadsheet, LayoutList, LayoutGrid, Camera
+  FileSpreadsheet, LayoutList, LayoutGrid, Camera,
+  Smartphone, Copy, ExternalLink, Share2, Award, SmartphoneNfc, Info
 } from 'lucide-react';
 import WorkerQrScannerModal from './WorkerQrScannerModal';
+import LiveFloorMap from './LiveFloorMap';
 import { db } from '../lib/firebase';
 import { 
   collection, doc, setDoc, deleteDoc, query, 
@@ -39,6 +41,10 @@ interface DBWorker {
   certifications?: string;
   ppeStatus?: 'COMPLIANT' | 'WARNING' | 'NON_COMPLIANT';
   shiftStatus?: 'ON_SITE' | 'OFF_SITE' | 'ON_LEAVE' | 'SUSPENDED';
+  trainingStatus?: 'COMPLIANT' | 'DUE_SOON' | 'OVERDUE' | 'PENDING';
+  lastTrainingDate?: string;
+  trainingCourse?: string;
+  trainingExpiry?: string;
   department?: string;
   supervisor?: string;
   safetyScore?: number;
@@ -106,14 +112,88 @@ function QrCodeSvg({ text, size = 120 }: { text: string; size?: number }) {
   );
 }
 
+export function getSafetyStatusBadge(status?: string) {
+  const s = (status || 'COMPLIANT').toUpperCase();
+  if (s === 'COMPLIANT' || s === 'UP_TO_DATE' || s === 'VALID' || s === 'PASSED') {
+    return {
+      status: 'COMPLIANT',
+      label: '✓ Safety Compliant',
+      shortLabel: 'COMPLIANT',
+      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-700',
+      selectClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300',
+      icon: ShieldCheck
+    };
+  }
+  if (s === 'DUE_SOON' || s === 'WARNING' || s === 'EXPIRING' || s === 'REFRESH_REQUIRED') {
+    return {
+      status: 'DUE_SOON',
+      label: '⚠️ Refresher Due',
+      shortLabel: 'DUE SOON',
+      badgeClass: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700',
+      selectClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300',
+      icon: Clock
+    };
+  }
+  if (s === 'OVERDUE' || s === 'EXPIRED' || s === 'NON_COMPLIANT' || s === 'FAILED') {
+    return {
+      status: 'OVERDUE',
+      label: '⛔ Training Overdue',
+      shortLabel: 'OVERDUE',
+      badgeClass: 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-700',
+      selectClass: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300',
+      icon: ShieldAlert
+    };
+  }
+  return {
+    status: 'PENDING',
+    label: '🔄 Training Pending',
+    shortLabel: 'PENDING',
+    badgeClass: 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/80 dark:text-sky-300 dark:border-sky-700',
+    selectClass: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300',
+    icon: RefreshCw
+  };
+}
+
+export function parseCertifications(certs: any): string[] {
+  if (!certs) {
+    return ['OSHA 30', 'Scaffolding L3'];
+  }
+  if (Array.isArray(certs)) {
+    return certs.map(c => String(c).trim()).filter(Boolean);
+  }
+  if (typeof certs === 'string') {
+    return certs.split(',').map(c => c.trim()).filter(Boolean);
+  }
+  try {
+    return [String(certs).trim()];
+  } catch {
+    return [];
+  }
+}
+
 export default function PeopleTab({ people = [] }: PeopleTabProps) {
   // Navigation & View Mode State
-  const [viewMode, setViewMode] = useState<'roster' | 'contractors' | 'certifications'>('roster');
+  const [viewMode, setViewMode] = useState<'map' | 'roster' | 'contractors' | 'certifications'>('map');
+  const [mapMode, setMapMode] = useState<'standard' | 'bim' | 'heatmap' | 'evacuation' | 'security'>('standard');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [companyFilter, setCompanyFilter] = useState('All');
   const [ppeFilter, setPpeFilter] = useState('All');
   const [shiftFilter, setShiftFilter] = useState('All');
+  const [trainingFilter, setTrainingFilter] = useState('All');
+
+  // Contractor Mobile Check-In QR Modal State
+  const [isContractorQrModalOpen, setIsContractorQrModalOpen] = useState(false);
+  const [selectedContractorCompany, setSelectedContractorCompany] = useState<string>('Apex Structural');
+  const [mobileCheckInTab, setMobileCheckInTab] = useState<'qr' | 'simulate'>('qr');
+  const [simCheckInForm, setSimCheckInForm] = useState({
+    workerName: 'Marcus Vance',
+    hardhatTagId: 'HH-1092',
+    tradeCompany: 'Apex Structural',
+    gateLocation: 'Gate 1 Main Access Turnstile',
+    shiftStatus: 'ON_SITE',
+    ppeStatus: 'COMPLIANT'
+  });
 
   // Selected Person Drawer
   const [selectedPerson, setSelectedPerson] = useState<any | null>(null);
@@ -146,6 +226,9 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
     certifications: 'OSHA 30, Scaffolding Safety',
     ppeStatus: 'COMPLIANT',
     shiftStatus: 'ON_SITE',
+    trainingStatus: 'COMPLIANT',
+    lastTrainingDate: '2026-05-15',
+    trainingCourse: 'OSHA 30 Construction Safety & Site Clearance',
     department: 'Structural Engineering',
     supervisor: 'Marcus Vance (EHS Director)',
     notes: 'Verified site safety compliance.'
@@ -344,6 +427,13 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
           certifications: data.certifications || 'OSHA 30, Scaffolding Safety',
           ppeStatus: data.ppeStatus || 'COMPLIANT',
           shiftStatus: data.shiftStatus || 'ON_SITE',
+          trainingStatus: data.trainingStatus || (
+            (data.safetyScore && data.safetyScore < 80) ? 'OVERDUE' :
+            (data.safetyScore && data.safetyScore < 90) ? 'DUE_SOON' : 'COMPLIANT'
+          ),
+          lastTrainingDate: data.lastTrainingDate || '2026-05-15',
+          trainingCourse: data.trainingCourse || 'OSHA 30 Construction Safety & Site Clearance',
+          trainingExpiry: data.trainingExpiry || '2027-05-15',
           department: data.department || 'Civil Engineering',
           supervisor: data.supervisor || 'Marcus Vance (EHS Director)',
           safetyScore: data.safetyScore || 94,
@@ -411,6 +501,10 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
         certifications: w.certifications,
         ppeStatus: w.ppeStatus || 'COMPLIANT',
         shiftStatus: w.shiftStatus || 'ON_SITE',
+        trainingStatus: w.trainingStatus || 'COMPLIANT',
+        lastTrainingDate: w.lastTrainingDate || '2026-05-15',
+        trainingCourse: w.trainingCourse || 'OSHA 30 Construction Safety',
+        trainingExpiry: w.trainingExpiry || '2027-05-15',
         department: w.department || 'Civil Engineering',
         supervisor: w.supervisor || 'Marcus Vance (EHS Lead)',
         safetyScore: w.safetyScore || 94,
@@ -439,6 +533,9 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
           hardhatTagId: p.hardhatTagId || p.id,
           tradeCompany: p.tradeCompany || 'BuildCorp Partner',
           shiftStatus: 'ON_SITE',
+          trainingStatus: p.trainingStatus || 'COMPLIANT',
+          lastTrainingDate: p.lastTrainingDate || '2026-06-01',
+          trainingCourse: 'Site EHS Induction & PPE Verification',
           isDbRegistered: false
         });
       }
@@ -460,10 +557,43 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
       const matchesCompany = companyFilter === 'All' || p.tradeCompany === companyFilter;
       const matchesPpe = ppeFilter === 'All' || p.ppeStatus === ppeFilter;
       const matchesShift = shiftFilter === 'All' || p.shiftStatus === shiftFilter;
+      const matchesTraining = trainingFilter === 'All' || p.trainingStatus === trainingFilter;
 
-      return matchesSearch && matchesRole && matchesCompany && matchesPpe && matchesShift;
+      return matchesSearch && matchesRole && matchesCompany && matchesPpe && matchesShift && matchesTraining;
     });
-  }, [combinedPeople, searchTerm, roleFilter, companyFilter, ppeFilter, shiftFilter]);
+  }, [combinedPeople, searchTerm, roleFilter, companyFilter, ppeFilter, shiftFilter, trainingFilter]);
+
+  // Map coordinates binding for interactive blueprint map
+  const mappedPeopleForMap = useMemo(() => {
+    return filteredPeople.map((p, idx) => {
+      let x = p.x;
+      let y = p.y;
+      if (x === undefined || y === undefined || (x === 0 && y === 0)) {
+        const zone = (p.currentZone || '').toLowerCase();
+        if (zone.includes('excavation') || zone.includes('pit')) {
+          x = 26 + (idx % 3) * 5;
+          y = 38 + Math.floor(idx / 3) * 5;
+        } else if (zone.includes('tower') || zone.includes('core') || zone.includes('building')) {
+          x = 66 + (idx % 3) * 5;
+          y = 46 + Math.floor(idx / 3) * 5;
+        } else if (zone.includes('crane') || zone.includes('swing')) {
+          x = 42 + (idx % 3) * 5;
+          y = 68 + Math.floor(idx / 3) * 5;
+        } else if (zone.includes('voltage') || zone.includes('electric')) {
+          x = 78 + (idx % 3) * 5;
+          y = 22 + Math.floor(idx / 3) * 5;
+        } else {
+          x = 12 + (idx % 4) * 6;
+          y = 78 + Math.floor(idx / 4) * 5;
+        }
+      }
+      return {
+        ...p,
+        x,
+        y
+      };
+    });
+  }, [filteredPeople]);
 
   // Overall Statistics
   const stats = useMemo(() => {
@@ -471,10 +601,85 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
     const active = combinedPeople.filter(p => p.shiftStatus === 'ON_SITE' || p.dwellTime > 0).length;
     const compliantPpe = combinedPeople.filter(p => p.ppeStatus === 'COMPLIANT' || !p.ppeStatus).length;
     const ppeRate = total > 0 ? Math.round((compliantPpe / total) * 100) : 100;
-    const highRisk = combinedPeople.filter(p => p.ppeStatus === 'NON_COMPLIANT' || p.currentZone === 'Heavy Crane & Exclusion Area').length;
+    const highRisk = combinedPeople.filter(p => p.ppeStatus === 'NON_COMPLIANT' || p.trainingStatus === 'OVERDUE' || p.currentZone === 'Heavy Crane & Exclusion Area').length;
     
     return { total, active, ppeRate, highRisk };
   }, [combinedPeople]);
+
+  // Quick Update Safety Training Status in MongoDB
+  const handleQuickUpdateTrainingStatus = async (tagId: string, name: string, newStatus: 'COMPLIANT' | 'DUE_SOON' | 'OVERDUE' | 'PENDING') => {
+    try {
+      const todayDate = new Date().toISOString().split('T')[0];
+      await setDoc(doc(db, 'registered_people', tagId.toUpperCase()), {
+        trainingStatus: newStatus,
+        lastTrainingDate: todayDate,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      await addDoc(collection(db, 'alerts'), {
+        type: newStatus === 'OVERDUE' ? 'warning' : 'info',
+        message: `Safety Training Compliance update for ${name} (${tagId}): Status changed to ${newStatus}`,
+        timestamp: new Date()
+      });
+
+      showToast('success', `Updated Safety Training Status to '${newStatus}' for ${name} in MongoDB database.`);
+      if (selectedPerson && (selectedPerson.hardhatTagId || selectedPerson.id).toUpperCase() === tagId.toUpperCase()) {
+        setSelectedPerson({
+          ...selectedPerson,
+          trainingStatus: newStatus,
+          lastTrainingDate: todayDate
+        });
+      }
+    } catch (err) {
+      console.error("Failed to update training status:", err);
+      showToast('error', "Failed to update worker safety status in MongoDB.");
+    }
+  };
+
+  // Quick Contractor Mobile Check-In handler
+  const handleContractorMobileCheckIn = async () => {
+    if (!simCheckInForm.workerName || !simCheckInForm.hardhatTagId) {
+      showToast('error', 'Worker Name and Hardhat Tag ID are required.');
+      return;
+    }
+    const tagId = simCheckInForm.hardhatTagId.toUpperCase().trim();
+    try {
+      // 1. Update registered_people document
+      await setDoc(doc(db, 'registered_people', tagId), {
+        id: tagId,
+        hardhatTagId: tagId,
+        name: simCheckInForm.workerName.trim(),
+        tradeCompany: simCheckInForm.tradeCompany || selectedContractorCompany,
+        shiftStatus: 'ON_SITE',
+        ppeStatus: simCheckInForm.ppeStatus || 'COMPLIANT',
+        currentZone: simCheckInForm.gateLocation,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      // 2. Add attendance record
+      await addDoc(collection(db, 'attendance'), {
+        tagId,
+        workerName: simCheckInForm.workerName,
+        tradeCompany: simCheckInForm.tradeCompany || selectedContractorCompany,
+        checkInTime: new Date().toISOString(),
+        gateLocation: simCheckInForm.gateLocation,
+        checkInType: 'MOBILE_QR_SELF_CHECKIN'
+      });
+
+      // 3. Add system alert
+      await addDoc(collection(db, 'alerts'), {
+        type: 'info',
+        message: `📱 Contractor Mobile Check-In: ${simCheckInForm.workerName} (${simCheckInForm.tradeCompany || selectedContractorCompany}) checked in via Mobile QR at ${simCheckInForm.gateLocation}`,
+        timestamp: new Date()
+      });
+
+      showToast('success', `Mobile Check-In verified for ${simCheckInForm.workerName} at ${simCheckInForm.gateLocation}!`);
+      setIsContractorQrModalOpen(false);
+    } catch (err) {
+      console.error('Failed contractor mobile check-in:', err);
+      showToast('error', 'Failed to record mobile check-in in database.');
+    }
+  };
 
   // Subcontractor / Trade Aggregations
   const contractorSummary = useMemo(() => {
@@ -648,6 +853,9 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
       certifications: 'OSHA 30, Scaffolding Safety',
       ppeStatus: 'COMPLIANT',
       shiftStatus: 'ON_SITE',
+      trainingStatus: 'COMPLIANT',
+      lastTrainingDate: '2026-05-15',
+      trainingCourse: 'OSHA 30 Construction Safety & Site Clearance',
       department: 'Civil Engineering',
       supervisor: 'Marcus Vance (EHS Director)',
       notes: 'Verified site safety compliance.'
@@ -657,18 +865,18 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
   // Seed sample workforce into MongoDB if empty
   const handleSeedSampleWorkforce = async () => {
     const samples: DBWorker[] = [
-      { id: 'HH-1092', hardhatTagId: 'HH-1092', name: 'Marcus Vance', role: 'Safety Officer (EHS)', tradeCompany: 'Aperture EHS Lead', phone: '+1 (555) 019-2831', certifications: 'OSHA 30, First Aid Lead, Crane Rigging', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', department: 'Safety & EHS' },
-      { id: 'HH-2041', hardhatTagId: 'HH-2041', name: 'Elena Rostova', role: 'Structural Engineer', tradeCompany: 'Apex Structural', phone: '+1 (555) 019-8822', certifications: 'OSHA 30, Scaffolding L3', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', department: 'Structural Engineering' },
-      { id: 'HH-3309', hardhatTagId: 'HH-3309', name: 'David Kim', role: 'General Subcontractor', tradeCompany: 'ConcreteWorks', phone: '+1 (555) 019-4411', certifications: 'OSHA 10, Confined Space', ppeStatus: 'WARNING', shiftStatus: 'ON_SITE', department: 'Formwork & Pouring' },
-      { id: 'HH-4820', hardhatTagId: 'HH-4820', name: 'Sarah Jenkins', role: 'Site Inspector / Visitor', tradeCompany: 'City Building Dept', phone: '+1 (555) 019-9900', certifications: 'Visitor Safety Clearance', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', department: 'Compliance Inspection' },
-      { id: 'HH-5112', hardhatTagId: 'HH-5112', name: 'Carlos Mendez', role: 'Heavy Equipment Operator', tradeCompany: 'Heavy Rigging Co', phone: '+1 (555) 019-7733', certifications: 'Tower Crane Master, OSHA 30', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', department: 'Crane Operations' }
+      { id: 'HH-1092', hardhatTagId: 'HH-1092', name: 'Marcus Vance', role: 'Safety Officer (EHS)', tradeCompany: 'Aperture EHS Lead', phone: '+1 (555) 019-2831', certifications: 'OSHA 30, First Aid Lead, Crane Rigging', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', lastTrainingDate: '2026-06-10', trainingCourse: 'OSHA 30 & Master EHS Refresher', department: 'Safety & EHS' },
+      { id: 'HH-2041', hardhatTagId: 'HH-2041', name: 'Elena Rostova', role: 'Structural Engineer', tradeCompany: 'Apex Structural', phone: '+1 (555) 019-8822', certifications: 'OSHA 30, Scaffolding L3', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', lastTrainingDate: '2026-05-20', trainingCourse: 'OSHA 30 Structural Safety', department: 'Structural Engineering' },
+      { id: 'HH-3309', hardhatTagId: 'HH-3309', name: 'David Kim', role: 'General Subcontractor', tradeCompany: 'ConcreteWorks', phone: '+1 (555) 019-4411', certifications: 'OSHA 10, Confined Space', ppeStatus: 'WARNING', shiftStatus: 'ON_SITE', trainingStatus: 'DUE_SOON', lastTrainingDate: '2025-08-12', trainingCourse: 'Confined Space Renewal', department: 'Formwork & Pouring' },
+      { id: 'HH-4820', hardhatTagId: 'HH-4820', name: 'Sarah Jenkins', role: 'Site Inspector / Visitor', tradeCompany: 'City Building Dept', phone: '+1 (555) 019-9900', certifications: 'Visitor Safety Clearance', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', lastTrainingDate: '2026-04-01', trainingCourse: 'Visitor Site Induction', department: 'Compliance Inspection' },
+      { id: 'HH-5112', hardhatTagId: 'HH-5112', name: 'Carlos Mendez', role: 'Heavy Equipment Operator', tradeCompany: 'Heavy Rigging Co', phone: '+1 (555) 019-7733', certifications: 'Tower Crane Master, OSHA 30', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'OVERDUE', lastTrainingDate: '2024-11-05', trainingCourse: 'Tower Crane Master Renewal', department: 'Crane Operations' }
     ];
 
     try {
       for (const item of samples) {
         await setDoc(doc(db, 'registered_people', item.hardhatTagId), item);
       }
-      showToast('success', 'Seeded sample workforce roster into MongoDB!');
+      showToast('success', 'Seeded sample workforce roster with Safety Statuses into MongoDB!');
     } catch (err) {
       console.error("Failed to seed sample workforce:", err);
     }
@@ -818,6 +1026,17 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
         {/* Top Control Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           <button 
+            onClick={() => {
+              setIsContractorQrModalOpen(true);
+              setMobileCheckInTab('qr');
+            }}
+            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-2 cursor-pointer"
+            title="Generate Mobile Check-In QR Codes for Contractors"
+          >
+            <Smartphone size={16} /> Contractor Mobile Check-In QR
+          </button>
+
+          <button 
             onClick={() => setIsQrScannerOpen(true)}
             className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-2 cursor-pointer"
             title="Scan worker hardhat or RFID badge QR code using camera"
@@ -909,6 +1128,16 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
           
           {/* Sub-View Mode Selector */}
           <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'map' 
+                  ? 'bg-[#007BC4] text-white shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <MapPin size={14} /> Interactive Construction Map
+            </button>
             <button
               onClick={() => setViewMode('roster')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
@@ -1002,6 +1231,19 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                 <option value="SUSPENDED">Suspended</option>
               </select>
 
+              {/* Safety Training Compliance Filter */}
+              <select
+                value={trainingFilter}
+                onChange={e => setTrainingFilter(e.target.value)}
+                className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl px-3 py-2 outline-none"
+              >
+                <option value="All">All Safety Compliance</option>
+                <option value="COMPLIANT">✓ Compliant</option>
+                <option value="DUE_SOON">⚠️ Refresher Due</option>
+                <option value="OVERDUE">⛔ Overdue / Expired</option>
+                <option value="PENDING">🔄 Pending Approval</option>
+              </select>
+
               {/* View Layout Toggle: List vs Condensed Cards */}
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
                 <button
@@ -1035,6 +1277,91 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
           )}
         </CardHeader>
         
+        {/* VIEW 0: INTERACTIVE MAP-BASED PEOPLE TRACKING */}
+        {viewMode === 'map' && (
+          <CardContent className="p-0 flex-1 flex flex-col min-h-[620px] bg-[#090d16] relative overflow-hidden">
+            {/* Map Top Control Strip */}
+            <div className="p-3.5 bg-slate-900/90 border-b border-slate-800 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 z-20">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black uppercase text-sky-400 tracking-wider flex items-center gap-1.5 bg-sky-950/80 px-2.5 py-1 rounded-lg border border-sky-800/60">
+                  <MapPin className="w-3.5 h-3.5 text-sky-400" /> Site RTLS Map
+                </span>
+                
+                {/* Map CAD Mode Switcher */}
+                <select
+                  value={mapMode}
+                  onChange={(e) => setMapMode(e.target.value as any)}
+                  className="bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200 rounded-lg px-2.5 py-1 outline-none cursor-pointer hover:border-sky-500 transition"
+                >
+                  <option value="standard">Standard CAD Blueprint</option>
+                  <option value="bim">3D BIM Wireframe</option>
+                  <option value="heatmap">Thermal Dwell Heatmap</option>
+                  <option value="evacuation">Emergency Evacuation Routes</option>
+                  <option value="security">High Risk Hazard Overlay</option>
+                </select>
+
+                <div className="h-4 w-[1px] bg-slate-700 hidden sm:block" />
+
+                {/* Live Zone Counters */}
+                <div className="hidden lg:flex items-center gap-1.5 text-[11px] font-bold">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                    🏗️ Tower Core: <strong className="text-sky-400">{mappedPeopleForMap.filter(p => (p.currentZone || '').toLowerCase().includes('tower')).length}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                    ⛏️ Excavation: <strong className="text-amber-400">{mappedPeopleForMap.filter(p => (p.currentZone || '').toLowerCase().includes('excavation')).length}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                    🏗️ Crane Swing: <strong className="text-purple-400">{mappedPeopleForMap.filter(p => (p.currentZone || '').toLowerCase().includes('crane')).length}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                    ⚡ High Voltage: <strong className="text-rose-400">{mappedPeopleForMap.filter(p => (p.currentZone || '').toLowerCase().includes('voltage')).length}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  {mappedPeopleForMap.length} Workers Tracked
+                </span>
+              </div>
+            </div>
+
+            {/* Interactive Blueprint Canvas Component */}
+            <div className="flex-1 relative w-full h-[540px]">
+              <LiveFloorMap
+                mode={mapMode}
+                zones={{}}
+                people={mappedPeopleForMap}
+                vehicles={[]}
+                onSelectEntity={(entity) => {
+                  if (entity.data) {
+                    setSelectedPerson(entity.data);
+                    setProfileTab('profile');
+                    setAiSummary(null);
+                  }
+                }}
+              />
+            </div>
+
+            {/* Map Bottom Zone & Subcontractor Roster Overlay */}
+            <div className="p-3 bg-slate-900/95 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 z-20 text-xs">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Info className="w-4 h-4 text-sky-400" />
+                <span>Click any worker pin on the map to open full profile, movement history, and AI EHS analysis.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setViewMode('roster')}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Users className="w-3.5 h-3.5" /> View Detailed Roster
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        )}
+
         {/* VIEW 1: PERSONNEL ROSTER TABLE */}
         {viewMode === 'roster' && (
           <CardContent className="p-0 flex-1 overflow-auto">
@@ -1233,6 +1560,25 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                           </div>
 
                           <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+                            <span className="text-slate-400 text-[11px] font-medium">Safety Compliance:</span>
+                            {(() => {
+                              const badgeInfo = getSafetyStatusBadge(person.trainingStatus);
+                              return (
+                                <select
+                                  value={person.trainingStatus || 'COMPLIANT'}
+                                  onChange={(e) => handleQuickUpdateTrainingStatus(tagDisplay, person.name, e.target.value as any)}
+                                  className={`text-[10px] font-black uppercase rounded px-2 py-0.5 outline-none border cursor-pointer ${badgeInfo.selectClass}`}
+                                >
+                                  <option value="COMPLIANT">✓ COMPLIANT</option>
+                                  <option value="DUE_SOON">⚠️ REFRESHER DUE</option>
+                                  <option value="OVERDUE">⛔ OVERDUE</option>
+                                  <option value="PENDING">🔄 PENDING</option>
+                                </select>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
                             <span className="text-slate-400 text-[10px] font-medium">Tag Battery:</span>
                             <span className={`font-bold text-[10px] flex items-center gap-1 ${isLowBattery ? 'text-rose-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
                               {isLowBattery ? <BatteryWarning size={12} className="text-rose-500" /> : <Battery size={12} className="text-emerald-500" />}
@@ -1294,6 +1640,7 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                     <TableHead className="text-slate-500 font-bold">Role</TableHead>
                     <TableHead className="text-slate-500 font-bold text-center">PPE Compliance</TableHead>
                     <TableHead className="text-slate-500 font-bold text-center">Shift Status</TableHead>
+                    <TableHead className="text-slate-500 font-bold text-center">Safety Status</TableHead>
                     <TableHead className="text-slate-500 font-bold">Current Sector</TableHead>
                     <TableHead className="text-slate-500 font-bold text-center">Battery</TableHead>
                     <TableHead className="text-slate-500 font-bold text-right">Dwell</TableHead>
@@ -1389,6 +1736,26 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                           </select>
                         </TableCell>
 
+                        {/* Interactive Safety Training Compliance Status selector */}
+                        <TableCell className="text-center">
+                          {(() => {
+                            const badgeInfo = getSafetyStatusBadge(person.trainingStatus);
+                            return (
+                              <select
+                                value={person.trainingStatus || 'COMPLIANT'}
+                                onChange={(e) => handleQuickUpdateTrainingStatus(tagDisplay, person.name, e.target.value as any)}
+                                className={`text-[10px] font-black uppercase rounded px-2 py-1 outline-none border cursor-pointer ${badgeInfo.selectClass}`}
+                                title="Update safety training compliance in MongoDB"
+                              >
+                                <option value="COMPLIANT">✓ COMPLIANT</option>
+                                <option value="DUE_SOON">⚠️ DUE SOON</option>
+                                <option value="OVERDUE">⛔ OVERDUE</option>
+                                <option value="PENDING">🔄 PENDING</option>
+                              </select>
+                            );
+                          })()}
+                        </TableCell>
+
                         <TableCell>
                           <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold text-xs">
                             <MapPin size={12} className="text-[#007BC4]" />
@@ -1448,7 +1815,7 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
           <CardContent className="p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {contractorSummary.map((c, i) => (
-                <div key={i} className="p-5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col justify-between gap-4">
+                <div key={i} className="p-5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition">
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
@@ -1473,8 +1840,18 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center text-xs">
-                    <span className="text-slate-500 font-medium">Violations: <strong>{c.nonCompliant}</strong></span>
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center text-xs gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedContractorCompany(c.company);
+                        setIsContractorQrModalOpen(true);
+                        setMobileCheckInTab('qr');
+                      }}
+                      className="px-2.5 py-1.5 bg-[#007BC4]/10 hover:bg-[#007BC4]/20 text-[#007BC4] rounded-xl text-[11px] font-extrabold flex items-center gap-1 transition cursor-pointer border border-[#007BC4]/20"
+                      title="Generate Mobile Check-In QR Pass for Contractor Staff"
+                    >
+                      <Smartphone size={13} /> Mobile QR Pass
+                    </button>
                     <button
                       onClick={() => { setCompanyFilter(c.company); setViewMode('roster'); }}
                       className="text-[11px] font-bold text-[#007BC4] hover:underline"
@@ -1510,7 +1887,7 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                       <div className="font-bold text-sm text-slate-900 dark:text-white">{p.name}</div>
                       <div className="text-xs text-slate-500 font-mono">{p.hardhatTagId || p.id} • {p.tradeCompany}</div>
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {(p.certifications || 'OSHA 30, Scaffolding L3').split(',').map((cert: string, idx: number) => (
+                        {parseCertifications(p.certifications).map((cert: string, idx: number) => (
                           <span key={idx} className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold text-[10px] rounded border border-emerald-200/50">
                             ✓ {cert.trim()}
                           </span>
@@ -1544,11 +1921,21 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                   {selectedPerson.name.charAt(0)}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedPerson.name}</h3>
                     <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-700 border-indigo-200">
                       {selectedPerson.shiftStatus || 'ON_SITE'}
                     </Badge>
+                    {(() => {
+                      const badgeInfo = getSafetyStatusBadge(selectedPerson.trainingStatus);
+                      const BadgeIcon = badgeInfo.icon;
+                      return (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border flex items-center gap-1 shadow-xs ${badgeInfo.badgeClass}`}>
+                          <BadgeIcon size={11} />
+                          {badgeInfo.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                     <span className="font-mono text-[#007BC4] font-bold">{selectedPerson.hardhatTagId || selectedPerson.id}</span>
@@ -1680,7 +2067,7 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                             {h.fromZone && <span className="text-[#007BC4]"> (From: {h.fromZone})</span>}
                           </div>
                           <span className="font-mono text-[10px] text-slate-400">
-                            {h.timestamp ? new Date(h.timestamp?.seconds ? h.timestamp.seconds * 1000 : h.timestamp).toLocaleTimeString() : 'Recent'}
+                            {h.timestamp ? new Date(h.timestamp?.seconds ? h.timestamp.seconds * 1000 : (h.timestamp?.toDate ? h.timestamp.toDate() : h.timestamp)).toLocaleTimeString() : 'Recent'}
                           </span>
                         </div>
                       ))}
@@ -1698,20 +2085,66 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
               {/* Tab 4: EHS & Certifications */}
               {profileTab === 'safety' && (
                 <div className="space-y-4">
-                  <div className="p-4 bg-emerald-50 text-emerald-900 rounded-2xl border border-emerald-200 space-y-1">
-                    <div className="font-bold text-sm flex items-center gap-2">
-                      <CheckCircle2 size={18} className="text-emerald-600" />
-                      OSHA 30 Safety Clearance Active
-                    </div>
-                    <div className="text-xs">Full PPE Verified (Hardhat, High-Vis Vest, Steel Toe Boots, Safety Harness).</div>
-                  </div>
+                  {/* Database Training Compliance Status Card */}
+                  {(() => {
+                    const tagDisplay = (selectedPerson.hardhatTagId || selectedPerson.id).toUpperCase();
+                    const badgeInfo = getSafetyStatusBadge(selectedPerson.trainingStatus);
+                    const BadgeIcon = badgeInfo.icon;
+                    return (
+                      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Training Compliance Status (Database Synced)</span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`px-3 py-1 rounded-xl text-xs font-black border flex items-center gap-1.5 shadow-sm ${badgeInfo.badgeClass}`}>
+                                <BadgeIcon size={14} />
+                                {badgeInfo.label}
+                              </span>
+                              <span className="text-xs text-slate-500 font-medium">Tag: <strong className="font-mono text-[#007BC4]">{tagDisplay}</strong></span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-bold text-slate-500">Quick Update:</span>
+                            <select
+                              value={selectedPerson.trainingStatus || 'COMPLIANT'}
+                              onChange={(e) => handleQuickUpdateTrainingStatus(tagDisplay, selectedPerson.name, e.target.value as any)}
+                              className={`text-xs font-extrabold uppercase rounded-xl px-3 py-1.5 outline-none border cursor-pointer ${badgeInfo.selectClass}`}
+                            >
+                              <option value="COMPLIANT">✓ COMPLIANT</option>
+                              <option value="DUE_SOON">⚠️ REFRESHER DUE</option>
+                              <option value="OVERDUE">⛔ OVERDUE</option>
+                              <option value="PENDING">🔄 PENDING</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                          <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                            <span className="text-[10px] font-bold text-slate-400 block mb-0.5">REGISTERED COURSE</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{selectedPerson.trainingCourse || 'OSHA 30 Construction Safety & Hazmat'}</span>
+                          </div>
+                          <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                            <span className="text-[10px] font-bold text-slate-400 block mb-0.5">LAST VERIFIED DATE</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{selectedPerson.lastTrainingDate || '2026-05-15'}</span>
+                          </div>
+                          <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                            <span className="text-[10px] font-bold text-slate-400 block mb-0.5">RENEWAL EXPIRATION</span>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400">{selectedPerson.trainingExpiry || '2027-05-15'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700">
-                    <h5 className="font-bold text-slate-900 dark:text-white mb-2">Verified Equipment Certifications</h5>
+                    <h5 className="font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                      <Award size={16} className="text-[#007BC4]" /> Verified Trade Certifications & Clearances
+                    </h5>
                     <div className="flex flex-wrap gap-2">
-                      {(selectedPerson.certifications || 'OSHA 30, Scaffolding L3, First Aid').split(',').map((c: string, idx: number) => (
-                        <span key={idx} className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-200 text-slate-800 dark:text-slate-200 font-bold rounded-lg text-xs">
-                          ✓ {c.trim()}
+                      {parseCertifications(selectedPerson.certifications).map((c: string, idx: number) => (
+                        <span key={idx} className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-200 text-slate-800 dark:text-slate-200 font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs">
+                          <CheckCircle2 size={12} className="text-emerald-500" /> {c.trim()}
                         </span>
                       ))}
                     </div>
@@ -1802,6 +2235,20 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
               </div>
 
               <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Safety Training Compliance Status</label>
+                <select
+                  value={formData.trainingStatus || 'COMPLIANT'}
+                  onChange={e => setFormData({...formData, trainingStatus: e.target.value as any})}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium"
+                >
+                  <option value="COMPLIANT">✓ Compliant / Up-to-Date</option>
+                  <option value="DUE_SOON">⚠️ Refresher Due Soon</option>
+                  <option value="OVERDUE">⛔ Overdue / Expired</option>
+                  <option value="PENDING">🔄 Pending Approval</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Safety Certifications</label>
                 <input
                   type="text"
@@ -1886,6 +2333,20 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                   <option value="Structural Engineer">Structural Engineer</option>
                   <option value="Heavy Equipment Operator">Heavy Equipment Operator</option>
                   <option value="Site Inspector / Visitor">Site Inspector</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">Safety Training Compliance Status</label>
+                <select
+                  value={formData.trainingStatus || 'COMPLIANT'}
+                  onChange={e => setFormData({...formData, trainingStatus: e.target.value as any})}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium"
+                >
+                  <option value="COMPLIANT">✓ Compliant / Up-to-Date</option>
+                  <option value="DUE_SOON">⚠️ Refresher Due Soon</option>
+                  <option value="OVERDUE">⛔ Overdue / Expired</option>
+                  <option value="PENDING">🔄 Pending Approval</option>
                 </select>
               </div>
 
@@ -1981,6 +2442,188 @@ export default function PeopleTab({ people = [] }: PeopleTabProps) {
                 <Send className="w-3.5 h-3.5" />
                 Dispatch Alert ({selectedIds.length})
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONTRACTOR MOBILE CHECK-IN QR MODAL */}
+      {isContractorQrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-3xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-[#007BC4]/10 text-[#007BC4] rounded-2xl">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    Contractor Mobile Check-In QR Pass
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">Quick mobile self check-in for trade sub-contractors</p>
+                </div>
+              </div>
+              <button onClick={() => setIsContractorQrModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Navigation Tabs */}
+            <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-100/50 dark:bg-slate-900 px-5 gap-2">
+              <button
+                onClick={() => setMobileCheckInTab('qr')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
+                  mobileCheckInTab === 'qr' ? 'border-[#007BC4] text-[#007BC4]' : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <QrCode size={14} /> Mobile QR Pass
+              </button>
+              <button
+                onClick={() => setMobileCheckInTab('simulate')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
+                  mobileCheckInTab === 'simulate' ? 'border-[#007BC4] text-[#007BC4]' : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <SmartphoneNfc size={14} /> Self Check-In Simulator
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {mobileCheckInTab === 'qr' ? (
+                <div className="flex flex-col items-center gap-4 text-center">
+                  {/* Company Select */}
+                  <div className="w-full text-left">
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1">Select Subcontractor Firm:</label>
+                    <select
+                      value={selectedContractorCompany}
+                      onChange={(e) => setSelectedContractorCompany(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 outline-none"
+                    >
+                      <option value="Apex Structural">Apex Structural</option>
+                      <option value="ConcreteWorks LLC">ConcreteWorks LLC</option>
+                      <option value="Heavy Rigging Co">Heavy Rigging Co</option>
+                      <option value="Aperture EHS Lead">Aperture EHS Lead</option>
+                      <option value="City Building Dept">City Building Dept</option>
+                    </select>
+                  </div>
+
+                  {/* Generated QR Pass Preview */}
+                  <div className="p-6 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl flex flex-col items-center gap-3 w-full max-w-sm shadow-sm">
+                    <span className="text-[10px] font-black uppercase text-[#007BC4] tracking-widest bg-[#007BC4]/10 px-3 py-1 rounded-full">
+                      MOBILE EXPRESS CHECK-IN
+                    </span>
+                    <h4 className="font-extrabold text-slate-900 dark:text-white text-base">{selectedContractorCompany}</h4>
+                    <p className="text-[11px] text-slate-500 font-medium">Scan on mobile device to open site entry check-in portal</p>
+
+                    <QrCodeSvg 
+                      text={`https://${window.location.host}/contractor-checkin?company=${encodeURIComponent(selectedContractorCompany)}`} 
+                      size={150} 
+                    />
+
+                    <div className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-[10px] text-slate-600 dark:text-slate-300 break-all w-full text-center">
+                      https://{window.location.host}/checkin?company={encodeURIComponent(selectedContractorCompany)}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-center gap-2 w-full flex-wrap pt-2">
+                    <button
+                      onClick={() => {
+                        const url = `https://${window.location.host}/contractor-checkin?company=${encodeURIComponent(selectedContractorCompany)}`;
+                        navigator.clipboard.writeText(url);
+                        showToast('success', `Copied Contractor Mobile Check-In link for ${selectedContractorCompany} to clipboard!`);
+                      }}
+                      className="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-800 dark:text-slate-100 text-xs font-bold rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Copy size={14} /> Copy Check-In Link
+                    </button>
+
+                    <button
+                      onClick={() => setMobileCheckInTab('simulate')}
+                      className="px-4 py-2.5 bg-[#007BC4] hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow transition cursor-pointer"
+                    >
+                      <SmartphoneNfc size={14} /> Launch Self Check-In Simulator
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Mobile Phone Simulator Tab */
+                <div className="flex flex-col items-center">
+                  <div className="w-full max-w-sm border-4 border-slate-800 dark:border-slate-700 rounded-[32px] p-4 bg-slate-900 text-white shadow-2xl relative">
+                    <div className="w-20 h-4 bg-slate-800 rounded-full mx-auto mb-3"></div>
+                    <div className="bg-slate-800/90 rounded-2xl p-4 space-y-3">
+                      <div className="text-center pb-2 border-b border-slate-700">
+                        <span className="text-[10px] font-black text-[#007BC4] uppercase tracking-widest block">CONTRACTOR MOBILE PORTAL</span>
+                        <h4 className="font-extrabold text-sm text-white">Gate Access Check-In</h4>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Worker Name</label>
+                          <input
+                            type="text"
+                            value={simCheckInForm.workerName}
+                            onChange={(e) => setSimCheckInForm({ ...simCheckInForm, workerName: e.target.value })}
+                            className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-medium outline-none focus:border-[#007BC4]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Hardhat Tag RFID ID</label>
+                          <input
+                            type="text"
+                            value={simCheckInForm.hardhatTagId}
+                            onChange={(e) => setSimCheckInForm({ ...simCheckInForm, hardhatTagId: e.target.value.toUpperCase() })}
+                            className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-[#007BC4] font-mono font-bold outline-none focus:border-[#007BC4]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Subcontractor Firm</label>
+                          <select
+                            value={simCheckInForm.tradeCompany}
+                            onChange={(e) => setSimCheckInForm({ ...simCheckInForm, tradeCompany: e.target.value })}
+                            className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-medium outline-none"
+                          >
+                            <option value="Apex Structural">Apex Structural</option>
+                            <option value="ConcreteWorks LLC">ConcreteWorks LLC</option>
+                            <option value="Heavy Rigging Co">Heavy Rigging Co</option>
+                            <option value="Aperture EHS Lead">Aperture EHS Lead</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Check-In Access Portal Gate</label>
+                          <select
+                            value={simCheckInForm.gateLocation}
+                            onChange={(e) => setSimCheckInForm({ ...simCheckInForm, gateLocation: e.target.value })}
+                            className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-medium outline-none"
+                          >
+                            <option value="Gate 1 Main Access Turnstile">Gate 1 Main Access Turnstile</option>
+                            <option value="Gate 2 Heavy Portal">Gate 2 Heavy Portal</option>
+                            <option value="Sector B Substation Gate">Sector B Substation Gate</option>
+                            <option value="Sector C Tower Crane Gate">Sector C Tower Crane Gate</option>
+                          </select>
+                        </div>
+
+                        <div className="p-2.5 bg-emerald-950/60 border border-emerald-800 rounded-xl text-[11px] flex items-center gap-2">
+                          <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                          <span className="text-emerald-200 font-semibold">Self-Certified Full PPE (Hardhat, Boots, Vest Verified)</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleContractorMobileCheckIn}
+                        className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer mt-2"
+                      >
+                        <Check size={16} /> Complete Mobile Self Check-In
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

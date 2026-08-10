@@ -7,6 +7,10 @@ export interface Person {
   tradeCompany?: string;
   ppeStatus?: 'COMPLIANT' | 'NON_COMPLIANT' | 'WARNING';
   shiftStatus?: 'ON_SITE' | 'OFF_SITE' | 'ON_LEAVE';
+  trainingStatus?: 'COMPLIANT' | 'DUE_SOON' | 'OVERDUE' | 'PENDING';
+  lastTrainingDate?: string;
+  trainingCourse?: string;
+  trainingExpiry?: string;
   isLate?: boolean;
   certifications?: string[];
   hardhatTagId?: string;

@@ -14,6 +14,7 @@ import {
   doc, 
   setDoc, 
   getDoc, 
+  getDocFromServer,
   collection, 
   query, 
   where, 
@@ -28,6 +29,17 @@ const auth = getAuth(app);
 const db = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
+
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('unavailable') || error.message.includes('Could not reach Cloud Firestore backend'))) {
+      console.warn("Firebase connection notice: Operating with local/REST backend fallback.");
+    }
+  }
+}
+testConnection().catch(() => {});
 
 export const storage = {
   ref: () => ({
@@ -49,10 +61,12 @@ export {
   doc,
   setDoc,
   getDoc,
+  getDocFromServer,
   collection,
   query,
   where,
   getDocs,
   onSnapshot
 };
+
 

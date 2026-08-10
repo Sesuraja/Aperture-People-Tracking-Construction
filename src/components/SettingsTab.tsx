@@ -39,7 +39,8 @@ import {
   ChevronDown,
   ChevronUp,
   CheckSquare,
-  Square
+  Square,
+  Pencil
 } from "lucide-react";
 import { gaoApi, DEFAULT_HOST } from "../lib/gaoApi";
 import { doc, getDoc, setDoc, isMongoActive } from "../lib/db";
@@ -87,6 +88,24 @@ export default function SettingsTab() {
   const [autoExclusionZones, setAutoExclusionZones] = useState(true);
   const [uncardedPersonnelAlarm, setUncardedPersonnelAlarm] = useState("Audible Siren & Turnstile Lock");
 
+  // Geofence Proximity Alert Configuration States
+  const [geofenceProximityEnabled, setGeofenceProximityEnabled] = useState(true);
+  const [geofenceProximityBufferMeters, setGeofenceProximityBufferMeters] = useState(5);
+  const [geofenceStayDurationThresholdSec, setGeofenceStayDurationThresholdSec] = useState(10);
+  const [geofenceNotificationMethods, setGeofenceNotificationMethods] = useState({
+    soundSiren: true,
+    visualPulse: true,
+    emailAlert: true,
+    smsAlert: false,
+    autoCctvSnap: true,
+    turnstileLock: true
+  });
+  const [geofenceSeverityPolicies, setGeofenceSeverityPolicies] = useState({
+    critical: "Immediate Loud Siren + Red Flash + Turnstile Lock",
+    warning: "Visual Map Pulse + EHS Safety Officer Notification",
+    normal: "Log Event & Real-time Zone Counter Update"
+  });
+
   // 3. Hardware & IoT Gateways Config (New Feature)
   const [antennaPower, setAntennaPower] = useState(30); // dBm
   const [scanFrequency, setScanFrequency] = useState(250); // ms
@@ -96,13 +115,17 @@ export default function SettingsTab() {
   const [heartbeatInterval, setHeartbeatInterval] = useState(10); // sec
 
   // 4. AI Analytics & Gemini Vision Config (New Feature)
-  const [aiModel, setAiModel] = useState("gemini-2.5-flash");
+  const [aiModel, setAiModel] = useState("gemini-3.6-flash");
   const [anomalyScanSensitivity, setAnomalyScanSensitivity] = useState("Medium");
   const [aiPromptCustomizer, setAiPromptCustomizer] = useState(
     "Identify unauthorized loitering, tailgating, and tag anomalies with confidence score."
   );
   const [autoAnalyzeIncidents, setAutoAnalyzeIncidents] = useState(true);
   const [aiThreatThreshold, setAiThreatThreshold] = useState(75);
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [geminiStatus, setGeminiStatus] = useState<{ configured: boolean; message?: string; source?: string } | null>(null);
+  const [savingGeminiKey, setSavingGeminiKey] = useState(false);
 
   // 5. Audit & Compliance Rules (New Feature)
   const [auditRetentionDays, setAuditRetentionDays] = useState(365);
@@ -237,7 +260,7 @@ export default function SettingsTab() {
   ]);
 
   const [activeRoleTab, setActiveRoleTab] = useState<string>("admin");
-  const [activeAccessTab, setActiveAccessTab] = useState<"matrix" | "staff" | "roles">("matrix");
+  const [activeAccessTab, setActiveAccessTab] = useState<"matrix" | "staff" | "roles" | "invitations" | "activity_log">("matrix");
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDesc, setNewRoleDesc] = useState("");
   const [expandedUserUid, setExpandedUserUid] = useState<string | null>(null);
@@ -262,6 +285,21 @@ export default function SettingsTab() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [creationSuccess, setCreationSuccess] = useState<string | null>(null);
   const [creationError, setCreationError] = useState<string | null>(null);
+
+  // Editing and Reset states
+  const [editingUserUid, setEditingUserUid] = useState<string | null>(null);
+  const [editingUserName, setEditingUserName] = useState<string>("");
+  const [resettingPasswordUid, setResettingPasswordUid] = useState<string | null>(null);
+  const [resettingPasswordValue, setResettingPasswordValue] = useState<string>("");
+  const [createPasswordType, setCreatePasswordType] = useState<"password" | "text">("password");
+
+  // User Activity, Bulk Role, and Invite States
+  const [userActivityLogs, setUserActivityLogs] = useState<any[]>([]);
+  const [isLoadingActivityLogs, setIsLoadingActivityLogs] = useState(false);
+  const [bulkSelectedUsers, setBulkSelectedUsers] = useState<string[]>([]);
+  const [bulkRole, setBulkRole] = useState<string>("operator");
+  const [isApplyingBulkRole, setIsApplyingBulkRole] = useState(false);
+  const [resendingInviteUid, setResendingInviteUid] = useState<string | null>(null);
 
   // Database Backup / Export / Import states
   const [isExportingDb, setIsExportingDb] = useState(false);
@@ -317,6 +355,13 @@ export default function SettingsTab() {
     }
   }, [activeSection]);
 
+  // Sync user activity logs on tab change
+  useEffect(() => {
+    if (activeSection === "access" && activeAccessTab === "activity_log") {
+      fetchUserActivityLogs();
+    }
+  }, [activeAccessTab, activeSection]);
+
   const loadManagementData = async () => {
     setIsLoadingUsers(true);
     setActionErrorMessage(null);
@@ -346,14 +391,21 @@ export default function SettingsTab() {
         setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
       } else {
         try {
-          const token = await auth.currentUser?.getIdToken();
+          const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
           const res = await fetch("/api/admin/users", {
             headers: { Authorization: `Bearer ${token}` },
           });
 
           if (res.ok) {
             const data = await res.json();
-            setUsers(data.users || []);
+            const normalizedUsers = (data.users || [])
+              .filter(Boolean)
+              .map((u: any) => ({
+                ...u,
+                uid: u.uid || u.id,
+                id: u.id || u.uid
+              }));
+            setUsers(normalizedUsers);
           }
         } catch (fetchErr) {
           console.warn("Could not fetch user list from backend admin endpoint:", fetchErr);
@@ -438,6 +490,189 @@ export default function SettingsTab() {
     });
   };
 
+  const fetchUserActivityLogs = async () => {
+    if (mode === "demo") {
+      setUserActivityLogs([
+        {
+          id: "audit_demo_1",
+          timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+          userId: "demo_user_3",
+          userEmail: "sigmund.t.d@gaostaff.com",
+          action: "ADMIN_CHANGE_USER_ROLE",
+          resource: "users",
+          details: { targetUser: "operator_demo@gaostaff.com", prevRole: "viewer", newRole: "operator" },
+          ip: "192.168.1.100"
+        },
+        {
+          id: "audit_demo_2",
+          timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
+          userId: "demo_user_3",
+          userEmail: "sigmund.t.d@gaostaff.com",
+          action: "ADMIN_CREATE_USER",
+          resource: "users",
+          details: { targetEmail: "manager_demo@gaostaff.com", role: "manager" },
+          ip: "192.168.1.100"
+        },
+        {
+          id: "audit_demo_3",
+          timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+          userId: "demo_user_3",
+          userEmail: "sigmund.t.d@gaostaff.com",
+          action: "ADMIN_UPDATE_PERMISSIONS",
+          resource: "role_permissions",
+          details: { updatedRoles: ["operator", "security"] },
+          ip: "192.168.1.100"
+        }
+      ]);
+      return;
+    }
+
+    setIsLoadingActivityLogs(true);
+    try {
+      const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/admin/user-activity-logs", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserActivityLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch user activity logs:", err);
+    } finally {
+      setIsLoadingActivityLogs(false);
+    }
+  };
+
+  const handleBulkAssignRole = async () => {
+    if (bulkSelectedUsers.length === 0) return;
+    setActionSuccessMessage(null);
+    setActionErrorMessage(null);
+    setIsApplyingBulkRole(true);
+    try {
+      if (mode === "demo") {
+        setUsers(users.map(u => bulkSelectedUsers.includes(u.uid) ? { ...u, role: bulkRole } : u));
+        setActionSuccessMessage(`Successfully updated role to ${bulkRole} for ${bulkSelectedUsers.length} users (Demo Mode)`);
+        setBulkSelectedUsers([]);
+        setIsApplyingBulkRole(false);
+        return;
+      }
+
+      const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/admin/bulk-set-role", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userIds: bulkSelectedUsers,
+          role: bulkRole
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setActionSuccessMessage(data.message || `Successfully updated roles.`);
+        // update users in state
+        setUsers(users.map(u => bulkSelectedUsers.includes(u.uid) ? { ...u, role: bulkRole } : u));
+        setBulkSelectedUsers([]);
+      } else {
+        const data = await res.json();
+        setActionErrorMessage(data.error || "Failed to bulk update roles");
+      }
+    } catch (err: any) {
+      setActionErrorMessage(err.message || "Failed to bulk update roles");
+    } finally {
+      setIsApplyingBulkRole(false);
+    }
+  };
+
+  const handleResendInvite = async (targetUid: string) => {
+    setActionSuccessMessage(null);
+    setActionErrorMessage(null);
+    setResendingInviteUid(targetUid);
+    try {
+      if (mode === "demo") {
+        setActionSuccessMessage(`Successfully resent invitation email to staff member (Demo Mode)`);
+        setResendingInviteUid(null);
+        return;
+      }
+
+      const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/users/${targetUid}/resend-invite`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setActionSuccessMessage(data.message || `Successfully resent invitation.`);
+      } else {
+        const data = await res.json();
+        setActionErrorMessage(data.error || "Failed to resend invitation");
+      }
+    } catch (err: any) {
+      setActionErrorMessage(err.message || "Failed to resend invitation");
+    } finally {
+      setResendingInviteUid(null);
+    }
+  };
+
+  const handleDownloadPermissionsCsv = () => {
+    try {
+      const headers = ["Role ID", "Role Name", ...SYSTEM_PAGES.map(p => p.label)];
+      
+      const rows = customRoles.map(r => {
+        const perms = rolePermissions[r.id] || {};
+        const values = [
+          r.id,
+          r.label,
+          ...SYSTEM_PAGES.map(p => perms[p.id] ? "ALLOWED" : "RESTRICTED")
+        ];
+        return values.map(v => `"${v.replace(/"/g, '""')}"`).join(",");
+      });
+
+      const csvContent = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `GAO_Access_Control_Matrix_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setActionSuccessMessage("Access Control Matrix CSV exported successfully!");
+    } catch (err: any) {
+      setActionErrorMessage("Failed to export compliance CSV: " + err.message);
+    }
+  };
+
+  const getPasswordStrength = (pass: string) => {
+    if (!pass) return { score: 0, text: "None", color: "bg-slate-200", textColor: "text-slate-400", width: "w-0" };
+    let score = 0;
+    if (pass.length >= 6) score += 1;
+    if (pass.length >= 10) score += 1;
+    if (/[A-Z]/.test(pass)) score += 1;
+    if (/[a-z]/.test(pass)) score += 1;
+    if (/[0-9]/.test(pass)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pass)) score += 1;
+
+    if (score <= 2) {
+      return { score: 1, text: "Weak", color: "bg-rose-500", textColor: "text-rose-600", width: "w-1/4" };
+    } else if (score <= 4) {
+      return { score: 2, text: "Fair", color: "bg-amber-500", textColor: "text-amber-600", width: "w-2/4" };
+    } else if (score <= 5) {
+      return { score: 3, text: "Good", color: "bg-blue-500", textColor: "text-blue-600", width: "w-3/4" };
+    } else {
+      return { score: 4, text: "Strong", color: "bg-emerald-500", textColor: "text-emerald-600", width: "w-full" };
+    }
+  };
+
   const handleSavePermissions = async () => {
     setIsSavingPermissions(true);
     setActionSuccessMessage(null);
@@ -446,7 +681,7 @@ export default function SettingsTab() {
       await setDoc(doc(db, "settings", "role_permissions"), rolePermissions, { merge: true });
       
       try {
-        const token = await auth.currentUser?.getIdToken();
+        const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
         const rolePayload = Object.keys(rolePermissions).map(roleKey => ({
           role: roleKey,
           permissions: Object.keys(rolePermissions[roleKey]).filter(k => rolePermissions[roleKey][k])
@@ -589,7 +824,7 @@ export default function SettingsTab() {
     setActionSuccessMessage(null);
     setActionErrorMessage(null);
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
       const res = await fetch("/api/admin/set-role", {
         method: "POST",
         headers: {
@@ -622,7 +857,7 @@ export default function SettingsTab() {
     setActionSuccessMessage(null);
     setActionErrorMessage(null);
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
       const res = await fetch(`/api/admin/users/${targetUid}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -640,14 +875,93 @@ export default function SettingsTab() {
     }
   };
 
+  const generateRandomPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+    let password = "";
+    const lower = "abcdefghijklmnopqrstuvwxyz";
+    const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const digits = "0123456789";
+    const symbols = "!@#$%^&*()";
+    
+    password += lower[Math.floor(Math.random() * lower.length)];
+    password += upper[Math.floor(Math.random() * upper.length)];
+    password += digits[Math.floor(Math.random() * digits.length)];
+    password += symbols[Math.floor(Math.random() * symbols.length)];
+
+    for (let i = 0; i < 8; i++) {
+      password += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return password.split('').sort(() => 0.5 - Math.random()).join('');
+  };
+
+  const handleUpdateUserName = async (targetUid: string) => {
+    if (!editingUserName.trim()) return;
+    setActionSuccessMessage(null);
+    setActionErrorMessage(null);
+    try {
+      const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/users/${targetUid}/update-name`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: editingUserName.trim() }),
+      });
+
+      if (res.ok) {
+        setActionSuccessMessage(`Successfully updated display name to ${editingUserName.trim()}`);
+        setUsers(users.map((u) => (u.uid === targetUid ? { ...u, displayName: editingUserName.trim(), name: editingUserName.trim() } : u)));
+        setEditingUserUid(null);
+        setEditingUserName("");
+      } else {
+        const data = await res.json();
+        setActionErrorMessage(data.error || "Failed to update display name");
+      }
+    } catch (err: any) {
+      setActionErrorMessage(err.message || "Failed to communicate with update name endpoint");
+    }
+  };
+
+  const handleResetUserPassword = async (targetUid: string) => {
+    if (resettingPasswordValue.length < 6) {
+      setActionErrorMessage("Password must be at least 6 characters long");
+      return;
+    }
+    setActionSuccessMessage(null);
+    setActionErrorMessage(null);
+    try {
+      const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/users/${targetUid}/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password: resettingPasswordValue }),
+      });
+
+      if (res.ok) {
+        setActionSuccessMessage(`Successfully reset password for staff user account.`);
+        setResettingPasswordUid(null);
+        setResettingPasswordValue("");
+      } else {
+        const data = await res.json();
+        setActionErrorMessage(data.error || "Failed to reset password");
+      }
+    } catch (err: any) {
+      setActionErrorMessage(err.message || "Failed to reset password");
+    }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (mode === "demo") return; // Keep demo guard
     setCreationSuccess(null);
     setCreationError(null);
     setIsCreatingUser(true);
 
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem("gao_jwt_token") || await auth.currentUser?.getIdToken();
       const res = await fetch("/api/admin/create-user", {
         method: "POST",
         headers: {
@@ -737,6 +1051,12 @@ export default function SettingsTab() {
           if (data.autoExclusionZones !== undefined) setAutoExclusionZones(data.autoExclusionZones);
           if (data.uncardedPersonnelAlarm !== undefined) setUncardedPersonnelAlarm(data.uncardedPersonnelAlarm);
 
+          if (data.geofenceProximityEnabled !== undefined) setGeofenceProximityEnabled(data.geofenceProximityEnabled);
+          if (data.geofenceProximityBufferMeters !== undefined) setGeofenceProximityBufferMeters(data.geofenceProximityBufferMeters);
+          if (data.geofenceStayDurationThresholdSec !== undefined) setGeofenceStayDurationThresholdSec(data.geofenceStayDurationThresholdSec);
+          if (data.geofenceNotificationMethods !== undefined) setGeofenceNotificationMethods(data.geofenceNotificationMethods);
+          if (data.geofenceSeverityPolicies !== undefined) setGeofenceSeverityPolicies(data.geofenceSeverityPolicies);
+
           if (data.antennaPower !== undefined) setAntennaPower(data.antennaPower);
           if (data.scanFrequency !== undefined) setScanFrequency(data.scanFrequency);
           if (data.turnstileAutoLock !== undefined) setTurnstileAutoLock(data.turnstileAutoLock);
@@ -798,7 +1118,50 @@ export default function SettingsTab() {
       })
       .then((status) => setMongoStatus(status))
       .catch((e) => console.warn("Could not load MongoDB backend status on mount:", e));
+
+    fetch("/api/ai/status")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.configured === "boolean") {
+          setGeminiStatus({
+            configured: data.configured,
+            source: data.source,
+            message: data.configured ? `Active (Connected via ${data.source === "environment_variable" ? "process.env.GEMINI_API_KEY" : "Frontend Settings"})` : "Not connected (Using simulated EHS fallback)"
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const handleSaveGeminiKey = async () => {
+    setSavingGeminiKey(true);
+    try {
+      const res = await fetch("/api/ai/config-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ geminiApiKey }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setGeminiStatus({
+          configured: data.configured,
+          message: data.message
+        });
+      } else {
+        setGeminiStatus({
+          configured: false,
+          message: data.error || "Failed to set Gemini key"
+        });
+      }
+    } catch (e: any) {
+      setGeminiStatus({
+        configured: false,
+        message: e.message || "Error setting Gemini key"
+      });
+    } finally {
+      setSavingGeminiKey(false);
+    }
+  };
 
   const handleTestMongo = async () => {
     if (!mongoUri) {
@@ -921,6 +1284,12 @@ export default function SettingsTab() {
         rfidSensitivity,
         autoExclusionZones,
         uncardedPersonnelAlarm,
+
+        geofenceProximityEnabled,
+        geofenceProximityBufferMeters,
+        geofenceStayDurationThresholdSec,
+        geofenceNotificationMethods,
+        geofenceSeverityPolicies,
 
         antennaPower,
         scanFrequency,
@@ -1139,125 +1508,58 @@ export default function SettingsTab() {
         <nav className="flex flex-col gap-1">
           <button
             onClick={() => setActiveSection("general")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "general"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
             <Layout className="w-4 h-4" /> General Preferences
           </button>
 
           <button
-            onClick={() => setActiveSection("security")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-              activeSection === "security"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <Shield className="w-4 h-4" /> Security & Tracking
-          </button>
-
-          <button
-            onClick={() => setActiveSection("hardware")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-              activeSection === "hardware"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <Cpu className="w-4 h-4" /> Hardware & IoT Gateways
-          </button>
-
-          <button
             onClick={() => setActiveSection("ai")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "ai"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Bot className="w-4 h-4" /> AI Analytics & Gemini Vision
-          </button>
-
-          <button
-            onClick={() => setActiveSection("notifications")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-              activeSection === "notifications"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <Bell className="w-4 h-4" /> Notifications & Alerts
-          </button>
-
-          <button
-            onClick={() => setActiveSection("network")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-              activeSection === "network"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <Network className="w-4 h-4" /> Network & APIs
+            <Bot className="w-4 h-4" /> AI Vision & Safety Model
           </button>
 
           <button
             onClick={() => setActiveSection("integrations")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "integrations"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Database className="w-4 h-4" /> Integrations & MongoDB Sync
+            <Database className="w-4 h-4" /> Database & Sync
           </button>
 
           <button
-            onClick={() => setActiveSection("rules")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-              activeSection === "rules"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            onClick={() => setActiveSection("security")}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeSection === "security"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Workflow className="w-4 h-4" /> Smart Alert Rules Engine
-          </button>
-
-          <button
-            onClick={() => setActiveSection("apidocs")}
-            id="settings_api_docs_tab"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-              activeSection === "apidocs"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <Key className="w-4 h-4" /> API Docs & Console
+            <Shield className="w-4 h-4" /> Hardware & Safety Thresholds
           </button>
 
           <button
             onClick={() => setActiveSection("access")}
             id="settings_access_control_tab"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "access"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Users className="w-4 h-4" /> Access Control & Custom Claims
-          </button>
-
-          <button
-            onClick={() => setActiveSection("dataBackup")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition ${
-              activeSection === "dataBackup"
-                ? "bg-[#007BC4]/10 text-[#007BC4]"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <HardDrive className="w-4 h-4" /> Database Backup & Snapshot
+            <Users className="w-4 h-4" /> Access Control & User Roles
           </button>
         </nav>
       </div>
@@ -1475,6 +1777,158 @@ export default function SettingsTab() {
                     ))}
                   </div>
                 </div>
+
+                {/* GEOFENCE PROXIMITY ALERT CONFIGURATION PANEL */}
+                <div className="p-6 bg-slate-50/70 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-[#007BC4]" /> Geofence Proximity Alerting & Breach Policy
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Set proximity alert buffer distances, stay duration thresholds, and choose real-time alarm channels.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={geofenceProximityEnabled}
+                        onChange={(e) => setGeofenceProximityEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#007BC4]"></div>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                        Proximity Alert Buffer Distance ({geofenceProximityBufferMeters} Meters)
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="25"
+                        value={geofenceProximityBufferMeters}
+                        onChange={(e) => setGeofenceProximityBufferMeters(parseInt(e.target.value) || 1)}
+                        className="w-full accent-[#007BC4] cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-1">
+                        <span>1m (Tight Boundary)</span>
+                        <span>10m (Standard Buffer)</span>
+                        <span>25m (Wide Perimeter)</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                        Breach Stay Duration Threshold (Seconds)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={geofenceStayDurationThresholdSec}
+                        onChange={(e) => setGeofenceStayDurationThresholdSec(parseInt(e.target.value) || 0)}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Seconds allowed in buffer zone before trigger alarm (0 = Immediate).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Notification Channels Selection */}
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      Proximity Notification & Alarm Dispatch Methods
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      <label className={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
+                        geofenceNotificationMethods.soundSiren ? 'bg-blue-50/80 border-[#007BC4] text-[#007BC4]' : 'bg-white border-slate-200 text-slate-600'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={geofenceNotificationMethods.soundSiren}
+                          onChange={(e) => setGeofenceNotificationMethods({ ...geofenceNotificationMethods, soundSiren: e.target.checked })}
+                          className="rounded border-slate-300 text-[#007BC4] focus:ring-[#007BC4]"
+                        />
+                        <span className="text-xs font-bold flex items-center gap-1">
+                          <Bell className="w-3.5 h-3.5" /> Sound Siren
+                        </span>
+                      </label>
+
+                      <label className={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
+                        geofenceNotificationMethods.visualPulse ? 'bg-blue-50/80 border-[#007BC4] text-[#007BC4]' : 'bg-white border-slate-200 text-slate-600'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={geofenceNotificationMethods.visualPulse}
+                          onChange={(e) => setGeofenceNotificationMethods({ ...geofenceNotificationMethods, visualPulse: e.target.checked })}
+                          className="rounded border-slate-300 text-[#007BC4] focus:ring-[#007BC4]"
+                        />
+                        <span className="text-xs font-bold flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5" /> Visual Screen Pulse
+                        </span>
+                      </label>
+
+                      <label className={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
+                        geofenceNotificationMethods.emailAlert ? 'bg-blue-50/80 border-[#007BC4] text-[#007BC4]' : 'bg-white border-slate-200 text-slate-600'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={geofenceNotificationMethods.emailAlert}
+                          onChange={(e) => setGeofenceNotificationMethods({ ...geofenceNotificationMethods, emailAlert: e.target.checked })}
+                          className="rounded border-slate-300 text-[#007BC4] focus:ring-[#007BC4]"
+                        />
+                        <span className="text-xs font-bold flex items-center gap-1">
+                          <FileText className="w-3.5 h-3.5" /> Email Digest
+                        </span>
+                      </label>
+
+                      <label className={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
+                        geofenceNotificationMethods.smsAlert ? 'bg-blue-50/80 border-[#007BC4] text-[#007BC4]' : 'bg-white border-slate-200 text-slate-600'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={geofenceNotificationMethods.smsAlert}
+                          onChange={(e) => setGeofenceNotificationMethods({ ...geofenceNotificationMethods, smsAlert: e.target.checked })}
+                          className="rounded border-slate-300 text-[#007BC4] focus:ring-[#007BC4]"
+                        />
+                        <span className="text-xs font-bold flex items-center gap-1">
+                          <Sliders className="w-3.5 h-3.5" /> SMS Emergency
+                        </span>
+                      </label>
+
+                      <label className={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
+                        geofenceNotificationMethods.autoCctvSnap ? 'bg-blue-50/80 border-[#007BC4] text-[#007BC4]' : 'bg-white border-slate-200 text-slate-600'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={geofenceNotificationMethods.autoCctvSnap}
+                          onChange={(e) => setGeofenceNotificationMethods({ ...geofenceNotificationMethods, autoCctvSnap: e.target.checked })}
+                          className="rounded border-slate-300 text-[#007BC4] focus:ring-[#007BC4]"
+                        />
+                        <span className="text-xs font-bold flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5" /> CCTV Vision Snap
+                        </span>
+                      </label>
+
+                      <label className={`p-3 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
+                        geofenceNotificationMethods.turnstileLock ? 'bg-blue-50/80 border-[#007BC4] text-[#007BC4]' : 'bg-white border-slate-200 text-slate-600'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={geofenceNotificationMethods.turnstileLock}
+                          onChange={(e) => setGeofenceNotificationMethods({ ...geofenceNotificationMethods, turnstileLock: e.target.checked })}
+                          className="rounded border-slate-300 text-[#007BC4] focus:ring-[#007BC4]"
+                        />
+                        <span className="text-xs font-bold flex items-center gap-1">
+                          <Lock className="w-3.5 h-3.5" /> Turnstile Interlock
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end pt-2">
@@ -1608,6 +2062,58 @@ export default function SettingsTab() {
               </div>
 
               <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Gemini API Key (GEMINI_API_KEY)
+                    </label>
+                    {geminiStatus && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1 border ${
+                        geminiStatus.configured 
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                          : 'bg-amber-100 text-amber-800 border-amber-300'
+                      }`}>
+                        {geminiStatus.configured ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <AlertTriangle className="w-3 h-3 text-amber-600" />}
+                        {geminiStatus.configured ? 'Connected' : 'Not Configured'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-500 text-xs mb-3">
+                    Enter your Google Gemini API key or set <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">GEMINI_API_KEY</code> in environment variables.
+                  </p>
+                  <div className="relative flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showGeminiKey ? "text" : "password"}
+                        placeholder="AIzaSy..."
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2.5 text-slate-900 focus:border-[#007BC4] focus:ring-2 focus:ring-[#007BC4]/20 outline-none transition font-mono text-xs shadow-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowGeminiKey(!showGeminiKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                      >
+                        {showGeminiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSaveGeminiKey}
+                      disabled={savingGeminiKey}
+                      className="px-4 py-2.5 bg-[#007BC4] hover:bg-[#00629B] text-white text-xs font-bold rounded-lg transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0 shadow-xs"
+                    >
+                      {savingGeminiKey ? "Connecting..." : "Connect Key"}
+                    </button>
+                  </div>
+                  {geminiStatus?.message && (
+                    <div className="mt-2 text-xs font-mono text-slate-600">
+                      Status: {geminiStatus.message}
+                    </div>
+                  )}
+                </div>
+
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
@@ -1618,8 +2124,8 @@ export default function SettingsTab() {
                       onChange={(e) => setAiModel(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-semibold text-xs focus:border-[#007BC4] outline-none transition cursor-pointer"
                     >
-                      <option value="gemini-2.5-flash">gemini-2.5-flash (Fast & Recommended)</option>
-                      <option value="gemini-2.5-pro">gemini-2.5-pro (Deep Reasoning & Analysis)</option>
+                      <option value="gemini-3.6-flash">gemini-3.6-flash (Fast & Recommended)</option>
+                      <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Deep Reasoning & Analysis)</option>
                     </select>
                   </div>
 
@@ -1869,18 +2375,14 @@ export default function SettingsTab() {
                     <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
                       MongoDB Connection URI (MONGODB_URI)
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setMongoUri("mongodb+srv://sigmundtd_db_user:Jesuraja123%40@cluster0.lxd6qba.mongodb.net/gao_rfid")}
-                      className="text-xs font-bold text-[#007BC4] hover:underline cursor-pointer flex items-center gap-1"
-                    >
-                      Use Default Aperture RFID Cluster
-                    </button>
+                    <span className="text-xs text-slate-500 font-medium">
+                      Or set <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">MONGODB_URI</code> in environment variables
+                    </span>
                   </div>
                   <div className="relative">
                     <input
                       type={showMongoPassword ? "text" : "password"}
-                      placeholder="mongodb+srv://sigmundtd_db_user:<password>@cluster0.lxd6qba.mongodb.net/gao_rfid"
+                      placeholder="mongodb+srv://<username>:<password>@cluster.mongodb.net/dbname"
                       value={mongoUri}
                       onChange={(e) => setMongoUri(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2.5 text-slate-900 focus:border-[#007BC4] focus:ring-2 focus:ring-[#007BC4]/20 outline-none transition font-mono text-xs shadow-xs"
@@ -2242,6 +2744,26 @@ export default function SettingsTab() {
                 >
                   <Sliders className="w-4 h-4" /> Custom Roles Management ({customRoles.length})
                 </button>
+                <button
+                  onClick={() => setActiveAccessTab("invitations")}
+                  className={`px-5 py-3 shrink-0 flex items-center gap-2 border-b-2 font-bold transition cursor-pointer ${
+                    activeAccessTab === "invitations"
+                      ? "border-[#007BC4] text-[#007BC4] bg-slate-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Users className="w-4 h-4" /> Pending Invitations ({users.filter(u => u.hasLoggedIn === false || (u.invited && !u.lastLogin)).length})
+                </button>
+                <button
+                  onClick={() => setActiveAccessTab("activity_log")}
+                  className={`px-5 py-3 shrink-0 flex items-center gap-2 border-b-2 font-bold transition cursor-pointer ${
+                    activeAccessTab === "activity_log"
+                      ? "border-[#007BC4] text-[#007BC4] bg-slate-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <FileText className="w-4 h-4" /> User Activity Log
+                </button>
               </div>
 
               {/* SUBTAB 1: ROLE PAGE ACCESS MATRIX */}
@@ -2249,7 +2771,16 @@ export default function SettingsTab() {
                 <div className="space-y-5">
                   {/* Role Selector Pills */}
                   <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-4 space-y-3">
-                    <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Select System or Custom Role to Configure:</div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Select System or Custom Role to Configure:</div>
+                      <button
+                        onClick={handleDownloadPermissionsCsv}
+                        className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer self-start sm:self-auto"
+                        title="Download Access Matrix as CSV for Compliance Documentation"
+                      >
+                        <Download className="w-3.5 h-3.5 text-[#007BC4]" /> Download Permissions CSV
+                      </button>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {customRoles.map((r) => (
                         <button
@@ -2390,16 +2921,52 @@ export default function SettingsTab() {
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Password *</label>
-                        <input
-                          type="password"
-                          required
-                          value={createPassword}
-                          onChange={(e) => setCreatePassword(e.target.value)}
-                          placeholder="Min 6 characters"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-[#007BC4]"
-                        />
+                      <div className="relative">
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase">Password *</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const pass = generateRandomPassword();
+                              setCreatePassword(pass);
+                              setCreatePasswordType("text");
+                            }}
+                            className="text-[10px] text-[#007BC4] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <Sparkles className="w-3 h-3" /> Auto-Generate
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type={createPasswordType}
+                            required
+                            value={createPassword}
+                            onChange={(e) => setCreatePassword(e.target.value)}
+                            placeholder="Min 6 characters"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2 text-xs font-semibold outline-none focus:border-[#007BC4]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCreatePasswordType(createPasswordType === "password" ? "text" : "password")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          >
+                            {createPasswordType === "password" ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {createPassword && (() => {
+                          const strength = getPasswordStrength(createPassword);
+                          return (
+                            <div className="mt-1.5 space-y-1">
+                              <div className="flex items-center justify-between text-[10px] font-bold">
+                                <span className="text-slate-400">Password Strength:</span>
+                                <span className={strength.textColor}>{strength.text}</span>
+                              </div>
+                              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                <div className={`h-full ${strength.color} ${strength.width} transition-all duration-300`} />
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div>
@@ -2442,11 +3009,61 @@ export default function SettingsTab() {
                       </button>
                     </div>
 
+                    {bulkSelectedUsers.length > 0 && (
+                      <div className="bg-blue-50 border-b border-blue-100 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-bold text-blue-900">
+                        <div className="flex items-center gap-2">
+                          <CheckSquare className="w-4 h-4 text-[#007BC4]" />
+                          <span>{bulkSelectedUsers.length} staff member(s) selected for bulk action</span>
+                        </div>
+                        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+                          <span className="text-[10px] text-slate-500 uppercase font-black">Set Role to:</span>
+                          <select
+                            value={bulkRole}
+                            onChange={(e) => setBulkRole(e.target.value)}
+                            className="bg-white border border-blue-200 rounded-lg px-2.5 py-1 text-xs font-bold cursor-pointer focus:border-[#007BC4] outline-none"
+                          >
+                            {customRoles.map((r) => (
+                              <option key={r.id} value={r.id}>{r.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={handleBulkAssignRole}
+                            disabled={isApplyingBulkRole}
+                            className="bg-[#007BC4] hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow-sm cursor-pointer disabled:opacity-50"
+                          >
+                            {isApplyingBulkRole ? "Applying..." : "Assign Role"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBulkSelectedUsers([])}
+                            className="text-slate-500 hover:text-slate-800 font-bold hover:bg-slate-100 px-2 py-1.5 rounded transition cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
                         <thead>
                           <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
-                            <th className="py-2.5 px-4">Staff Member</th>
+                            <th className="py-2.5 px-4 flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={users.length > 0 && bulkSelectedUsers.length === users.length}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setBulkSelectedUsers(users.map(u => u.uid));
+                                  } else {
+                                    setBulkSelectedUsers([]);
+                                  }
+                                }}
+                                className="w-3.5 h-3.5 cursor-pointer accent-[#007BC4]"
+                              />
+                              <span>Staff Member</span>
+                            </th>
                             <th className="py-2.5 px-4">Firebase UID</th>
                             <th className="py-2.5 px-4">Assigned Role Claim</th>
                             <th className="py-2.5 px-4 text-center">Individual Page Overrides</th>
@@ -2463,8 +3080,65 @@ export default function SettingsTab() {
                               <React.Fragment key={u.uid}>
                                 <tr className="hover:bg-slate-50/50">
                                   <td className="py-3 px-4 font-bold text-slate-800">
-                                    {u.displayName || u.email}
-                                    <div className="text-[10px] text-slate-400 font-mono font-normal">{u.email}</div>
+                                    <div className="flex items-center gap-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={bulkSelectedUsers.includes(u.uid)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setBulkSelectedUsers([...bulkSelectedUsers, u.uid]);
+                                          } else {
+                                            setBulkSelectedUsers(bulkSelectedUsers.filter(id => id !== u.uid));
+                                          }
+                                        }}
+                                        className="w-3.5 h-3.5 cursor-pointer accent-[#007BC4] shrink-0"
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        {editingUserUid === u.uid ? (
+                                          <div className="flex items-center gap-1.5 max-w-[240px]">
+                                            <input
+                                              type="text"
+                                              value={editingUserName}
+                                              onChange={(e) => setEditingUserName(e.target.value)}
+                                              className="bg-white border border-slate-200 rounded px-2.5 py-1 text-xs font-semibold focus:border-[#007BC4] outline-none w-full"
+                                              autoFocus
+                                            />
+                                            <button
+                                              onClick={() => handleUpdateUserName(u.uid)}
+                                              className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition cursor-pointer"
+                                              title="Save Name"
+                                            >
+                                              <Check className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              onClick={() => {
+                                                setEditingUserUid(null);
+                                                setEditingUserName("");
+                                              }}
+                                              className="p-1 text-rose-500 hover:bg-rose-50 rounded transition cursor-pointer"
+                                              title="Cancel"
+                                            >
+                                              <X className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-2 group/name">
+                                            <span>{u.displayName || u.name || u.email}</span>
+                                            <button
+                                              onClick={() => {
+                                                setEditingUserUid(u.uid);
+                                                setEditingUserName(u.displayName || u.name || u.email || "");
+                                              }}
+                                              className="opacity-0 group-hover/name:opacity-100 text-slate-400 hover:text-[#007BC4] p-1 rounded transition cursor-pointer"
+                                              title="Edit Name"
+                                            >
+                                              <Pencil className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        )}
+                                        <div className="text-[10px] text-slate-400 font-mono font-normal mt-0.5">{u.email}</div>
+                                      </div>
+                                    </div>
                                   </td>
                                   <td className="py-3 px-4 font-mono text-[10px] text-slate-500">{u.uid}</td>
                                   <td className="py-3 px-4">
@@ -2498,15 +3172,106 @@ export default function SettingsTab() {
                                     </button>
                                   </td>
                                   <td className="py-3 px-4 text-right">
-                                    <button
-                                      onClick={() => handleDeleteUser(u.uid, u.email)}
-                                      className="text-rose-500 hover:text-rose-700 p-1.5 rounded hover:bg-rose-50 transition cursor-pointer"
-                                      title="Delete Account"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={() => {
+                                          if (resettingPasswordUid === u.uid) {
+                                            setResettingPasswordUid(null);
+                                            setResettingPasswordValue("");
+                                          } else {
+                                            setResettingPasswordUid(u.uid);
+                                            setResettingPasswordValue("");
+                                          }
+                                        }}
+                                        className={`p-1.5 rounded transition cursor-pointer ${
+                                          resettingPasswordUid === u.uid
+                                            ? "bg-[#007BC4] text-white"
+                                            : "text-slate-400 hover:text-[#007BC4] hover:bg-slate-50"
+                                        }`}
+                                        title="Reset Password"
+                                      >
+                                        <Key className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteUser(u.uid, u.email)}
+                                        className="text-rose-500 hover:text-rose-700 p-1.5 rounded hover:bg-rose-50 transition cursor-pointer"
+                                        title="Delete Account"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
+
+                                {/* Expanded Reset Password Drawer */}
+                                {resettingPasswordUid === u.uid && (
+                                  <tr className="bg-amber-50/20">
+                                    <td colSpan={5} className="p-4">
+                                      <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-4 max-w-md mx-auto space-y-3">
+                                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                          <h5 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                                            <Key className="w-3.5 h-3.5 text-[#007BC4]" /> Reset Password for {u.displayName || u.email}
+                                          </h5>
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                          <div className="flex justify-between items-center">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase">New Password</label>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const pass = generateRandomPassword();
+                                                setResettingPasswordValue(pass);
+                                              }}
+                                              className="text-[10px] text-[#007BC4] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                                            >
+                                              <Sparkles className="w-3 h-3" /> Auto-Generate
+                                            </button>
+                                          </div>
+                                          
+                                          <div className="flex items-center gap-2">
+                                            <input
+                                              type="text"
+                                              value={resettingPasswordValue}
+                                              onChange={(e) => setResettingPasswordValue(e.target.value)}
+                                              placeholder="Enter new password (min 6 chars)"
+                                              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold outline-none focus:border-[#007BC4] flex-1"
+                                            />
+                                            <button
+                                              onClick={() => handleResetUserPassword(u.uid)}
+                                              className="bg-[#007BC4] hover:bg-[#007BC4]/90 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition cursor-pointer"
+                                            >
+                                              Save Password
+                                            </button>
+                                            <button
+                                              onClick={() => {
+                                                setResettingPasswordUid(null);
+                                                setResettingPasswordValue("");
+                                              }}
+                                              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3 py-1.5 rounded-lg transition cursor-pointer"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                          {resettingPasswordValue && (() => {
+                                            const strength = getPasswordStrength(resettingPasswordValue);
+                                            return (
+                                              <div className="mt-1.5 space-y-1">
+                                                <div className="flex items-center justify-between text-[10px] font-bold">
+                                                  <span className="text-slate-400">Password Strength:</span>
+                                                  <span className={strength.textColor}>{strength.text}</span>
+                                                </div>
+                                                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                                  <div className={`h-full ${strength.color} ${strength.width} transition-all duration-300`} />
+                                                </div>
+                                              </div>
+                                            );
+                                          })()}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
 
                                 {/* Expanded Staff Page Overrides Drawer */}
                                 {isExpanded && (
@@ -2684,6 +3449,139 @@ export default function SettingsTab() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUBTAB 4: PENDING INVITATIONS */}
+              {activeAccessTab === "invitations" && (
+                <div className="space-y-6">
+                  <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm">Pending Invited Personnel</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Staff members who have been registered but haven't authenticated or completed their first login yet.</p>
+                      </div>
+                      <button
+                        onClick={loadManagementData}
+                        disabled={isLoadingUsers}
+                        className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                        title="Reload list"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? "animate-spin" : ""}`} />
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                            <th className="py-2.5 px-4">Invited Member</th>
+                            <th className="py-2.5 px-4">UID / Invitation Code</th>
+                            <th className="py-2.5 px-4">Intended Role</th>
+                            <th className="py-2.5 px-4">Registered Date</th>
+                            <th className="py-2.5 px-4 text-right">Invite Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium">
+                          {(() => {
+                            const pendingUsers = users.filter(u => u.hasLoggedIn === false || (u.invited && !u.lastLogin));
+                            if (pendingUsers.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
+                                    No pending invitations found. All staff accounts are active!
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            return pendingUsers.map((u) => (
+                              <tr key={u.uid} className="hover:bg-slate-50/50">
+                                <td className="py-3 px-4 font-bold text-slate-800">
+                                  <div>{u.displayName || u.name || u.email}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono font-normal mt-0.5">{u.email}</div>
+                                </td>
+                                <td className="py-3 px-4 font-mono text-[10px] text-slate-500">{u.uid}</td>
+                                <td className="py-3 px-4">
+                                  <span className="bg-blue-50 text-[#007BC4] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider text-[10px]">
+                                    {u.role || "operator"}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-slate-500 font-semibold">{u.createdAt ? new Date(u.createdAt).toLocaleString() : "Prior to Aug 2026"}</td>
+                                <td className="py-3 px-4 text-right">
+                                  <button
+                                    onClick={() => handleResendInvite(u.uid)}
+                                    disabled={resendingInviteUid === u.uid}
+                                    className="bg-[#007BC4] hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow-sm cursor-pointer disabled:opacity-50"
+                                  >
+                                    {resendingInviteUid === u.uid ? "Resending..." : "Resend Invite Email"}
+                                  </button>
+                                </td>
+                              </tr>
+                            ));
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUBTAB 5: USER ACTIVITY LOGS */}
+              {activeAccessTab === "activity_log" && (
+                <div className="space-y-6">
+                  <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm">User Management Audit Trail</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Real-time trace ledger of user profile modifications, role assignment changes, and credential updates for strict security compliance.</p>
+                      </div>
+                      <button
+                        onClick={fetchUserActivityLogs}
+                        disabled={isLoadingActivityLogs}
+                        className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                        title="Refresh audit log"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingActivityLogs ? "animate-spin" : ""}`} />
+                      </button>
+                    </div>
+
+                    <div className="divide-y divide-slate-100 overflow-y-auto max-h-[500px]">
+                      {isLoadingActivityLogs ? (
+                        <div className="py-12 text-center text-slate-400 font-medium">
+                          Loading User Activity Logs...
+                        </div>
+                      ) : userActivityLogs.length === 0 ? (
+                        <div className="py-12 text-center text-slate-400 font-medium">
+                          No recent user activity logs recorded.
+                        </div>
+                      ) : (
+                        userActivityLogs.map((log) => {
+                          const isWarning = log.action.includes("FAILED") || log.action.includes("DELETE");
+                          return (
+                            <div key={log.id} className="p-4 hover:bg-slate-50/40 flex flex-col md:flex-row md:items-start justify-between gap-3 text-xs font-medium">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                    isWarning ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+                                  }`}>
+                                    {log.action}
+                                  </span>
+                                  <span className="text-slate-500 font-bold font-mono">Resource: {log.resource}</span>
+                                </div>
+                                <div className="text-slate-700 font-semibold">{log.details ? JSON.stringify(log.details) : "No extra details"}</div>
+                                <div className="text-[10px] text-slate-400">
+                                  Actor: <span className="font-bold text-slate-500">{log.userEmail || "System"}</span> | IP: <span className="font-mono">{log.ip || "unknown"}</span>
+                                </div>
+                              </div>
+                              <div className="text-right text-[10px] text-slate-400 font-bold shrink-0 self-end md:self-auto">
+                                {new Date(log.timestamp).toLocaleString()}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 </div>

@@ -322,7 +322,7 @@ export default function VisitorsTab() {
 
     const unsubVisitors = onSnapshot(collection(db, 'visitors'), (snap) => {
       const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as VisitorRecord));
-      setVisitors(data.sort((a, b) => b.id.localeCompare(a.id)));
+      setVisitors(data.sort((a, b) => String(b.id || '').localeCompare(String(a.id || ''))));
     });
 
     const unsubSecurity = onSnapshot(collection(db, 'visitor_security_list'), (snap) => {

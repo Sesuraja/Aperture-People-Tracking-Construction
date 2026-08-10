@@ -1,4 +1,5 @@
 import { Person, AIAlert } from '../lib/simulation';
+import { Vehicle } from '../types';
 import { 
   Users, 
   UserCheck, 
@@ -58,7 +59,11 @@ import {
   MessageSquare,
   Link2,
   Palette,
-  CheckSquare
+  CheckSquare,
+  Download,
+  StickyNote,
+  Filter,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AIFeed from './AIFeed';
@@ -66,10 +71,11 @@ import SystemHealthWidget from './SystemHealthWidget';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { useMemo, ReactNode, useState, useEffect, useContext } from 'react';
 import React from 'react';
-import { collection, onSnapshot, doc, getDoc, setDoc, query, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { AppModeContext } from '../App';
+import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
 
 const COLORS = ['#007BC4', '#38bdf8', '#10b981', '#f59e0b', '#8b5cf6'];
 
@@ -120,8 +126,9 @@ const DEFAULT_KPIS: KPIConfig[] = [
 ];
 
 const DEFAULT_PANELS: PanelConfig[] = [
-  { id: 'site_status', title: 'Site Status', description: 'Live operational status, active shift, site capacity indicator, and safety clearance.', visible: true, order: 0, width: '1/2' },
-  { id: 'weather_widget', title: 'Weather & Site Conditions', description: 'Ambient temperature, wind speed for crane lifts, humidity, UV index, and EHS risk level.', visible: true, order: 1, width: '1/2' },
+  { id: 'site_monitoring_view', title: 'Site Monitoring View', description: 'Interactive site monitoring view with Active Workers, Vehicles, High-Risk Alerts filter chips and Supervisor Quick Notes.', visible: true, order: 0, width: 'full' },
+  { id: 'site_status', title: 'Site Status', description: 'Live operational status, active shift, site capacity indicator, and safety clearance.', visible: true, order: 1, width: '1/2' },
+  { id: 'weather_widget', title: 'Weather & Site Conditions', description: 'Ambient temperature, wind speed for crane lifts, humidity, UV index, and EHS risk level.', visible: true, order: 2, width: '1/2' },
   { id: 'shift_progress', title: 'Shift Progress', description: 'Active shift timeline, completion percentage, remaining hours, and workforce on shift.', visible: true, order: 2, width: '1/3' },
   { id: 'reader_health', title: 'Reader Health', description: 'UHF RFID gate portals, antenna RSSI, packet rates, and online/offline status.', visible: true, order: 3, width: '1/3' },
   { id: 'equipment_health', title: 'Equipment Health', description: 'Heavy machinery telemetry, cranes, excavators, engine/fuel levels, and zone location.', visible: true, order: 4, width: '1/3' },
@@ -138,13 +145,15 @@ export default function DashboardTab({
   alerts, 
   zones, 
   highlightedPersonId, 
-  isLoading 
+  isLoading,
+  vehicles = []
 }: { 
   people: Person[], 
   alerts: AIAlert[], 
   zones: any, 
   highlightedPersonId?: string | null, 
-  isLoading?: boolean 
+  isLoading?: boolean,
+  vehicles?: Vehicle[]
 }) {
   const navigate = useNavigate();
   const { mode } = useContext(AppModeContext);
@@ -170,6 +179,137 @@ export default function DashboardTab({
 
   const [deviceStats, setDeviceStats] = useState({ online: 0, offline: 0, warning: 0 });
   const [deviceList, setDeviceList] = useState<any[]>([]);
+
+  // Monitoring View Filter states
+  const [showWorkersFilter, setShowWorkersFilter] = useState(true);
+  const [showVehiclesFilter, setShowVehiclesFilter] = useState(true);
+  const [showAlertsFilter, setShowAlertsFilter] = useState(true);
+
+  // Supervisor Quick Notes states
+  const [quickNotes, setQuickNotes] = useState<any[]>([]);
+  const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
+  const [selectedZone, setSelectedZone] = useState('');
+  const [quickNoteText, setQuickNoteText] = useState('');
+  const [quickNoteStatus, setQuickNoteStatus] = useState('Nominal');
+
+  useEffect(() => {
+    if (zones && Object.keys(zones).length > 0) {
+      setSelectedZone(Object.keys(zones)[0]);
+    } else {
+      setSelectedZone('People Tracking in Construction');
+    }
+  }, [zones]);
+
+  const handleAddQuickNote = async () => {
+    if (!quickNoteText.trim() || !selectedZone) return;
+    try {
+      await addDoc(collection(db, 'quick_notes'), {
+        zone: selectedZone,
+        note: quickNoteText,
+        status: quickNoteStatus,
+        timestamp: new Date().toISOString(),
+        author: auth.currentUser?.email || 'Site Supervisor'
+      });
+      setQuickNoteText('');
+      setShowQuickNoteModal(false);
+    } catch (err) {
+      console.warn("Failed to add quick note:", err);
+    }
+  };
+
+  const handleDeleteQuickNote = async (noteId: string) => {
+    try {
+      await deleteDoc(doc(db, 'quick_notes', noteId));
+    } catch (err) {
+      console.warn("Failed to delete quick note:", err);
+    }
+  };
+
+  // Export Data to CSV and PDF Report
+  const handleExportData = () => {
+    // 1. Export workers data
+    const workerColumns = [
+      { key: 'name', label: 'Worker Name' },
+      { key: 'role', label: 'Role / Trade' },
+      { key: 'tradeCompany', label: 'Company' },
+      { key: 'currentZone', label: 'Current Zone' },
+      { key: 'presenceState', label: 'Presence State' },
+      { key: 'dwellTimeStr', label: 'Dwell Time' },
+      { key: 'hardhatTagId', label: 'Hardhat Tag ID' },
+      { key: 'ppeStatus', label: 'PPE Status' }
+    ];
+    const workerRows = people.map(p => ({
+      ...p,
+      dwellTimeStr: `${Math.floor(p.dwellTime / 60)}m ${p.dwellTime % 60}s`,
+      tradeCompany: p.tradeCompany || 'Aperture subcontractor'
+    }));
+
+    exportToCSV('site_active_workers_telemetry', workerRows, workerColumns);
+
+    // 2. Export sensor data
+    const sensorColumns = [
+      { key: 'name', label: 'Device/Reader Name' },
+      { key: 'id', label: 'Device/Reader ID' },
+      { key: 'status', label: 'Status' },
+      { key: 'rssi', label: 'Signal (RSSI)' },
+      { key: 'zone', label: 'Zone' }
+    ];
+    const sensorRows = deviceList.length > 0 ? deviceList.map(d => ({
+      name: d.name || 'UHF Gate Scanner',
+      id: d.id || 'N/A',
+      status: d.status || 'online',
+      rssi: d.rssi || '-55 dBm',
+      zone: d.zone || 'Site Entrance'
+    })) : [
+      { name: 'Gate 1 Entry Portal', id: 'R-01', status: 'online', rssi: '-42 dBm', zone: 'Heavy Crane Swing Radius' },
+      { name: 'Tower Crane Antenna', id: 'R-02', status: 'online', rssi: '-58 dBm', zone: 'Heavy Crane Swing Radius' },
+      { name: 'Shaft 3 Stairwell', id: 'R-03', status: 'online', rssi: '-61 dBm', zone: 'Deep Excavation Shaft' },
+      { name: 'North Gate Perimeter', id: 'R-04', status: 'offline', rssi: '-85 dBm', zone: 'High Voltage Area' }
+    ];
+
+    exportToCSV('site_sensors_telemetry', sensorRows, sensorColumns);
+
+    // 3. Generate combined or main PDF report
+    const pdfRows = [
+      ...workerRows.map(w => ({
+        type: 'Worker',
+        name: w.name,
+        detail1: w.role,
+        detail2: w.currentZone,
+        detail3: w.dwellTimeStr,
+        status: w.presenceState
+      })),
+      ...sensorRows.map(s => ({
+        type: 'Sensor/Reader',
+        name: s.name,
+        detail1: s.id,
+        detail2: s.zone,
+        detail3: s.rssi,
+        status: s.status.toUpperCase()
+      }))
+    ];
+
+    const pdfColumns = [
+      { key: 'type', label: 'Type' },
+      { key: 'name', label: 'Asset Name/Label' },
+      { key: 'detail1', label: 'Role/ID' },
+      { key: 'detail2', label: 'Zone/Location' },
+      { key: 'detail3', label: 'Telemetry Details' },
+      { key: 'status', label: 'Operational Status' }
+    ];
+
+    generatePDFReport(
+      'Active Site Telemetry Executive Report',
+      'Real-time status overview of active workforce personnel and hardware reader sensors',
+      pdfColumns,
+      pdfRows,
+      [
+        { label: 'Active Workers', value: people.length },
+        { label: 'Tracked Sensors/Devices', value: sensorRows.length },
+        { label: 'Operational Status', value: 'NOMINAL' }
+      ]
+    );
+  };
 
   // Layout states
   const [kpis, setKpis] = useState<KPIConfig[]>(DEFAULT_KPIS);
@@ -360,7 +500,34 @@ export default function DashboardTab({
       (error) => console.warn("Failed tag_history timeline subscription:", error)
     ));
 
-    return () => unsubs.forEach(fn => fn());
+    unsubs.push(onSnapshot(collection(db, 'quick_notes'), (snapshot) => {
+       const notes: any[] = [];
+       snapshot.forEach(doc => {
+          const d = doc.data();
+          notes.push({
+             id: doc.id,
+             zone: d.zone || 'People Tracking in Construction',
+             note: d.note || '',
+             status: d.status || 'Nominal',
+             timestamp: d.timestamp 
+                ? (typeof d.timestamp === 'string' 
+                    ? new Date(d.timestamp) 
+                    : (d.timestamp.toDate 
+                        ? d.timestamp.toDate() 
+                        : (d.timestamp.seconds 
+                            ? new Date(d.timestamp.seconds * 1000) 
+                            : new Date(d.timestamp)))) 
+                : new Date(),
+             author: d.author || 'Supervisor'
+          });
+       });
+       notes.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+       setQuickNotes(notes);
+    }, (error) => console.warn("Failed quick_notes subscription:", error)));
+
+    return () => unsubs.forEach(fn => {
+       if (typeof fn === 'function') fn();
+     });
   }, []);
 
   // Fetch customizable layout configurations from Firestore / LocalStorage
@@ -612,6 +779,230 @@ export default function DashboardTab({
   // Direct content dispatcher mapping widget configurations dynamically
   const renderPanelContent = (id: string) => {
     switch (id) {
+      case 'site_monitoring_view': {
+        const filteredWorkers = people.filter(p => p.presenceState !== 'EXITED');
+        const filteredVehicles = vehicles;
+        const filteredAlerts = alerts.filter(a => a.priority === 'Critical' || a.priority === 'High');
+
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col shadow-sm transition hover:shadow-md h-[480px]">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 mb-4 shrink-0">
+              <div>
+                <h3 className="font-bold text-slate-900 tracking-tight text-sm flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-[#007BC4]" />
+                  Site Monitoring View
+                </h3>
+                <p className="text-[10px] text-slate-500 font-medium">Toggle visibility of active on-site entities and view supervisor quick notes.</p>
+              </div>
+
+              {/* Filter chips */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => setShowWorkersFilter(!showWorkersFilter)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition border cursor-pointer ${
+                    showWorkersFilter
+                      ? 'bg-[#007BC4]/10 text-[#007BC4] border-[#007BC4]/30'
+                      : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Users className="w-3 h-3" />
+                  Workers ({people.length})
+                </button>
+                <button
+                  onClick={() => setShowVehiclesFilter(!showVehiclesFilter)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition border cursor-pointer ${
+                    showVehiclesFilter
+                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Truck className="w-3 h-3" />
+                  Vehicles ({vehicles.length})
+                </button>
+                <button
+                  onClick={() => setShowAlertsFilter(!showAlertsFilter)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition border cursor-pointer ${
+                    showAlertsFilter
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                      : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <AlertTriangle className="w-3 h-3 animate-pulse" />
+                  Alerts ({filteredAlerts.length})
+                </button>
+
+                <div className="h-4 w-px bg-slate-200 mx-0.5 hidden sm:block" />
+
+                <button
+                  onClick={() => setShowQuickNoteModal(true)}
+                  className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-2 py-1 rounded-lg text-[10px] font-bold transition active:scale-95 cursor-pointer"
+                >
+                  <StickyNote className="w-3 h-3 text-[#007BC4]" />
+                  Add Note
+                </button>
+              </div>
+            </div>
+
+            {/* Monitoring content grid */}
+            <div className="grid grid-cols-12 gap-4 flex-1 min-h-0 overflow-hidden">
+              {/* Left Column: Grid list of selected items */}
+              <div className="col-span-12 lg:col-span-8 flex flex-col min-h-0">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 shrink-0">Live On-Site Telemetry</div>
+                
+                {(!showWorkersFilter && !showVehiclesFilter && !showAlertsFilter) ? (
+                  <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-8 text-center text-slate-400 text-xs font-medium flex flex-col items-center justify-center gap-2 flex-1">
+                    <Filter className="w-6 h-6 text-slate-300" />
+                    Select a filter chip above to overlay items.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 overflow-y-auto pr-1">
+                    {/* Active Workers */}
+                    {showWorkersFilter && filteredWorkers.map(w => (
+                      <div key={w.id} className="p-2.5 bg-slate-50 border border-slate-150 hover:border-[#007BC4]/40 hover:bg-[#007BC4]/5 rounded-xl transition flex flex-col justify-between gap-1 shadow-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-6 h-6 rounded bg-[#007BC4]/10 text-[#007BC4] flex items-center justify-center font-extrabold text-[10px] border border-[#007BC4]/20 shrink-0">
+                              {w.name.charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-[11px] text-slate-800 truncate leading-tight">{w.name}</div>
+                              <div className="text-[9px] text-slate-500 font-medium truncate mt-0.5">{w.role}</div>
+                            </div>
+                          </div>
+                          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase shrink-0 ${
+                            w.ppeStatus === 'COMPLIANT' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                            w.ppeStatus === 'WARNING' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                            'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}>
+                            PPE: {w.ppeStatus || 'COMPLIANT'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[9px] text-slate-500 font-mono mt-1 pt-1.5 border-t border-slate-200/60">
+                          <span className="flex items-center gap-1">
+                            <span className={`w-1.5 h-1.5 rounded-full ${w.presenceState === 'MOVING' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+                            {w.presenceState}
+                          </span>
+                          <span className="font-bold text-slate-600 truncate max-w-[120px]">{w.currentZone}</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Vehicles */}
+                    {showVehiclesFilter && filteredVehicles.map(v => (
+                      <div key={v.id} className="p-2.5 bg-purple-50/30 border border-purple-100 hover:border-purple-300 hover:bg-purple-50 rounded-xl transition flex flex-col justify-between gap-1 shadow-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-6 h-6 rounded bg-purple-100 text-purple-700 flex items-center justify-center font-extrabold text-[10px] border border-purple-200 shrink-0">
+                              <Truck className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-[11px] text-slate-800 truncate leading-tight">{v.name}</div>
+                              <div className="text-[9px] text-slate-500 font-medium truncate mt-0.5">Operator: {v.operator || 'Unassigned'}</div>
+                            </div>
+                          </div>
+                          <span className="bg-purple-100 text-purple-800 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">
+                            Vehicle
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[9px] text-slate-500 font-mono mt-1 pt-1.5 border-t border-purple-200/50">
+                          <span>Speed: {v.speed || 'Idle'}</span>
+                          <span className="font-semibold text-purple-800">
+                            {v.status || 'Active'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* High-Risk Alerts */}
+                    {showAlertsFilter && filteredAlerts.map(a => (
+                      <div key={a.id} className="p-2.5 bg-rose-50/40 border border-rose-100 hover:border-rose-300 hover:bg-rose-50 rounded-xl transition flex flex-col justify-between gap-1 col-span-1 sm:col-span-2 shadow-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2 min-w-0">
+                            <div className="p-1 rounded bg-rose-100 text-rose-700 border border-rose-200 shrink-0">
+                              <AlertTriangle className="w-3.5 h-3.5 animate-pulse" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-[11px] text-rose-900 leading-tight truncate">{a.title || 'Safety violation'}</div>
+                              <p className="text-[10px] text-rose-700 font-medium mt-0.5 leading-tight">{a.message}</p>
+                            </div>
+                          </div>
+                          <span className="bg-rose-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase shrink-0">
+                            {a.priority || 'HIGH'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[8px] text-rose-500 font-mono mt-1 pt-1.5 border-t border-rose-200/50 shrink-0">
+                          <span>{a.timestamp instanceof Date ? a.timestamp.toLocaleTimeString() : new Date(a.timestamp).toLocaleTimeString()}</span>
+                          <span className="bg-white border border-rose-200 px-1 rounded font-bold truncate max-w-[150px]">{a.evidence?.locationZone || 'Exclusion Zone'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Supervisor Quick Notes */}
+              <div className="col-span-12 lg:col-span-4 border-t lg:border-t-0 lg:border-l border-slate-100 pt-3 lg:pt-0 lg:pl-4 flex flex-col min-h-0">
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Zone Quick Notes</div>
+                  <span className="text-[9px] bg-slate-100 text-slate-600 font-black px-1.5 py-0.5 rounded-full">
+                    {quickNotes.length} notes
+                  </span>
+                </div>
+
+                <div className="flex-1 space-y-2 overflow-y-auto pr-0.5">
+                  {quickNotes.length === 0 ? (
+                    <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-4 text-center text-slate-400 text-[11px] font-medium flex flex-col items-center justify-center gap-1.5 h-full min-h-[140px]">
+                      <StickyNote className="w-5 h-5 text-slate-300" />
+                      <span>No active notes.</span>
+                      <button onClick={() => setShowQuickNoteModal(true)} className="text-[#007BC4] hover:underline font-bold">Add Note</button>
+                    </div>
+                  ) : (
+                    quickNotes.map(n => {
+                      const bgMap: Record<string, string> = {
+                        'Nominal': 'bg-emerald-50 border-emerald-150 text-emerald-950',
+                        'Attention Required': 'bg-amber-50 border-amber-150 text-amber-950',
+                        'Restricted Access': 'bg-orange-50 border-orange-150 text-orange-950',
+                        'High Risk': 'bg-rose-50 border-rose-150 text-rose-950'
+                      };
+                      const statusColorMap: Record<string, string> = {
+                        'Nominal': 'bg-emerald-500',
+                        'Attention Required': 'bg-amber-500',
+                        'Restricted Access': 'bg-orange-500',
+                        'High Risk': 'bg-rose-500'
+                      };
+                      return (
+                        <div key={n.id} className={`p-2.5 rounded-lg border flex flex-col justify-between gap-1 relative group shadow-sm ${bgMap[n.status] || 'bg-slate-50 border-slate-200'}`}>
+                          <button
+                            onClick={() => handleDeleteQuickNote(n.id)}
+                            className="absolute top-1.5 right-1.5 p-0.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded border border-transparent hover:border-slate-200 opacity-0 group-hover:opacity-100 transition duration-100 cursor-pointer"
+                            title="Resolve Note"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                          
+                          <div>
+                            <div className="flex items-center gap-1 font-bold text-[10px]">
+                              <span className={`w-1.5 h-1.5 rounded-full ${statusColorMap[n.status] || 'bg-slate-400'}`} />
+                              <span className="truncate pr-4">{n.zone}</span>
+                            </div>
+                            <p className="text-[11px] font-medium leading-normal mt-1 whitespace-pre-wrap">{n.note}</p>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[8px] text-slate-400 font-bold mt-1 pt-1 border-t border-slate-200/40">
+                            <span>{n.author.split('@')[0]}</span>
+                            <span>{new Date(n.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       case 'site_status':
         return (
           <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col shadow-sm transition hover:shadow-md h-[380px]">
@@ -1687,10 +2078,11 @@ export default function DashboardTab({
         </div>
         <div className="flex items-center gap-2">
            <button 
-             onClick={() => alert('Starting PDF generation from current view... Download will begin shortly.')}
+             onClick={handleExportData}
              className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900 border border-slate-200 rounded-lg text-xs font-bold shadow-sm transition-transform active:scale-95 duration-150 cursor-pointer"
            >
-             Export Report
+             <Download className="w-3.5 h-3.5 text-slate-500" />
+             Export Project Data
            </button>
            <button 
              onClick={openCustomizeModal}
@@ -2499,6 +2891,113 @@ export default function DashboardTab({
               </div>
             </div>
             
+          </div>
+        </div>
+      )}
+
+      {/* Supervisor Quick Note Modal */}
+      {showQuickNoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setShowQuickNoteModal(false)}
+          />
+
+          {/* Modal Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl relative z-10 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#007BC4]/10 text-[#007BC4] rounded-lg border border-[#007BC4]/20">
+                  <StickyNote className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">Add Zone Quick Note</h3>
+                  <p className="text-[10px] text-slate-500 font-semibold">Post a temporary status flag or safety observation.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowQuickNoteModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Select Site Zone</label>
+                <select
+                  value={selectedZone}
+                  onChange={(e) => setSelectedZone(e.target.value)}
+                  className="w-full bg-white border border-slate-200 hover:border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#007BC4] font-bold text-slate-700 transition"
+                >
+                  {zones && Object.keys(zones).map(z => (
+                    <option key={z} value={z}>{z}</option>
+                  ))}
+                  {(!zones || Object.keys(zones).length === 0) && (
+                    <option value="People Tracking in Construction">People Tracking in Construction</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Status / Risk Flag</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Nominal', color: 'border-emerald-200 text-emerald-800 bg-emerald-50/50 hover:bg-emerald-50' },
+                    { label: 'Attention Required', color: 'border-amber-200 text-amber-800 bg-amber-50/50 hover:bg-amber-50' },
+                    { label: 'Restricted Access', color: 'border-orange-200 text-orange-800 bg-orange-50/50 hover:bg-orange-50' },
+                    { label: 'High Risk', color: 'border-rose-200 text-rose-800 bg-rose-50/50 hover:bg-rose-50' }
+                  ].map(statusItem => (
+                    <button
+                      key={statusItem.label}
+                      type="button"
+                      onClick={() => setQuickNoteStatus(statusItem.label)}
+                      className={`px-2.5 py-1.5 border rounded-lg text-[10px] font-extrabold transition text-center cursor-pointer ${
+                        quickNoteStatus === statusItem.label 
+                          ? `${statusItem.color} border-2 scale-[1.02] shadow-xs ring-1 ring-slate-400/10` 
+                          : 'border-slate-200 text-slate-500 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      {statusItem.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Supervisor Observation Notes</label>
+                <textarea
+                  placeholder="Type temporary zone logs, reader inspection tags, or field alerts here..."
+                  value={quickNoteText}
+                  onChange={(e) => setQuickNoteText(e.target.value)}
+                  rows={4}
+                  className="w-full bg-white border border-slate-200 hover:border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#007BC4] font-medium text-slate-800 placeholder-slate-400 transition"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50">
+              <button 
+                type="button"
+                onClick={() => setShowQuickNoteModal(false)}
+                className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 cursor-pointer transition active:scale-95 duration-100"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={handleAddQuickNote}
+                disabled={!quickNoteText.trim()}
+                className="px-4 py-2 bg-[#007BC4] hover:bg-[#006aa9] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-bold text-white shadow hover:shadow-md cursor-pointer transition active:scale-95 duration-100"
+              >
+                Save Note
+              </button>
+            </div>
           </div>
         </div>
       )}

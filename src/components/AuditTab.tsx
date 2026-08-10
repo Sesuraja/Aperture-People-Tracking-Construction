@@ -272,20 +272,24 @@ export default function AuditTab() {
           const data = d.data();
           list.push({
             id: d.id || data.id,
-            timestamp: data.timestamp || new Date().toISOString(),
+            timestamp: typeof data.timestamp === 'string'
+              ? data.timestamp
+              : (data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : (data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000).toISOString() : new Date().toISOString())),
             actor: data.actor || 'System',
             actorRole: data.actorRole || 'Administrator',
             action: data.action || 'System Change',
             category: data.category || 'System Config',
             severity: data.severity || 'Info',
-            details: data.details || '',
+            details: typeof data.details === 'object' && data.details !== null
+              ? (data.details.docId ? `Document ID: ${data.details.docId}` : JSON.stringify(data.details))
+              : String(data.details || ''),
             ipAddress: data.ipAddress || '127.0.0.1',
             hash: data.hash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
             status: data.status || 'Verified'
           });
         });
-        // Sort newest first
-        list.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+        // Sort newest first safely
+        list.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
         setAuditLogs(list);
       }
       setLoading(false);

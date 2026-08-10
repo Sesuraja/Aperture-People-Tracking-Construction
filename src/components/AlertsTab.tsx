@@ -45,6 +45,25 @@ const OFFICERS_LIST = [
   'Site Operations Duty Manager'
 ];
 
+function formatAlertTimestamp(ts: any): string {
+  if (!ts) return '';
+  if (typeof ts === 'string') return ts;
+  if (ts instanceof Date) {
+    return ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  if (typeof ts.toDate === 'function') {
+    return ts.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  if (typeof ts.seconds === 'number') {
+    return new Date(ts.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  try {
+    return String(ts);
+  } catch {
+    return '';
+  }
+}
+
 const INITIAL_ENTERPRISE_ALERTS: AIAlert[] = [
   {
     id: 'ALT-1001',
@@ -1953,7 +1972,7 @@ export default function AlertsTab({ alerts: _propAlerts }: { alerts?: AIAlert[] 
                       {(selectedAlert.history || []).map((h, i) => (
                         <div key={i} className="p-2 bg-slate-50 dark:bg-slate-900 rounded-lg flex justify-between font-mono text-[11px]">
                           <span>{h.action} (by {h.user})</span>
-                          <span className="text-slate-400">{h.timestamp}</span>
+                          <span className="text-slate-400">{formatAlertTimestamp(h.timestamp)}</span>
                         </div>
                       ))}
                     </div>
@@ -1969,7 +1988,7 @@ export default function AlertsTab({ alerts: _propAlerts }: { alerts?: AIAlert[] 
                       <div key={c.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-1 text-xs">
                         <div className="flex justify-between font-bold text-slate-900 dark:text-white">
                           <span>{c.author} ({c.role})</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{c.timestamp}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{formatAlertTimestamp(c.timestamp)}</span>
                         </div>
                         <p className="text-slate-700 dark:text-slate-300 font-medium">{c.text}</p>
                       </div>

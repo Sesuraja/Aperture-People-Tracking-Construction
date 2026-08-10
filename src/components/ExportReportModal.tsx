@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, FileText, FileSpreadsheet, Download, CheckCircle2, Layers, Printer, Calendar, CheckSquare, Square, Check, Sparkles } from 'lucide-react';
-import { exportToCSV, generatePDFReport, ExportColumn } from '../lib/exportUtils';
+import { exportToCSV, generatePDFReport, exportToJSON, copyToClipboard, ExportColumn } from '../lib/exportUtils';
 import { executeDailyReportingTask } from '../lib/dailyReportingTask';
 import { collection, getDocs } from '../lib/db';
 import { db } from '../lib/firebase';
@@ -15,7 +15,7 @@ interface ExportReportModalProps {
 
 export default function ExportReportModal({ isOpen, onClose, defaultCategory = 'attendance', customData }: ExportReportModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>(defaultCategory);
-  const [format, setFormat] = useState<'csv' | 'pdf'>('pdf');
+  const [format, setFormat] = useState<'csv' | 'pdf' | 'json' | 'clipboard'>('pdf');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [previewRows, setPreviewRows] = useState<any[]>([]);
   const [exportSuccess, setExportSuccess] = useState<boolean>(false);
@@ -23,6 +23,7 @@ export default function ExportReportModal({ isOpen, onClose, defaultCategory = '
   // Column selection state
   const [availableColumns, setAvailableColumns] = useState<ExportColumn[]>([]);
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>([]);
+  const [isDailyTaskRunning, setIsDailyTaskRunning] = useState(false);
 
   useEffect(() => {
     if (defaultCategory) setSelectedCategory(defaultCategory);
@@ -294,6 +295,10 @@ export default function ExportReportModal({ isOpen, onClose, defaultCategory = '
 
     if (format === 'csv') {
       exportToCSV(`APERTURE_RFID_${categoryTitle}_Export`, previewRows, activeColumns);
+    } else if (format === 'json') {
+      exportToJSON(`APERTURE_RFID_${categoryTitle}_Backup`, previewRows);
+    } else if (format === 'clipboard') {
+      copyToClipboard(previewRows, activeColumns);
     } else {
       const metrics = [
         { label: 'Total Records', value: previewRows.length },
@@ -316,8 +321,6 @@ export default function ExportReportModal({ isOpen, onClose, defaultCategory = '
       setExportSuccess(false);
     }, 1800);
   };
-
-  const [isDailyTaskRunning, setIsDailyTaskRunning] = useState(false);
 
   const handleRunDailyTask = async () => {
     setIsDailyTaskRunning(true);
@@ -502,38 +505,72 @@ export default function ExportReportModal({ isOpen, onClose, defaultCategory = '
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2.5 flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-[#007BC4]" /> 3. Export Format
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <button
                 onClick={() => setFormat('pdf')}
-                className={`p-3.5 rounded-2xl border flex items-center gap-3 transition ${
+                className={`p-3 rounded-2xl border flex items-center gap-2.5 transition ${
                   format === 'pdf' 
                     ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 ring-2 ring-rose-500/20 text-rose-900 dark:text-rose-200' 
                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                 }`}
               >
-                <div className={`p-2.5 rounded-xl ${format === 'pdf' ? 'bg-rose-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
-                  <Printer className="w-5 h-5" />
+                <div className={`p-2 rounded-xl shrink-0 ${format === 'pdf' ? 'bg-rose-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                  <Printer className="w-4 h-4" />
                 </div>
                 <div className="text-left min-w-0">
-                  <div className="font-bold text-xs sm:text-sm">PDF Executive Report</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">Formatted printable PDF with Aperture metrics</div>
+                  <div className="font-bold text-xs truncate">PDF Report</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Printable document</div>
                 </div>
               </button>
 
               <button
                 onClick={() => setFormat('csv')}
-                className={`p-3.5 rounded-2xl border flex items-center gap-3 transition ${
+                className={`p-3 rounded-2xl border flex items-center gap-2.5 transition ${
                   format === 'csv' 
                     ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 ring-2 ring-emerald-500/20 text-emerald-900 dark:text-emerald-200' 
                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                 }`}
               >
-                <div className={`p-2.5 rounded-xl ${format === 'csv' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
-                  <FileSpreadsheet className="w-5 h-5" />
+                <div className={`p-2 rounded-xl shrink-0 ${format === 'csv' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                  <FileSpreadsheet className="w-4 h-4" />
                 </div>
                 <div className="text-left min-w-0">
-                  <div className="font-bold text-xs sm:text-sm">CSV Spreadsheet</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">Raw dataset for Excel analysis</div>
+                  <div className="font-bold text-xs truncate">CSV Excel</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Raw spreadsheet</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setFormat('json')}
+                className={`p-3 rounded-2xl border flex items-center gap-2.5 transition ${
+                  format === 'json' 
+                    ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 ring-2 ring-amber-500/20 text-amber-900 dark:text-amber-200' 
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <div className={`p-2 rounded-xl shrink-0 ${format === 'json' ? 'bg-amber-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="text-left min-w-0">
+                  <div className="font-bold text-xs truncate">JSON Backup</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Structured raw dump</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setFormat('clipboard')}
+                className={`p-3 rounded-2xl border flex items-center gap-2.5 transition ${
+                  format === 'clipboard' 
+                    ? 'bg-sky-50 dark:bg-sky-950/30 border-sky-300 dark:border-sky-800 ring-2 ring-sky-500/20 text-sky-900 dark:text-sky-200' 
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <div className={`p-2 rounded-xl shrink-0 ${format === 'clipboard' ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                  <Download className="w-4 h-4" />
+                </div>
+                <div className="text-left min-w-0">
+                  <div className="font-bold text-xs truncate">Copy Tabular</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Clipboard TSV text</div>
                 </div>
               </button>
             </div>
