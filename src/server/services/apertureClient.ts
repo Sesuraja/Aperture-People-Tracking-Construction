@@ -1,4 +1,4 @@
-import { getCollectionDocs, upsertDoc, getDocById } from './db.js';
+import { getCollectionDocs, upsertDoc, getDocById, bulkWriteRfidRealtimeEvents } from './db.js';
 import { broadcastSseEvent } from './sse.js';
 import { broadcastWebSocketEvent } from './websocket.js';
 
@@ -20,7 +20,7 @@ export function maskApiKey(key: string): string {
   return '••••••••••••' + key.slice(-4);
 }
 
-const DEFAULT_HOST = process.env.APERTURE_RFID_HOST || 'https://www.i360services.com/peopletrackinguhf';
+const DEFAULT_HOST = process.env.BEECEPTOR_MOCK_URL || process.env.APERTURE_RFID_HOST || 'https://www.i360services.com/peopletrackinguhf';
 const DEFAULT_API_KEY = process.env.APERTURE_RFID_API_KEY || '';
 
 /**
@@ -63,7 +63,6 @@ export async function saveApertureConfig(input: { host?: string; apiKey?: string
   const current = await getApertureConfig();
   
   const newHost = input.host !== undefined ? input.host.trim() : current.host;
-  // If user provides a non-masked new key, save it. If masked or empty, keep current unless explicitly cleared.
   let newApiKey = current.apiKey;
   if (input.apiKey !== undefined) {
     if (!input.apiKey.includes('••••')) {
@@ -96,13 +95,26 @@ export async function saveApertureConfig(input: { host?: string; apiKey?: string
 }
 
 /**
- * Centralized Aperture API fetch wrapper that injects proper authentication headers.
+ * Centralized Aperture API / Beeceptor mock API fetch wrapper.
+ * Dynamically resolves URL paths and injects authentication headers.
  */
 export async function makeApertureRequest(endpointPath: string, options: RequestInit = {}): Promise<Response> {
   const config = await getApertureConfig();
-  const baseUrl = config.host.replace(/\/$/, '');
+  const rawHost = config.host.replace(/\/$/, '');
   const cleanPath = endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`;
-  const fullUrl = `${baseUrl}${cleanPath}`;
+
+  let fullUrl: string;
+  if (rawHost.toLowerCase().endsWith(cleanPath.toLowerCase())) {
+    fullUrl = rawHost;
+  } else if (rawHost.toLowerCase().includes('/gettagsinrealtime') && cleanPath.toLowerCase().includes('/gettagsinrealtime')) {
+    fullUrl = rawHost;
+  } else if (rawHost.toLowerCase().includes('/gethistoryrecords') && cleanPath.toLowerCase().includes('/gethistoryrecords')) {
+    fullUrl = rawHost;
+  } else if (rawHost.toLowerCase().includes('/gethistorytotalcount') && cleanPath.toLowerCase().includes('/gethistorytotalcount')) {
+    fullUrl = rawHost;
+  } else {
+    fullUrl = `${rawHost}${cleanPath}`;
+  }
 
   const headers: Record<string, string> = {
     'Accept': 'application/json',
@@ -119,14 +131,28 @@ export async function makeApertureRequest(endpointPath: string, options: Request
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const res = await fetch(fullUrl, {
+    let res = await fetch(fullUrl, {
       ...options,
       headers,
       signal: controller.signal
     });
+
+    // Fallback for Beeceptor mock endpoints defined without /api/ prefix or at root
+    if (res.status === 404 && cleanPath.startsWith('/api/')) {
+      const fallbackPath = cleanPath.replace('/api/', '/');
+      const fallbackUrl = `${rawHost}${fallbackPath}`;
+      try {
+        const altRes = await fetch(fallbackUrl, { ...options, headers, signal: controller.signal });
+        if (altRes.ok) {
+          clearTimeout(timeoutId);
+          return altRes;
+        }
+      } catch {}
+    }
+
     clearTimeout(timeoutId);
     return res;
   } catch (err: any) {
@@ -136,7 +162,7 @@ export async function makeApertureRequest(endpointPath: string, options: Request
 }
 
 /**
- * Tests connection to the Aperture RFID server.
+ * Tests connection to the Aperture RFID / Beeceptor mock server.
  */
 export async function testApertureConnection(overrideHost?: string, overrideApiKey?: string): Promise<{
   status: string;
@@ -162,7 +188,11 @@ export async function testApertureConnection(overrideHost?: string, overrideApiK
   }
 
   const baseUrl = host.replace(/\/$/, '');
-  const testUrl = `${baseUrl}/api/GetHistoryTotalCount`;
+  let testUrl = `${baseUrl}/api/GetHistoryTotalCount`;
+
+  if (baseUrl.toLowerCase().includes('/gethistorytotalcount') || baseUrl.toLowerCase().includes('/gettagsinrealtime')) {
+    testUrl = baseUrl;
+  }
 
   const headers: Record<string, string> = {
     'Accept': 'application/json'
@@ -180,14 +210,21 @@ export async function testApertureConnection(overrideHost?: string, overrideApiK
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const res = await fetch(testUrl, { method: 'GET', headers, signal: controller.signal });
+    let res = await fetch(testUrl, { method: 'GET', headers, signal: controller.signal });
+    if (res.status === 404) {
+      // Try alternative real-time or root mock endpoint
+      try {
+        const altRes = await fetch(`${baseUrl}/GetTagsInRealtime`, { method: 'GET', headers, signal: controller.signal });
+        if (altRes.ok) res = altRes;
+      } catch {}
+    }
     clearTimeout(timeout);
 
     if (res.ok) {
-      // Record success
       await upsertDoc('settings', {
         id: 'aperture_config',
         ...currentConfig,
+        host,
         lastSuccessfulSync: new Date().toISOString(),
         lastError: null
       });
@@ -197,7 +234,7 @@ export async function testApertureConnection(overrideHost?: string, overrideApiK
         provider: 'Aperture RFID',
         responseCode: res.status,
         checkedAt: new Date().toISOString(),
-        message: 'Successfully connected to Aperture RFID API server.'
+        message: 'Successfully connected to Aperture RFID / Beeceptor mock API server.'
       };
     } else if (res.status === 401 || res.status === 403) {
       const errMsg = `Authentication failed (HTTP ${res.status})`;
@@ -230,7 +267,7 @@ export async function testApertureConnection(overrideHost?: string, overrideApiK
       errMsg = 'Connection attempt timed out after 8 seconds';
     } else if (err.code === 'ECONNREFUSED' || err.message?.includes('fetch failed')) {
       status = 'SERVER_UNAVAILABLE';
-      errMsg = 'Aperture RFID server is unreachable or offline';
+      errMsg = 'Aperture RFID / Beeceptor server is unreachable or offline';
     }
 
     await updateLastError(errMsg);
@@ -254,15 +291,13 @@ async function updateLastError(errMsg: string) {
 }
 
 /**
- * Performs Real-Time Tag Sync from Aperture API:
+ * Performs Real-Time Tag Sync from Aperture / Beeceptor Mock API:
  * 1. GET /api/GetTagsInRealtime
- * 2. Validate response array
- * 3. Match TagID with people.tagId (or registered_people)
- * 4. Match Location with locations.name
- * 5. Store raw event in rfid_realtime_events
- * 6. Update people.currentZone and lastSeen
- * 7. Update zone occupancy
- * 8. Broadcast update through existing SSE (/api/events/sse) & WebSockets
+ * 2. Parses RFID JSON array/object
+ * 3. Stores raw events in MongoDB 'rfid_realtime_events' and 'real_time_tags'
+ * 4. Matches TagID with personnel / registered_people
+ * 5. Updates people currentZone and lastSeen
+ * 6. Broadcasts updates via SSE and WebSockets
  */
 export async function syncApertureRealtimeTags(): Promise<{
   success: boolean;
@@ -279,11 +314,27 @@ export async function syncApertureRealtimeTags(): Promise<{
     }
 
     const data = await res.json();
-    const tagArray = Array.isArray(data) ? data : (data.tags || data.data || []);
+    let tagArray: any[] = [];
 
-    if (!Array.isArray(tagArray)) {
+    if (Array.isArray(data)) {
+      tagArray = data;
+    } else if (data && typeof data === 'object') {
+      if (Array.isArray(data.tags)) tagArray = data.tags;
+      else if (Array.isArray(data.data)) tagArray = data.data;
+      else if (Array.isArray(data.events)) tagArray = data.events;
+      else if (Array.isArray(data.records)) tagArray = data.records;
+      else if (Array.isArray(data.items)) tagArray = data.items;
+      else if (Array.isArray(data.payload)) tagArray = data.payload;
+      else if (Array.isArray(data.result)) tagArray = data.result;
+      else if (data.TagID || data.tagId || data.epc) tagArray = [data];
+    }
+
+    if (!Array.isArray(tagArray) || tagArray.length === 0) {
       return { success: true, processedCount: 0, tags: [] };
     }
+
+    // Perform MongoDB bulk write for rfid_realtime_events and real_time_tags
+    await bulkWriteRfidRealtimeEvents(tagArray, 'Beeceptor/Aperture API');
 
     // Load registered people and locations for matching
     const peopleList = await getCollectionDocs('personnel') || await getCollectionDocs('registered_people') || [];
@@ -292,18 +343,21 @@ export async function syncApertureRealtimeTags(): Promise<{
     const nowIso = new Date().toISOString();
 
     for (const item of tagArray) {
-      if (!item || (!item.TagID && !item.tagId && !item.epc)) continue;
+      if (!item || (!item.TagID && !item.tagId && !item.epc && !item.id)) continue;
 
-      const tagId = item.TagID || item.tagId || item.epc;
-      const rawLocation = item.Location || item.location || item.LocationName || item.zone || 'Zone1';
-      const timestamp = item.Timestamp || item.timestamp || nowIso;
+      const tagId = String(item.TagID || item.tagId || item.epc || item.id);
+      const rawLocation = String(item.Location || item.location || item.LocationName || item.zone || 'Zone1');
+      const timestamp = item.Timestamp || item.timestamp || item.EnterTime || nowIso;
 
-      // 1. Store raw event in rfid_realtime_events
+      // 1. Store raw event in MongoDB rfid_realtime_events
       const rawEventDoc = {
         id: `evt_${Date.now()}_${tagId}`,
         TagID: tagId,
         Timestamp: timestamp,
         Location: rawLocation,
+        FirstName: item.FirstName || item.firstName || 'Staff',
+        LastName: item.LastName || item.lastName || 'User',
+        source: 'Beeceptor/Aperture Mock API',
         receivedAt: nowIso
       };
       await upsertDoc('rfid_realtime_events', rawEventDoc);
@@ -312,11 +366,9 @@ export async function syncApertureRealtimeTags(): Promise<{
       const matchedPerson = peopleList.find((p: any) => p.tagId === tagId || p.TagID === tagId || p.badgeId === tagId || p.id === tagId);
 
       if (matchedPerson) {
-        // Match Location with locations
         const matchedLocation = locationsList.find((loc: any) => loc.name === rawLocation || loc.id === rawLocation);
         const resolvedLocationName = matchedLocation ? matchedLocation.name : rawLocation;
 
-        // Update person's currentZone and lastSeen
         const updatedPerson = {
           ...matchedPerson,
           currentZone: resolvedLocationName,
@@ -328,24 +380,23 @@ export async function syncApertureRealtimeTags(): Promise<{
         await upsertDoc('personnel', updatedPerson);
       }
 
-      // Store in live_tags / real_time_tags
+      // Store in live_tags / real_time_tags / tag_history in MongoDB
       const tagDoc = {
         id: tagId,
         TagID: tagId,
         Timestamp: timestamp,
         Location: rawLocation,
-        FirstName: matchedPerson?.firstName || item.FirstName || 'Staff',
-        LastName: matchedPerson?.lastName || item.LastName || 'User',
+        FirstName: item.FirstName || item.firstName || matchedPerson?.firstName || 'Staff',
+        LastName: item.LastName || item.lastName || matchedPerson?.lastName || 'User',
         lastSyncAt: nowIso
       };
       await upsertDoc('real_time_tags', tagDoc);
       await upsertDoc('live_tags', tagDoc);
+      await upsertDoc('tag_history', { ...tagDoc, id: `hist_${tagId}_${Date.now()}`, EnterTime: timestamp });
 
-      // Broadcast update through existing SSE system (/api/events/sse)
+      // Broadcast update through SSE & WebSockets
       broadcastSseEvent('rfid_scan', tagDoc);
       broadcastSseEvent('tag_update', tagDoc);
-
-      // Also publish via WebSockets
       broadcastWebSocketEvent('tag_update', tagDoc);
     }
 
@@ -367,10 +418,8 @@ export async function syncApertureRealtimeTags(): Promise<{
 }
 
 /**
- * Performs History Data Syncing from Aperture API:
- * 1. GET /api/GetHistoryTotalCount
- * 2. GET /api/GetHistoryRecords/{SkipCount}/{TakeCount} (max TakeCount 200)
- * 3. Store in rfid_history without duplicates
+ * Performs History Data Syncing from Aperture / Beeceptor API:
+ * Stores fetched records in MongoDB 'rfid_history' and 'tag_history'.
  */
 export async function syncApertureHistory(skipCount: number = 0, takeCount: number = 200): Promise<{
   success: boolean;
@@ -381,7 +430,6 @@ export async function syncApertureHistory(skipCount: number = 0, takeCount: numb
   const safeTake = Math.min(Math.max(1, takeCount), 200);
 
   try {
-    // 1. Get Total Count
     const countRes = await makeApertureRequest('/api/GetHistoryTotalCount');
     let totalCount = 0;
     if (countRes.ok) {
@@ -389,7 +437,6 @@ export async function syncApertureHistory(skipCount: number = 0, takeCount: numb
       totalCount = typeof countData === 'number' ? countData : (countData.totalCount || countData.count || 0);
     }
 
-    // 2. Fetch Records
     const recordsRes = await makeApertureRequest(`/api/GetHistoryRecords/${skipCount}/${safeTake}`);
     if (!recordsRes.ok) {
       const errText = `Failed GET /api/GetHistoryRecords/${skipCount}/${safeTake} with status ${recordsRes.status}`;
@@ -398,11 +445,15 @@ export async function syncApertureHistory(skipCount: number = 0, takeCount: numb
     }
 
     const recordsData = await recordsRes.json();
-    const recordsArray = Array.isArray(recordsData) ? recordsData : (recordsData.records || recordsData.data || []);
+    let recordsArray: any[] = [];
+    if (Array.isArray(recordsData)) {
+      recordsArray = recordsData;
+    } else if (recordsData && typeof recordsData === 'object') {
+      recordsArray = recordsData.records || recordsData.data || recordsData.events || recordsData.items || [recordsData];
+    }
 
     const nowIso = new Date().toISOString();
 
-    // Store in rfid_history & tag_history without duplicates
     for (const rec of recordsArray) {
       if (!rec) continue;
       const tagId = rec.TagID || rec.tagId || rec.epc || `REC_${Date.now()}`;
@@ -436,3 +487,29 @@ export async function syncApertureHistory(skipCount: number = 0, takeCount: numb
     return { success: false, totalCount: 0, recordsFetched: 0, error: errMsg };
   }
 }
+
+/**
+ * Background auto-sync job for pulling real-time RFID tag events from Beeceptor / Aperture Mock API
+ */
+let autoSyncTimer: any = null;
+
+export function startApertureAutoSyncJob(intervalSeconds: number = 10) {
+  if (autoSyncTimer) return;
+
+  console.log(`[Aperture Service] Starting periodic auto-sync background job (Interval: ${intervalSeconds}s)`);
+
+  const runSync = async () => {
+    try {
+      const config = await getApertureConfig();
+      if (config.realTimeSyncActive && config.host) {
+        await syncApertureRealtimeTags();
+      }
+    } catch (err: any) {
+      console.warn('[Aperture Service] Auto-sync tick warning:', err?.message || err);
+    }
+  };
+
+  setTimeout(runSync, 3000);
+  autoSyncTimer = setInterval(runSync, intervalSeconds * 1000);
+}
+

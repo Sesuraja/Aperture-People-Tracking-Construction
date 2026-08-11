@@ -6,6 +6,9 @@ import {
   syncApertureRealtimeTags,
   syncApertureHistory
 } from '../services/apertureClient.js';
+import { bulkWriteRfidRealtimeEvents } from '../services/db.js';
+import { broadcastSseEvent } from '../services/sse.js';
+import { broadcastWebSocketEvent } from '../services/websocket.js';
 
 export const apertureRouter = Router();
 
@@ -112,3 +115,57 @@ apertureRouter.post('/sync-history', async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, error: err.message || 'History sync failed' });
   }
 });
+
+/**
+ * POST /api/integrations/aperture/beeceptor-ingest
+ * Direct endpoint for receiving returned RFID events from Beeceptor mock API testing or webhooks,
+ * storing them into MongoDB collections.
+ */
+apertureRouter.post('/beeceptor-ingest', async (req: Request, res: Response) => {
+  try {
+    const body = req.body;
+    let rawEvents: any[] = [];
+
+    if (Array.isArray(body)) {
+      rawEvents = body;
+    } else if (body && typeof body === 'object') {
+      rawEvents = body.tags || body.data || body.events || body.records || body.items || [body];
+    }
+
+    if (!Array.isArray(rawEvents) || rawEvents.length === 0) {
+      return res.status(400).json({ error: 'Valid RFID event payload (object or array) required.' });
+    }
+
+    const result = await bulkWriteRfidRealtimeEvents(rawEvents, 'Beeceptor Mock Ingest');
+
+    // Broadcast SSE & WebSocket updates
+    for (const evt of rawEvents) {
+      const tagId = evt.TagID || evt.tagId || evt.epc || 'TAG_UNKNOWN';
+      const loc = evt.Location || evt.LocationName || evt.zone || 'Zone1';
+      broadcastSseEvent('rfid_scan', { type: 'rfid_scan', TagID: tagId, Location: loc, record: evt });
+      broadcastWebSocketEvent('tag_update', { type: 'tag_update', TagID: tagId, Location: loc, record: evt });
+    }
+
+    return res.json({
+      success: true,
+      provider: 'Beeceptor Aperture Mock API',
+      message: `Successfully ingested and stored ${result.totalProcessed} RFID event(s) in MongoDB.`,
+      result
+    });
+  } catch (err: any) {
+    console.error('[Aperture Router] Beeceptor ingest error:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Failed to ingest Beeceptor mock RFID events' });
+  }
+});
+
+apertureRouter.post('/ingest', async (req: Request, res: Response) => {
+  try {
+    const body = req.body;
+    const rawEvents = Array.isArray(body) ? body : (body.tags || body.data || body.events || [body]);
+    const result = await bulkWriteRfidRealtimeEvents(rawEvents, 'Beeceptor Ingest');
+    return res.json({ success: true, result });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Ingest failed' });
+  }
+});
+

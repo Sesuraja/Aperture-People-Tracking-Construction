@@ -7,7 +7,7 @@ import { motion } from 'motion/react';
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useSimulation } from './lib/simulation';
-import { Activity, Bell, Map, Map as MapIcon, Users, BarChart3, Settings, ShieldAlert, Cpu, LayoutDashboard, Radio, PlayCircle, Search, LogOut, Lock, Clock, Building2, ClipboardCheck, History, MessageSquare, Terminal, Wrench, Sparkles, Box, ShieldCheck } from 'lucide-react';
+import { Activity, Bell, Map, Map as MapIcon, Users, BarChart3, Settings, ShieldAlert, Cpu, LayoutDashboard, Radio, PlayCircle, Search, LogOut, Lock, Clock, Building2, ClipboardCheck, History, MessageSquare, Terminal, Wrench, Sparkles, Box, ShieldCheck, Zap } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import AttendanceTab from './components/AttendanceTab';
 import VisitorsTab from './components/VisitorsTab';
@@ -23,7 +23,9 @@ import DashboardTab from './components/DashboardTab';
 import LiveTrackingTab from './components/LiveTrackingTab';
 import PlaybackTab from './components/PlaybackTab';
 import DevicesTab from './components/DevicesTab';
+import StreamDiagnostics from './components/StreamDiagnostics';
 import SettingsTab from './components/SettingsTab';
+import RealTimeConnectionsTab from './components/RealTimeConnectionsTab';
 import CustomMapPage from './components/CustomMapPage';
 import ProfileModal from './components/ProfileModal';
 import Login from './components/Login';
@@ -181,17 +183,17 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         admin: {
           dashboard: true, live: true, customMap: true, playback: true, people: true, visitors: true,
           attendance: true, alerts: true, incidents: true, analytics: true,
-          aiInsights: true, devices: true, maintenance: true, audit: true, settings: true
+          aiInsights: true, devices: true, realtime: true, maintenance: true, audit: true, settings: true
         },
         manager: {
           dashboard: true, live: true, customMap: true, playback: true, people: true, visitors: true,
           attendance: true, alerts: true, incidents: true, analytics: true,
-          aiInsights: true, devices: true, maintenance: true, audit: true, settings: false
+          aiInsights: true, devices: true, realtime: true, maintenance: true, audit: true, settings: false
         },
         operator: {
           dashboard: true, live: true, customMap: true, playback: true, people: true, visitors: true,
           attendance: true, alerts: true, incidents: true, analytics: false,
-          aiInsights: false, devices: false, maintenance: true, audit: false, settings: false
+          aiInsights: false, devices: false, realtime: true, maintenance: true, audit: false, settings: false
         },
         security: {
           dashboard: true, live: true, customMap: true, playback: true, people: true, visitors: true,
@@ -608,6 +610,17 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
                    permissions={permissions}
                    userPagePermissions={userPagePermissions}
                    featureName="Hardware Devices Administration"
+                 />
+              } />
+              <Route path="/stream-diagnostics" element={
+                 <ProtectedRoute 
+                   element={<div className="p-6 max-w-7xl mx-auto"><StreamDiagnostics /></div>}
+                   userRole={userRole}
+                   userUid={auth.currentUser?.uid}
+                   permissionKey="devices"
+                   permissions={permissions}
+                   userPagePermissions={userPagePermissions}
+                   featureName="Stream Diagnostics Monitoring"
                  />
               } />
               <Route path="/maintenance" element={

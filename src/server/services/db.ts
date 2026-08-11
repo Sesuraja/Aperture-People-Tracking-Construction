@@ -264,6 +264,87 @@ export async function getAuditLogs(limitCount = 100): Promise<any[]> {
 }
 
 /**
+ * Normalizes multi-protocol real-time stream events (WebSocket, SSE, MQTT, Webhook)
+ * to { TagID, Timestamp, Location } structure and performs bulk write to 'rfid_realtime_events' collection.
+ */
+export async function bulkWriteRfidRealtimeEvents(rawEvents: any[], protocol: string = 'Multi-Protocol'): Promise<{ insertedCount: number; modifiedCount: number; totalProcessed: number }> {
+  if (!Array.isArray(rawEvents) || rawEvents.length === 0) {
+    return { insertedCount: 0, modifiedCount: 0, totalProcessed: 0 };
+  }
+
+  const nowIso = new Date().toISOString();
+  let insertedCount = 0;
+  let modifiedCount = 0;
+
+  const normalizedDocs = rawEvents.map((raw) => {
+    const tagId = String(raw.TagID || raw.tagId || raw.epc || raw.EPC || raw.id || `TAG_${Date.now()}`);
+    const location = String(raw.Location || raw.location || raw.LocationName || raw.zone || raw.Zone || 'Zone1');
+    const rawTime = raw.Timestamp || raw.timestamp || raw.EnterTime || raw.time || nowIso;
+    const d = new Date(rawTime);
+    const validDate = isNaN(d.getTime()) ? new Date() : d;
+
+    // ISO & GAO formatted timestamp string
+    const YYYY = validDate.getUTCFullYear();
+    const MM = String(validDate.getUTCMonth() + 1).padStart(2, '0');
+    const DD = String(validDate.getUTCDate()).padStart(2, '0');
+    const hh = String(validDate.getUTCHours()).padStart(2, '0');
+    const mm = String(validDate.getUTCMinutes()).padStart(2, '0');
+    const ss = String(validDate.getUTCSeconds()).padStart(2, '0');
+    const fff = String(validDate.getUTCMilliseconds()).padStart(3, '0');
+    const timestampMs = `${YYYY}-${MM}-${DD} ${hh}:${mm}:${ss}.${fff}`;
+
+    const docId = `evt_${tagId}_${validDate.getTime()}_${Math.random().toString(36).substring(2, 6)}`;
+
+    return {
+      id: docId,
+      TagID: tagId,
+      Timestamp: timestampMs,
+      Location: location,
+      FirstName: raw.FirstName || raw.firstName || 'Staff',
+      LastName: raw.LastName || raw.lastName || 'Member',
+      protocol: raw.protocol || protocol,
+      rssi: raw.rssi !== undefined ? Number(raw.rssi) : -60,
+      readerId: raw.readerId || raw.ReaderID || 'APERTURE-READER-01',
+      antennaPort: raw.antennaPort || raw.antennaId || 1,
+      receivedAt: nowIso
+    };
+  });
+
+  if (mongoDb) {
+    try {
+      const operations = normalizedDocs.map((doc) => ({
+        updateOne: {
+          filter: { id: doc.id },
+          update: { $set: doc },
+          upsert: true
+        }
+      }));
+
+      const result = await mongoDb.collection('rfid_realtime_events').bulkWrite(operations, { ordered: false });
+      insertedCount = result.upsertedCount || 0;
+      modifiedCount = result.modifiedCount || 0;
+
+      // Also mirror/update real_time_tags & live_tags
+      await bulkWriteRealtimeTags(normalizedDocs);
+
+      return { insertedCount, modifiedCount, totalProcessed: rawEvents.length };
+    } catch (err: any) {
+      console.error('[DB Service] Error in bulkWriteRfidRealtimeEvents to MongoDB:', err);
+    }
+  }
+
+  // Fallback in-memory persistence
+  for (const doc of normalizedDocs) {
+    await upsertDoc('rfid_realtime_events', doc);
+    await upsertDoc('real_time_tags', doc);
+    await upsertDoc('live_tags', doc);
+    insertedCount++;
+  }
+
+  return { insertedCount, modifiedCount: 0, totalProcessed: rawEvents.length };
+}
+
+/**
  * Bulk writes real-time tag documents into MongoDB collection 'real_time_tags'
  */
 export async function bulkWriteRealtimeTags(tags: any[]): Promise<{ insertedCount: number; updatedCount: number; totalProcessed: number }> {

@@ -26,6 +26,13 @@ export function broadcastSseEvent(event: string, payload: any): void {
   }
 }
 
+export function getSseStats() {
+  return {
+    activeConnections: subscribers.size,
+    path: '/api/realtime/sse/subscribe'
+  };
+}
+
 // Heartbeat timer to keep SSE connections alive across proxies
 setInterval(() => {
   for (const client of subscribers) {

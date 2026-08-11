@@ -243,3 +243,10 @@ export function getActiveWSConnectionsCount(): number {
   return clients.size;
 }
 
+export function getWebSocketStats() {
+  return {
+    activeConnections: clients.size,
+    path: '/ws'
+  };
+}
+

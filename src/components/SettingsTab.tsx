@@ -40,8 +40,10 @@ import {
   ChevronUp,
   CheckSquare,
   Square,
-  Pencil
+  Pencil,
+  Zap
 } from "lucide-react";
+import RealTimeConnectionsTab from "./RealTimeConnectionsTab";
 import { gaoApi, DEFAULT_HOST } from "../lib/gaoApi";
 import { doc, getDoc, setDoc, isMongoActive } from "../lib/db";
 import { db, auth } from "../lib/firebase";
@@ -1425,6 +1427,17 @@ export default function SettingsTab() {
 
       await setDoc(doc(db, "settings", "global"), payload, { merge: true });
 
+      // Synchronize backend MQTT service broker URL
+      try {
+        await fetch('/api/realtime/mqtt/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ brokerUrl: mqttBrokerUrl })
+        });
+      } catch (err) {
+        console.warn("Could not sync MQTT broker URL with server service:", err);
+      }
+
       if (auth.currentUser) {
         try {
           await setDoc(
@@ -1621,6 +1634,17 @@ export default function SettingsTab() {
           </button>
 
           <button
+            onClick={() => setActiveSection("realtime")}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeSection === "realtime"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Zap className="w-4 h-4 text-amber-500" /> Real-Time API Streams
+          </button>
+
+          <button
             onClick={() => setActiveSection("ai")}
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "ai"
@@ -1797,6 +1821,13 @@ export default function SettingsTab() {
                   {isSaving ? "Syncing to MongoDB..." : "Save General Settings"}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* REAL-TIME API STREAMS SECTION */}
+          {activeSection === "realtime" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <RealTimeConnectionsTab />
             </div>
           )}
 
