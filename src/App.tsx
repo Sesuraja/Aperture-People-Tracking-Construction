@@ -87,7 +87,7 @@ const ProtectedRoute = ({
 };
 
 export default function App() {
-  const [mode, setMode] = useState<AppMode>(() => (localStorage.getItem('gao_app_mode') as AppMode) || 'demo');
+  const [mode, setMode] = useState<AppMode>(() => (localStorage.getItem('gao_app_mode') as AppMode) || null);
 
   const changeMode = (newMode: AppMode) => {
     setMode(newMode);
@@ -101,9 +101,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        if (!localStorage.getItem('gao_app_mode')) {
-          changeMode('real');
-        }
+        changeMode('real');
       }
     });
     return () => unsubscribe();
