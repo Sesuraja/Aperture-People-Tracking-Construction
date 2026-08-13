@@ -10,6 +10,7 @@ import {
   initMqttService
 } from '../services/mqtt.js';
 import { upsertDoc, getCollectionDocs, bulkWriteRfidRealtimeEvents } from '../services/db.js';
+import { processTelemetryWithAI } from '../services/aiPipeline.js';
 
 export const realtimeRouter = Router();
 
@@ -227,8 +228,10 @@ realtimeRouter.post('/mqtt/publish', async (req: Request, res: Response) => {
 
     const result = await publishMqttMessage(targetTopic, messageContent);
 
-    // Also notify WebSocket/SSE
-    if (result.success) {
+    // If tag data, analyze with AI Pipeline & store to MongoDB
+    if (messageContent && (messageContent.TagID || messageContent.tagId || messageContent.epc)) {
+      await processTelemetryWithAI(messageContent, `MQTT (${targetTopic})`);
+    } else if (result.success) {
       broadcastWebSocketEvent('mqtt_publish', { topic: targetTopic, payload: messageContent });
       broadcastSseEvent('mqtt_publish', { topic: targetTopic, payload: messageContent });
       pushRealtimeEventToBuffer({ topic: targetTopic, payload: messageContent, source: 'MQTT Publish' });

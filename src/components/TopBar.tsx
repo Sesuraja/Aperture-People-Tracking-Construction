@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect, useContext } from 'react';
 import { AppModeContext } from '../App';
 import ExportReportModal from './ExportReportModal';
+import { ConnectionStatus } from '../lib/realtimeClients';
+import { subscribeWsHealth } from '../lib/gaoSyncService';
 
 export default function TopBar() {
   const navigate = useNavigate();
@@ -10,6 +12,8 @@ export default function TopBar() {
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [isExportOpen, setIsExportOpen] = useState(false);
   const { mode } = useContext(AppModeContext);
+  const [wsStatus, setWsStatus] = useState<ConnectionStatus>('Disconnected');
+  const [retryInfo, setRetryInfo] = useState<{ attempt: number; delayMs: number }>({ attempt: 0, delayMs: 1000 });
   
   useEffect(() => {
     if (isDark) {
@@ -18,6 +22,14 @@ export default function TopBar() {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  useEffect(() => {
+    const unsub = subscribeWsHealth((status, delayMs, attempt) => {
+      setWsStatus(status);
+      setRetryInfo({ attempt, delayMs });
+    });
+    return () => unsub();
+  }, []);
 
   // Determine current active view category for compliance export
   let defaultCategory = 'attendance';
@@ -67,6 +79,49 @@ export default function TopBar() {
           <div className="flex items-center gap-0.5 text-[9px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-bold">
             CSV / PDF
           </div>
+        </button>
+
+        {/* System Health LED Indicator */}
+        <button
+          onClick={() => navigate('/settings')}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs font-bold shadow-sm hover:bg-slate-200 dark:hover:bg-slate-700/80 transition cursor-pointer"
+          title={`WebSocket System Health: ${wsStatus}. Click to inspect hardware stream & settings.`}
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            {wsStatus === 'Connected' ? (
+              <>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
+              </>
+            ) : wsStatus === 'Reconnecting' || wsStatus === 'Connecting' ? (
+              <>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.9)]" />
+              </>
+            ) : (
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)]" />
+            )}
+          </span>
+
+          <span className="hidden md:inline text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+            System Health
+          </span>
+
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+              wsStatus === 'Connected'
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                : wsStatus === 'Reconnecting' || wsStatus === 'Connecting'
+                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+            }`}
+          >
+            {wsStatus === 'Connected'
+              ? 'Streaming'
+              : wsStatus === 'Reconnecting' || wsStatus === 'Connecting'
+              ? `Reconnecting (${(retryInfo.delayMs / 1000).toFixed(0)}s)`
+              : 'Disconnected'}
+          </span>
         </button>
 
         {/* Dynamic Interactive API Connection Pill */}

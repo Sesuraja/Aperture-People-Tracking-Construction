@@ -122,21 +122,30 @@ export default function RealTimeConnectionsTab() {
   // WebSocket Handlers
   const handleSaveWebSocketConfig = () => {
     try {
-      globalWsClient.configure(wsEndpointInput);
+      const normalizedUrl = globalWsClient.formatWsUrl(wsEndpointInput);
+      setWsEndpointInput(normalizedUrl);
+      globalWsClient.configure(normalizedUrl);
       globalWsClient.disconnect();
       globalWsClient.connect();
       
       // Persist WebSocket custom URL to localStorage
       try {
-        localStorage.setItem('aperture_ws_url', wsEndpointInput);
+        localStorage.setItem('aperture_ws_url', normalizedUrl);
       } catch {
         // ignore
       }
 
-      setNotice({ type: 'success', msg: 'WebSocket server endpoint saved! Connection re-established.' });
+      setNotice({ type: 'success', msg: `WebSocket endpoint formatted & saved: [${normalizedUrl}]. Reconnecting...` });
     } catch (err: any) {
       setNotice({ type: 'error', msg: err.message || 'Failed to save WebSocket config.' });
     }
+  };
+
+  const handleResetWebSocket = () => {
+    globalWsClient.resetToDefaultServer();
+    const defaultUrl = globalWsClient.getUrl();
+    setWsEndpointInput(defaultUrl);
+    setNotice({ type: 'success', msg: `Reset to default internal WebSocket stream: [${defaultUrl}]` });
   };
 
   const handleTestWebSocket = () => {
@@ -373,17 +382,50 @@ export default function RealTimeConnectionsTab() {
 
               {/* Endpoint & API Key settings */}
               <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                {globalWsClient.getLastError() && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/80 rounded-lg text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-bold">WebSocket Connection Warning:</p>
+                      <p className="font-mono text-[11px] leading-relaxed">{globalWsClient.getLastError()}</p>
+                      <p className="text-[10px] text-amber-800 dark:text-amber-300">
+                        * Note: Browsers loaded over HTTPS enforce Mixed Content security. Unsecure <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">ws://</code> URLs are automatically upgraded to <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">wss://</code> unless pointing to localhost.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-[#007BC4]" /> WebSocket Server URL
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between flex-wrap gap-1">
+                      <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#007BC4]" /> WebSocket / Endpoint URL</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setWsEndpointInput('wss://mpf7722fc2649235f056.free.beeceptor.com')}
+                          className="text-[10px] bg-[#007BC4]/10 text-[#007BC4] hover:bg-[#007BC4]/20 px-2 py-0.5 rounded font-bold cursor-pointer transition"
+                        >
+                          Use Beeceptor Preset
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleResetWebSocket}
+                          className="text-[10px] text-slate-500 hover:underline cursor-pointer"
+                        >
+                          Reset (/ws)
+                        </button>
+                      </div>
                     </label>
                     <input
                       type="text"
                       value={wsEndpointInput}
                       onChange={(e) => setWsEndpointInput(e.target.value)}
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-900 dark:text-slate-100"
+                      placeholder="wss://your-domain.com/ws or /ws"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#007BC4]"
                     />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Supports relative paths like <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">/ws</code> or full URLs <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">wss://host/ws</code> (http:// and https:// automatically converted to ws:// and wss://).
+                    </p>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
@@ -397,7 +439,14 @@ export default function RealTimeConnectionsTab() {
                     />
                   </div>
                 </div>
-                <div className="flex justify-end pt-2">
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={handleResetWebSocket}
+                    className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold cursor-pointer transition"
+                  >
+                    Use Internal Server Stream
+                  </button>
                   <button
                     onClick={handleSaveWebSocketConfig}
                     className="px-5 py-2 bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-2"

@@ -1,4 +1,6 @@
-export const DEFAULT_HOST = '';
+export const DEFAULT_HOST = (typeof window !== 'undefined' && localStorage.getItem('gao_api_url'))
+  ? localStorage.getItem('gao_api_url')!
+  : 'https://mpf7722fc2649235f056.free.beeceptor.com';
 
 export interface HistoryRecord {
   TagID: string;

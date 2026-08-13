@@ -79,11 +79,13 @@ export default function DeveloperApiTab() {
   };
 
   const presetEndpoints = [
-    { label: 'GET Devices List', method: 'GET', url: '/api/data/devices', body: '' },
-    { label: 'GET Registered People', method: 'GET', url: '/api/data/registered_people', body: '' },
-    { label: 'GET Live Visitors', method: 'GET', url: '/api/data/visitors', body: '' },
-    { label: 'GET Real-time Tags', method: 'GET', url: '/api/rfid/realtime', body: '' },
-    { label: 'GET RFID Scan History', method: 'GET', url: '/api/rfid/history', body: '' },
+    { label: 'GET GAO RFID Integration Status', method: 'GET', url: '/api/integrations/gao/status', body: '' },
+    { label: 'POST Test GAO RFID Connection', method: 'POST', url: '/api/integrations/gao/test', body: '' },
+    { label: 'GET GAO Real-time Tags', method: 'GET', url: '/api/GetTagsInRealtime', body: '' },
+    { label: 'GET GAO History Total Count', method: 'GET', url: '/api/GetHistoryTotalCount', body: '' },
+    { label: 'GET GAO History Records (0/20)', method: 'GET', url: '/api/GetHistoryRecords/0/20', body: '' },
+    { label: 'GET Real-time Tags (Backend)', method: 'GET', url: '/api/rfid/realtime', body: '' },
+    { label: 'GET RFID Scan History (Backend)', method: 'GET', url: '/api/rfid/history', body: '' },
     { label: 'POST New RFID Scan Event', method: 'POST', url: '/api/rfid/scan', body: JSON.stringify({ tagId: "TAG_99", name: "Sarah Jenkins", role: "Safety Supervisor", zone: "Structure & Scaffolding (L1-L4)", status: "Active" }, null, 2) },
     { label: 'GET Backend Store Stats', method: 'GET', url: '/api/data/stats', body: '' },
   ];

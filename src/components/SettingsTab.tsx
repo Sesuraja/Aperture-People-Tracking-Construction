@@ -44,6 +44,8 @@ import {
   Zap
 } from "lucide-react";
 import RealTimeConnectionsTab from "./RealTimeConnectionsTab";
+import WebhookInspector from "./WebhookInspector";
+import HardwareIntegrationForm from "./HardwareIntegrationForm";
 import { gaoApi, DEFAULT_HOST } from "../lib/gaoApi";
 import { doc, getDoc, setDoc, isMongoActive } from "../lib/db";
 import { db, auth } from "../lib/firebase";
@@ -1634,6 +1636,28 @@ export default function SettingsTab() {
           </button>
 
           <button
+            onClick={() => setActiveSection("hardware_integration")}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeSection === "hardware_integration"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Key className="w-4 h-4 text-[#007BC4]" /> Hardware Integration
+          </button>
+
+          <button
+            onClick={() => setActiveSection("webhook_inspector")}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeSection === "webhook_inspector"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Terminal className="w-4 h-4 text-emerald-500" /> Webhook Inspector
+          </button>
+
+          <button
             onClick={() => setActiveSection("realtime")}
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "realtime"
@@ -1826,17 +1850,35 @@ export default function SettingsTab() {
 
           {/* REAL-TIME API STREAMS SECTION */}
           {activeSection === "realtime" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
               <RealTimeConnectionsTab />
+              <WebhookInspector />
+            </div>
+          )}
+
+          {/* HARDWARE INTEGRATION & HANDSHAKE SECTION */}
+          {activeSection === "hardware_integration" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+              <HardwareIntegrationForm />
+              <WebhookInspector />
+            </div>
+          )}
+
+          {/* WEBHOOK INSPECTOR SECTION */}
+          {activeSection === "webhook_inspector" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <WebhookInspector />
             </div>
           )}
 
           {/* APERTURE RFID INTEGRATION SECTION */}
           {activeSection === "aperture" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <HardwareIntegrationForm />
+
               <div>
                 <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <Radio className="w-5 h-5 text-[#007BC4]" /> Aperture RFID Integration
+                  <Radio className="w-5 h-5 text-[#007BC4]" /> Aperture RFID Advanced Config
                 </h3>
                 <p className="text-slate-500 text-xs font-medium mt-1">
                   Manage GAO RFID UHF tracking cloud server connection, API credentials, and real-time synchronization.

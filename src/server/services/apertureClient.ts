@@ -1,6 +1,7 @@
 import { getCollectionDocs, upsertDoc, getDocById, bulkWriteRfidRealtimeEvents } from './db.js';
 import { broadcastSseEvent } from './sse.js';
 import { broadcastWebSocketEvent } from './websocket.js';
+import { processTelemetryWithAI } from './aiPipeline.js';
 
 export interface ApertureConfig {
   host: string;
@@ -20,8 +21,9 @@ export function maskApiKey(key: string): string {
   return '••••••••••••' + key.slice(-4);
 }
 
-const DEFAULT_HOST = process.env.BEECEPTOR_MOCK_URL || process.env.APERTURE_RFID_HOST || 'https://www.i360services.com/peopletrackinguhf';
-const DEFAULT_API_KEY = process.env.APERTURE_RFID_API_KEY || '';
+const DEFAULT_HOST = process.env.GAO_RFID_HOST || process.env.BEECEPTOR_MOCK_URL || process.env.APERTURE_RFID_HOST || 'https://www.i360services.com/peopletrackinguhf';
+const DEFAULT_API_KEY = process.env.GAO_RFID_API_KEY || process.env.APERTURE_RFID_API_KEY || '';
+const DEFAULT_AUTH_HEADER = (process.env.GAO_RFID_AUTH_HEADER as any) || 'X-API-Key';
 
 /**
  * Gets the current Aperture configuration securely.
@@ -32,7 +34,7 @@ export async function getApertureConfig(): Promise<ApertureConfig> {
   
   const host = doc?.host || DEFAULT_HOST;
   const apiKey = doc?.apiKey !== undefined ? doc.apiKey : DEFAULT_API_KEY;
-  const authHeaderType = doc?.authHeaderType || 'X-API-Key';
+  const authHeaderType = doc?.authHeaderType || DEFAULT_AUTH_HEADER;
   const realTimeSyncActive = doc?.realTimeSyncActive !== undefined ? doc.realTimeSyncActive : true;
   const historySyncActive = doc?.historySyncActive !== undefined ? doc.historySyncActive : true;
   const lastSuccessfulSync = doc?.lastSuccessfulSync || null;
@@ -291,13 +293,16 @@ async function updateLastError(errMsg: string) {
 }
 
 /**
- * Performs Real-Time Tag Sync from Aperture / Beeceptor Mock API:
+ * Performs Real-Time Tag Sync from GAO RFID API:
  * 1. GET /api/GetTagsInRealtime
  * 2. Parses RFID JSON array/object
- * 3. Stores raw events in MongoDB 'rfid_realtime_events' and 'real_time_tags'
- * 4. Matches TagID with personnel / registered_people
- * 5. Updates people currentZone and lastSeen
- * 6. Broadcasts updates via SSE and WebSockets
+ * 3. Stores raw events in MongoDB 'rfid_realtime_events' BEFORE AI analysis
+ * 4. Matches TagID with registered personnel
+ * 5. Matches Location with zone metadata
+ * 6. Updates people currentZone and lastSeen
+ * 7. Recalculates zone occupancy based on unique active tags
+ * 8. Broadcasts SSE events (TAG_LOCATION_UPDATE, rfid_scan, tag_update)
+ * 9. Runs AI Engine analysis asynchronously without blocking raw RFID ingestion
  */
 export async function syncApertureRealtimeTags(): Promise<{
   success: boolean;
@@ -333,74 +338,169 @@ export async function syncApertureRealtimeTags(): Promise<{
       return { success: true, processedCount: 0, tags: [] };
     }
 
-    // Perform MongoDB bulk write for rfid_realtime_events and real_time_tags
-    await bulkWriteRfidRealtimeEvents(tagArray, 'Beeceptor/Aperture API');
-
-    // Load registered people and locations for matching
-    const peopleList = await getCollectionDocs('personnel') || await getCollectionDocs('registered_people') || [];
-    const locationsList = await getCollectionDocs('locations') || [];
-
     const nowIso = new Date().toISOString();
 
-    for (const item of tagArray) {
-      if (!item || (!item.TagID && !item.tagId && !item.epc && !item.id)) continue;
+    // Fetch people & locations for tag and zone resolution
+    const peopleDocs = [
+      ...(await getCollectionDocs('people')),
+      ...(await getCollectionDocs('registered_people')),
+      ...(await getCollectionDocs('personnel'))
+    ];
+    const locationDocs = [
+      ...(await getCollectionDocs('locations')),
+      ...(await getCollectionDocs('zones'))
+    ];
 
-      const tagId = String(item.TagID || item.tagId || item.epc || item.id);
+    const rawEventDocs: any[] = [];
+
+    for (let i = 0; i < tagArray.length; i++) {
+      const item = tagArray[i];
+      if (!item) continue;
+
+      const tagId = String(item.TagID || item.tagId || item.epc || item.id || `TAG_${Date.now()}_${i}`);
       const rawLocation = String(item.Location || item.location || item.LocationName || item.zone || 'Zone1');
-      const timestamp = item.Timestamp || item.timestamp || item.EnterTime || nowIso;
+      const rawTimestamp = item.Timestamp || item.timestamp || item.lastSeen || nowIso;
 
-      // 1. Store raw event in MongoDB rfid_realtime_events
+      let parsedDate = new Date(rawTimestamp);
+      if (isNaN(parsedDate.getTime())) parsedDate = new Date();
+      const utcTimestampIso = parsedDate.toISOString();
+
+      // Tag -> Person matching
+      const matchedPerson = peopleDocs.find(
+        (p: any) => p.tagId === tagId || p.TagID === tagId || p.badgeId === tagId || p.id === tagId
+      );
+
+      const personId = matchedPerson ? (matchedPerson.id || matchedPerson.personId || null) : null;
+      const personName = matchedPerson
+        ? (matchedPerson.name || `${matchedPerson.firstName || ''} ${matchedPerson.lastName || ''}`.trim() || null)
+        : (item.FirstName || item.FirstName ? `${item.FirstName || ''} ${item.LastName || ''}`.trim() : null);
+
+      const unassignedTag = !matchedPerson;
+
+      // Location matching
+      const matchedLocation = locationDocs.find(
+        (l: any) =>
+          l.name?.toLowerCase() === rawLocation.toLowerCase() ||
+          l.id?.toLowerCase() === rawLocation.toLowerCase() ||
+          l.zoneName?.toLowerCase() === rawLocation.toLowerCase()
+      );
+
+      const locationId = matchedLocation ? (matchedLocation.id || matchedLocation.locationId || rawLocation) : null;
+      const unresolvedLocation = !matchedLocation;
+
+      const eventId = `RFID-EVT-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
       const rawEventDoc = {
-        id: `evt_${Date.now()}_${tagId}`,
-        TagID: tagId,
-        Timestamp: timestamp,
-        Location: rawLocation,
-        FirstName: item.FirstName || item.firstName || 'Staff',
-        LastName: item.LastName || item.lastName || 'User',
-        source: 'Beeceptor/Aperture Mock API',
-        receivedAt: nowIso
+        id: eventId,
+        tagId,
+        personId,
+        personName,
+        unassignedTag,
+        locationId,
+        locationName: rawLocation,
+        unresolvedLocation,
+        timestamp: utcTimestampIso,
+        source: 'GAO_RFID_API',
+        processed: true,
+        aiAnalyzed: false,
+        createdAt: nowIso,
+        rawPayload: {
+          TagID: item.TagID || tagId,
+          Timestamp: item.Timestamp || rawTimestamp,
+          Location: item.Location || rawLocation
+        }
       };
+
+      rawEventDocs.push(rawEventDoc);
+
+      // Save raw RFID event directly to MongoDB before AI analysis
       await upsertDoc('rfid_realtime_events', rawEventDoc);
-
-      // 2. Match TagID with personnel / registered_people
-      const matchedPerson = peopleList.find((p: any) => p.tagId === tagId || p.TagID === tagId || p.badgeId === tagId || p.id === tagId);
-
-      if (matchedPerson) {
-        const matchedLocation = locationsList.find((loc: any) => loc.name === rawLocation || loc.id === rawLocation);
-        const resolvedLocationName = matchedLocation ? matchedLocation.name : rawLocation;
-
-        const updatedPerson = {
-          ...matchedPerson,
-          currentZone: resolvedLocationName,
-          zone: resolvedLocationName,
-          lastSeen: timestamp,
-          lastSeenTime: timestamp,
-          updatedAt: nowIso
-        };
-        await upsertDoc('personnel', updatedPerson);
-      }
-
-      // Store in live_tags / real_time_tags / tag_history in MongoDB
-      const tagDoc = {
+      await upsertDoc('real_time_tags', {
         id: tagId,
         TagID: tagId,
-        Timestamp: timestamp,
+        personId,
+        personName,
         Location: rawLocation,
-        FirstName: item.FirstName || item.firstName || matchedPerson?.firstName || 'Staff',
-        LastName: item.LastName || item.lastName || matchedPerson?.lastName || 'User',
-        lastSyncAt: nowIso
-      };
-      await upsertDoc('real_time_tags', tagDoc);
-      await upsertDoc('live_tags', tagDoc);
-      await upsertDoc('tag_history', { ...tagDoc, id: `hist_${tagId}_${Date.now()}`, EnterTime: timestamp });
+        Timestamp: utcTimestampIso,
+        lastSeen: utcTimestampIso,
+        unassignedTag
+      });
+      await upsertDoc('live_tags', {
+        id: tagId,
+        TagID: tagId,
+        personId,
+        personName,
+        Location: rawLocation,
+        Timestamp: utcTimestampIso,
+        lastSeen: utcTimestampIso
+      });
 
-      // Broadcast update through SSE & WebSockets
-      broadcastSseEvent('rfid_scan', tagDoc);
-      broadcastSseEvent('tag_update', tagDoc);
-      broadcastWebSocketEvent('tag_update', tagDoc);
+      // Update person currentZone and lastSeen
+      if (matchedPerson && matchedPerson.id) {
+        const updatedPersonDoc = {
+          ...matchedPerson,
+          currentZone: rawLocation,
+          zone: rawLocation,
+          lastSeen: utcTimestampIso,
+          status: 'In-Zone',
+          updatedAt: nowIso
+        };
+        await upsertDoc('people', updatedPersonDoc);
+        await upsertDoc('registered_people', updatedPersonDoc);
+        await upsertDoc('personnel', updatedPersonDoc);
+      }
+
+      // Broadcast SSE events
+      const ssePayload = {
+        type: 'TAG_LOCATION_UPDATE',
+        personId,
+        tagId,
+        personName: personName || 'Unassigned Tag',
+        zoneId: locationId || rawLocation,
+        zoneName: rawLocation,
+        timestamp: utcTimestampIso,
+        eventId
+      };
+      broadcastSseEvent('TAG_LOCATION_UPDATE', ssePayload);
+      broadcastSseEvent('rfid_scan', ssePayload);
+      broadcastWebSocketEvent('tag_update', ssePayload);
     }
 
-    // Update last sync timestamp
+    // Recalculate unique occupancy per zone
+    try {
+      const allActiveTags = await getCollectionDocs('real_time_tags');
+      const zoneCounts: Record<string, Set<string>> = {};
+
+      for (const t of allActiveTags) {
+        const zoneName = t.Location || t.locationName || 'Zone1';
+        if (!zoneCounts[zoneName]) zoneCounts[zoneName] = new Set();
+        zoneCounts[zoneName].add(t.TagID || t.tagId || t.id);
+      }
+
+      for (const loc of locationDocs) {
+        if (!loc || !loc.id) continue;
+        const locName = loc.name || loc.zoneName || loc.id;
+        const uniqueOccupants = zoneCounts[locName] ? zoneCounts[locName].size : 0;
+
+        await upsertDoc('locations', {
+          ...loc,
+          currentOccupancy: uniqueOccupants,
+          updatedAt: nowIso
+        });
+      }
+    } catch (e) {
+      console.warn('[GAO RFID] Zone occupancy update warning:', e);
+    }
+
+    // AI Engine Analysis asynchronously (non-blocking)
+    processTelemetryWithAI(tagArray, 'GAO RFID API').then(() => {
+      for (const evt of rawEventDocs) {
+        upsertDoc('rfid_realtime_events', { ...evt, aiAnalyzed: true }).catch(() => {});
+      }
+    }).catch((aiErr) => {
+      console.warn('[GAO RFID] AI Engine analysis failed (RFID events safely stored):', aiErr?.message || aiErr);
+    });
+
     const config = await getApertureConfig();
     await upsertDoc('settings', {
       id: 'aperture_config',
@@ -418,8 +518,11 @@ export async function syncApertureRealtimeTags(): Promise<{
 }
 
 /**
- * Performs History Data Syncing from Aperture / Beeceptor API:
- * Stores fetched records in MongoDB 'rfid_history' and 'tag_history'.
+ * Performs History Data Syncing from GAO RFID API:
+ * 1. GET /api/GetHistoryTotalCount
+ * 2. GET /api/GetHistoryRecords/{skip}/{take}
+ * 3. Normalizes EnterTime/EnterTimeStr and LeaveTime/LeaveTimeStr to UTC enterTime & leaveTime
+ * 4. Stores fetched records in MongoDB 'rfid_history'
  */
 export async function syncApertureHistory(skipCount: number = 0, takeCount: number = 200): Promise<{
   success: boolean;
@@ -456,19 +559,47 @@ export async function syncApertureHistory(skipCount: number = 0, takeCount: numb
 
     for (const rec of recordsArray) {
       if (!rec) continue;
-      const tagId = rec.TagID || rec.tagId || rec.epc || `REC_${Date.now()}`;
-      const enterTime = rec.EnterTime || rec.enterTime || rec.Timestamp || nowIso;
-      const docId = rec.id || `hist_${tagId}_${new Date(enterTime).getTime()}`;
+      const tagId = String(rec.TagID || rec.tagId || rec.epc || `REC_${Date.now()}`);
+
+      const rawEnter = rec.EnterTime || rec.EnterTimeStr || rec.enterTime || rec.timestamp || nowIso;
+      const rawLeave = rec.LeaveTime || rec.LeaveTimeStr || rec.leaveTime || rawEnter;
+
+      let enterDate = new Date(rawEnter);
+      if (isNaN(enterDate.getTime())) enterDate = new Date();
+
+      let leaveDate = new Date(rawLeave);
+      if (isNaN(leaveDate.getTime())) leaveDate = enterDate;
+
+      const enterTimeUtc = enterDate.toISOString();
+      const leaveTimeUtc = leaveDate.toISOString();
+
+      const diffMs = Math.max(0, leaveDate.getTime() - enterDate.getTime());
+      const durationHours = rec.Duration !== undefined ? Number(rec.Duration) : Math.round((diffMs / 3600000) * 10) / 10;
+
+      const firstName = rec.FirstName || rec.firstName || 'John';
+      const lastName = rec.LastName || rec.lastName || 'Smith';
+      const locationName = rec.LocationName || rec.Location || rec.location || 'Zone1';
+
+      const docId = rec.id || `HIST-${tagId}-${enterDate.getTime()}`;
 
       const historyDoc = {
         id: docId,
+        tagId,
         TagID: tagId,
-        FirstName: rec.FirstName || rec.firstName || 'Staff',
-        LastName: rec.LastName || rec.lastName || 'User',
-        LocationName: rec.LocationName || rec.Location || rec.location || 'Zone1',
-        EnterTime: enterTime,
-        LeaveTime: rec.LeaveTime || rec.leaveTime || enterTime,
-        Duration: rec.Duration !== undefined ? Number(rec.Duration) : 0,
+        personId: rec.personId || null,
+        personName: `${firstName} ${lastName}`.trim(),
+        FirstName: firstName,
+        LastName: lastName,
+        locationId: rec.locationId || locationName,
+        locationName,
+        LocationName: locationName,
+        enterTime: enterTimeUtc,
+        leaveTime: leaveTimeUtc,
+        EnterTime: enterTimeUtc,
+        LeaveTime: leaveTimeUtc,
+        durationHours,
+        Duration: durationHours,
+        source: 'GAO_RFID_API',
         syncedAt: nowIso
       };
 

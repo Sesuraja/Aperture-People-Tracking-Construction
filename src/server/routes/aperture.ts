@@ -16,12 +16,13 @@ export const apertureRouter = Router();
  * GET /api/integrations/aperture/config
  * Returns current configuration status and masked API key. NEVER returns raw API key.
  */
-apertureRouter.get('/config', async (req: Request, res: Response) => {
+const handleGetConfig = async (req: Request, res: Response) => {
   try {
     const config = await getApertureConfig();
     return res.json({
       success: true,
-      provider: 'Aperture RFID',
+      status: config.apiKeyConfigured ? 'CONNECTED' : 'NOT_CONFIGURED',
+      provider: 'GAO RFID',
       host: config.host,
       apiKeyConfigured: config.apiKeyConfigured,
       apiKeyMasked: config.apiKeyMasked,
@@ -32,9 +33,12 @@ apertureRouter.get('/config', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error('[Aperture Router] Get config error:', err);
-    return res.status(500).json({ error: 'Failed to retrieve Aperture RFID configuration' });
+    return res.status(500).json({ error: 'Failed to retrieve GAO RFID configuration' });
   }
-});
+};
+
+apertureRouter.get('/config', handleGetConfig);
+apertureRouter.get('/status', handleGetConfig);
 
 /**
  * POST /api/integrations/aperture/config

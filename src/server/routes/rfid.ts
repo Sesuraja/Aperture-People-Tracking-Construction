@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getCollectionDocs, upsertDoc, logAuditEvent, bulkWriteRealtimeTags, cleanupStaleRealTimeTags } from '../services/db.js';
 import { broadcastSseEvent } from '../services/sse.js';
 import { broadcastWebSocketEvent } from '../services/websocket.js';
+import { processTelemetryWithAI } from '../services/aiPipeline.js';
 
 export const rfidRouter = Router();
 
@@ -249,65 +250,18 @@ rfidRouter.post('/scan', async (req: Request, res: Response) => {
   const utcTimestampMsStr = formatUtcTimestampMs(now);
 
   try {
-    const scanRecord = {
-      id: `scan_${Date.now()}_${tagId}`,
+    const scanPayload = {
       TagID: tagId,
-      tagId: tagId,
-      epc: tagId,
+      Location: location,
       FirstName: firstName,
       LastName: lastName,
-      name: `${firstName} ${lastName}`.trim(),
       role: data.role,
-      Location: location,
-      LocationName: location,
-      zone: location,
       status: data.status,
       rssi: data.rssi,
-      Timestamp: utcTimestampMsStr,
-      EnterTime: utcDateTimeStr,
-      EnterTimeStr: utcDateTimeStr,
-      timestamp: timestampIso
+      readerId: data.readerId
     };
 
-    // Update live tag queue
-    await upsertDoc('live_tags', {
-      id: tagId,
-      TagID: tagId,
-      Timestamp: utcTimestampMsStr,
-      Location: location,
-      FirstName: firstName,
-      LastName: lastName,
-      status: data.status,
-      rssi: data.rssi,
-      lastSeen: timestampIso
-    });
-
-    // Save to tag_history
-    await upsertDoc('tag_history', scanRecord);
-
-    // Broadcast SSE & WebSocket events with full GAO RFID fields
-    broadcastSseEvent('rfid_scan', {
-      type: 'rfid_scan',
-      TagID: tagId,
-      Timestamp: utcTimestampMsStr,
-      Location: location,
-      FirstName: firstName,
-      LastName: lastName,
-      EnterTime: utcDateTimeStr,
-      record: scanRecord
-    });
-
-    broadcastWebSocketEvent('tag_update', {
-      type: 'tag_update',
-      TagID: tagId,
-      Timestamp: utcTimestampMsStr,
-      Location: location,
-      FirstName: firstName,
-      LastName: lastName,
-      LocationName: location,
-      EnterTime: utcDateTimeStr,
-      record: scanRecord
-    });
+    const aiResult = await processTelemetryWithAI(scanPayload, 'HTTP API Scan');
 
     await logAuditEvent({
       action: 'RFID_SCAN_EVENT',
@@ -317,8 +271,8 @@ rfidRouter.post('/scan', async (req: Request, res: Response) => {
     });
 
     return res.json({
-      message: 'Scan recorded successfully',
-      scanRecord
+      message: 'Scan recorded and analyzed by AI Engine successfully',
+      scanRecord: aiResult.analyzedResults[0]
     });
   } catch (err: any) {
     console.error('[RFID Route] Scan post error:', err);
@@ -334,17 +288,12 @@ rfidRouter.post('/realtime-tags/bulk', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Array of tag records required in body' });
     }
 
-    const result = await bulkWriteRealtimeTags(rawTags);
-
-    broadcastWebSocketEvent('bulk_tag_update', {
-      count: result.totalProcessed,
-      timestamp: formatUtcDateTime()
-    });
+    const aiResult = await processTelemetryWithAI(rawTags, 'HTTP Bulk Stream');
 
     return res.json({
       success: true,
-      message: `Successfully processed bulk write of ${result.totalProcessed} tags into real_time_tags collection.`,
-      result
+      message: `Successfully processed AI analysis & bulk write of ${aiResult.processedCount} tags into MongoDB collections.`,
+      analyzedResults: aiResult.analyzedResults
     });
   } catch (err: any) {
     console.error('[RFID Route] Bulk write error:', err);
@@ -355,8 +304,8 @@ rfidRouter.post('/realtime-tags/bulk', async (req: Request, res: Response) => {
 rfidRouter.post('/bulk-ingest', async (req: Request, res: Response) => {
   try {
     const rawTags = req.body?.tags || req.body?.data || (Array.isArray(req.body) ? req.body : [req.body]);
-    const result = await bulkWriteRealtimeTags(rawTags);
-    return res.json({ success: true, result });
+    const aiResult = await processTelemetryWithAI(rawTags, 'Bulk Ingest Stream');
+    return res.json({ success: true, processedCount: aiResult.processedCount, analyzedResults: aiResult.analyzedResults });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed bulk ingest' });
   }

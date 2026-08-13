@@ -134,6 +134,34 @@ class GaoWebSocketService {
     return { realTimeTag, historyRecord };
   }
 
+  public formatWsUrl(inputUrl?: string): string {
+    const defaultProtocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const defaultHost = typeof window !== 'undefined' ? window.location.host : 'localhost:3000';
+    
+    if (!inputUrl || !inputUrl.trim()) {
+      return `${defaultProtocol}//${defaultHost}/ws`;
+    }
+
+    let url = inputUrl.trim();
+    if (url.startsWith('http://')) url = 'ws://' + url.slice(7);
+    else if (url.startsWith('https://')) url = 'wss://' + url.slice(8);
+
+    if (url.startsWith('/')) {
+      url = `${defaultProtocol}//${defaultHost}${url}`;
+    } else if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+      url = `${defaultProtocol}//${url}`;
+    }
+
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('ws://')) {
+      const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1');
+      if (!isLocalhost) {
+        url = 'wss://' + url.slice(5);
+      }
+    }
+
+    return url;
+  }
+
   /**
    * Connect to WebSocket endpoint
    */
@@ -147,9 +175,7 @@ class GaoWebSocketService {
     this.setStatus('Connecting');
 
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const defaultHost = window.location.host;
-      const wsUrl = customUrl || `${protocol}//${defaultHost}/ws`;
+      const wsUrl = this.formatWsUrl(customUrl);
 
       console.log(`[GaoWebSocketService] Connecting to GAO RFID stream: ${wsUrl}`);
       this.socket = new WebSocket(wsUrl);

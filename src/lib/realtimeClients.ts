@@ -27,26 +27,87 @@ type StatusListener = (status: ConnectionStatus, message?: string) => void;
 export class WebSocketClientManager {
   private socket: WebSocket | null = null;
   private status: ConnectionStatus = 'Disconnected';
+  private lastError: string | null = null;
   private messageListeners: Set<MessageListener> = new Set();
   private statusListeners: Set<StatusListener> = new Set();
   private reconnectTimer: any = null;
   private isExplicitDisconnect = false;
   private customUrl: string | null = null;
+  private reconnectAttempt = 0;
+  private static readonly BACKOFF_DELAYS = [1000, 2000, 4000, 8000]; // 1s, 2s, 4s, 8s
+  private static readonly STEADY_INTERVAL = 16000; // steady 16s
 
   constructor(private urlPath: string = '/ws') {}
 
+  public getReconnectAttempt(): number {
+    return this.reconnectAttempt;
+  }
+
+  public getNextRetryDelay(): number {
+    if (this.reconnectAttempt < WebSocketClientManager.BACKOFF_DELAYS.length) {
+      return WebSocketClientManager.BACKOFF_DELAYS[this.reconnectAttempt];
+    }
+    return WebSocketClientManager.STEADY_INTERVAL;
+  }
+
   public configure(url: string): void {
     this.customUrl = url;
+    this.lastError = null;
+  }
+
+  public getLastError(): string | null {
+    return this.lastError;
+  }
+
+  public formatWsUrl(inputUrl: string): string {
+    if (!inputUrl || !inputUrl.trim()) {
+      if (typeof window === 'undefined') return '';
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${proto}//${window.location.host}${this.urlPath.startsWith('/') ? '' : '/'}${this.urlPath}`;
+    }
+
+    let url = inputUrl.trim();
+
+    // 1. Replace http:// or https:// with ws:// or wss://
+    if (url.startsWith('http://')) {
+      url = 'ws://' + url.slice(7);
+    } else if (url.startsWith('https://')) {
+      url = 'wss://' + url.slice(8);
+    }
+
+    // 2. Resolve relative paths (/ws) or missing protocol (domain.com/ws)
+    if (url.startsWith('/')) {
+      if (typeof window !== 'undefined') {
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        url = `${proto}//${window.location.host}${url}`;
+      }
+    } else if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+        url = `wss://${url}`;
+      } else {
+        url = `ws://${url}`;
+      }
+    }
+
+    // 3. Security auto-upgrade: If page is HTTPS and URL is ws:// (non-localhost), upgrade to wss://
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('ws://')) {
+      const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1');
+      if (!isLocalhost) {
+        url = 'wss://' + url.slice(5);
+      }
+    }
+
+    return url;
   }
 
   public getUrl(): string {
-    if (this.customUrl) return this.customUrl;
+    if (this.customUrl) return this.formatWsUrl(this.customUrl);
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('aperture_ws_url');
         if (saved) {
           this.customUrl = saved;
-          return saved;
+          return this.formatWsUrl(saved);
         }
       } catch {
         // ignore
@@ -56,6 +117,18 @@ export class WebSocketClientManager {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     return `${protocol}//${host}${this.urlPath.startsWith('/') ? '' : '/'}${this.urlPath}`;
+  }
+
+  public resetToDefaultServer(): void {
+    this.customUrl = null;
+    this.lastError = null;
+    try {
+      localStorage.removeItem('aperture_ws_url');
+    } catch {
+      // ignore
+    }
+    this.disconnect();
+    this.connect();
   }
 
   public connect(): void {
@@ -74,6 +147,8 @@ export class WebSocketClientManager {
 
       this.socket.onopen = () => {
         this.setStatus('Connected');
+        this.lastError = null;
+        this.reconnectAttempt = 0; // Reset exponential backoff on successful connection
         if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
       };
 
@@ -86,18 +161,34 @@ export class WebSocketClientManager {
         }
       };
 
-      this.socket.onclose = () => {
+      this.socket.onclose = (evt) => {
         this.setStatus('Disconnected');
+        if (!evt.wasClean) {
+          const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+          const isWsUrl = wsUrl.startsWith('ws://');
+          if (isHttps && isWsUrl && !wsUrl.includes('localhost') && !wsUrl.includes('127.0.0.1')) {
+            this.lastError = `Browser blocked unsecure connection (${wsUrl}) from HTTPS page. Please use wss:// or HTTPS proxy.`;
+          } else {
+            this.lastError = `Connection closed unexpectedly (code ${evt.code}). Check endpoint URL and server status.`;
+          }
+        }
         if (!this.isExplicitDisconnect) {
           this.scheduleReconnect();
         }
       };
 
       this.socket.onerror = (err) => {
-        this.setStatus('Error', 'WebSocket error occurred');
+        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        if (isHttps && wsUrl.startsWith('ws://')) {
+          this.lastError = `Mixed Content Error: Cannot connect to insecure ${wsUrl} from HTTPS page. Upgrade to wss:// or connect via backend.`;
+        } else {
+          this.lastError = `Failed to connect to WebSocket at ${wsUrl}. Verify host and port.`;
+        }
+        this.setStatus('Error', this.lastError);
       };
     } catch (err: any) {
-      this.setStatus('Error', err.message || 'Failed to initialize WebSocket');
+      this.lastError = err.message || 'Failed to initialize WebSocket';
+      this.setStatus('Error', this.lastError);
       this.scheduleReconnect();
     }
   }
@@ -137,12 +228,16 @@ export class WebSocketClientManager {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    const delay = this.getNextRetryDelay();
+    this.reconnectAttempt++;
+
+    this.setStatus('Reconnecting', `Attempting reconnect in ${(delay / 1000).toFixed(0)}s (Attempt #${this.reconnectAttempt})`);
+
     this.reconnectTimer = setTimeout(() => {
       if (!this.isExplicitDisconnect) {
-        this.setStatus('Reconnecting');
         this.connect();
       }
-    }, 4000);
+    }, delay);
   }
 
   private setStatus(status: ConnectionStatus, message?: string): void {
@@ -189,7 +284,7 @@ export class SseClientManager {
       };
 
       // Custom event listener types
-      const customEvents = ['connected', 'rfid_scan', 'tag_update', 'mqtt_message', 'mqtt_publish', 'mqtt_status', 'webhook_received', 'notification'];
+      const customEvents = ['connected', 'rfid_scan', 'tag_update', 'ai_insight', 'safety_alert', 'mqtt_message', 'mqtt_publish', 'mqtt_status', 'webhook_received', 'notification'];
       customEvents.forEach((evtName) => {
         this.eventSource?.addEventListener(evtName, (e: MessageEvent) => {
           try {

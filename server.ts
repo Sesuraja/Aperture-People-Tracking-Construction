@@ -77,6 +77,7 @@ async function startServer() {
   app.use('/api/events', eventsRouter);
   app.use('/api/mongodb', mongodbRouter);
   app.use('/api/integrations/aperture', apertureRouter);
+  app.use('/api/integrations/gao', apertureRouter);
   app.use('/api/realtime', realtimeRouter);
 
   // Direct GAO RFID Root Aliases (allowing ${host}/GetHistoryTotalCount, ${host}/GetHistoryRecords/10/30, ${host}/GetTagsInRealtime)

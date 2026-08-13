@@ -2,6 +2,7 @@ import mqtt, { MqttClient } from 'mqtt';
 import { getDocById, upsertDoc } from './db.js';
 import { broadcastWebSocketEvent } from './websocket.js';
 import { broadcastSseEvent } from './sse.js';
+import { processTelemetryWithAI } from './aiPipeline.js';
 
 export interface MqttConfig {
   brokerUrl: string; // e.g. 'mqtt://broker.emqx.io:1883' or 'ws://broker.emqx.io:8083/mqtt'
@@ -175,23 +176,9 @@ export async function initMqttService(): Promise<MqttStatus> {
       broadcastWebSocketEvent('mqtt_message', eventData);
       broadcastSseEvent('mqtt_message', eventData);
 
-      // If the MQTT message contains RFID tag data, process it into personnel/tag records
+      // If the MQTT message contains RFID tag data, process it through the AI Telemetry Analysis Engine
       if (parsedPayload && (parsedPayload.TagID || parsedPayload.tagId || parsedPayload.epc)) {
-        const tagId = parsedPayload.TagID || parsedPayload.tagId || parsedPayload.epc;
-        const location = parsedPayload.Location || parsedPayload.location || parsedPayload.zone || 'Zone1';
-        
-        const tagDoc = {
-          id: tagId,
-          TagID: tagId,
-          Location: location,
-          Timestamp: parsedPayload.Timestamp || parsedPayload.timestamp || nowIso,
-          source: `MQTT (${topic})`,
-          lastSyncAt: nowIso
-        };
-
-        await upsertDoc('real_time_tags', tagDoc);
-        broadcastWebSocketEvent('tag_update', tagDoc);
-        broadcastSseEvent('tag_update', tagDoc);
+        await processTelemetryWithAI(parsedPayload, `MQTT (${topic})`);
       }
     });
 
