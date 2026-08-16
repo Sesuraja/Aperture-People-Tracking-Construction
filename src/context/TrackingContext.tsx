@@ -245,18 +245,18 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
 
   const [wsConnected, setWsConnected] = useState(false);
   const [liveTags, setLiveTags] = useState<RealtimeTag[]>([]);
-  const [people, setPeople] = useState<Person[]>(INITIAL_PEOPLE_ROSTER);
+  const [people, setPeople] = useState<Person[]>([]);
 
-  // Entities initialized from persistent localStorage with fallbacks
+  // Entities initialized from persistent MongoDB storage
   const [assets, setAssets] = useState<AssetItem[]>(() => {
     try {
       const saved = localStorage.getItem('gao_db_assets');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return INITIAL_ASSETS;
+    return [];
   });
 
   const [vehicles, setVehicles] = useState<VehicleItem[]>(() => {
@@ -264,10 +264,10 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem('gao_db_vehicles');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return INITIAL_VEHICLES;
+    return [];
   });
 
   const [cameras, setCameras] = useState<CCTVCameraItem[]>(() => {
@@ -275,10 +275,10 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem('gao_db_cameras');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return INITIAL_CCTVS;
+    return [];
   });
 
   const [envSensors, setEnvSensors] = useState<EnvironmentalSensorItem[]>(() => {
@@ -286,10 +286,10 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem('gao_db_sensors');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return INITIAL_ENV_SENSORS;
+    return [];
   });
 
   const [infrastructure, setInfrastructure] = useState<InfrastructureItem[]>(() => {
@@ -297,10 +297,10 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem('gao_db_infrastructure');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return INITIAL_INFRASTRUCTURE;
+    return [];
   });
 
   const [zones, setZones] = useState<MapZoneDefinition[]>(() => {
@@ -576,12 +576,13 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
   const loadDatabaseConfig = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [zonesRes, mapRes, readersRes, assetsRes, vehiclesRes] = await Promise.allSettled([
+      const [zonesRes, mapRes, readersRes, assetsRes, vehiclesRes, peopleRes] = await Promise.allSettled([
         fetch('/api/data/zones').then(r => r.ok ? r.json() : []),
         fetch(`/api/data/map_configurations/${activeProject}`).then(r => r.ok ? r.json() : null),
         fetch('/api/data/reader_zone_mappings').then(r => r.ok ? r.json() : []),
         fetch('/api/data/assets').then(r => r.ok ? r.json() : []),
-        fetch('/api/data/vehicles').then(r => r.ok ? r.json() : [])
+        fetch('/api/data/vehicles').then(r => r.ok ? r.json() : []),
+        fetch('/api/data/registered_people').then(r => r.ok ? r.json() : [])
       ]);
 
       if (zonesRes.status === 'fulfilled' && Array.isArray(zonesRes.value) && zonesRes.value.length > 0) {
@@ -597,14 +598,37 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
         setReaderMappings(readersRes.value);
       }
 
-      if (assetsRes.status === 'fulfilled' && Array.isArray(assetsRes.value) && assetsRes.value.length > 0) {
+      if (assetsRes.status === 'fulfilled' && Array.isArray(assetsRes.value)) {
         setAssets(assetsRes.value);
         localStorage.setItem('gao_db_assets', JSON.stringify(assetsRes.value));
       }
 
-      if (vehiclesRes.status === 'fulfilled' && Array.isArray(vehiclesRes.value) && vehiclesRes.value.length > 0) {
+      if (vehiclesRes.status === 'fulfilled' && Array.isArray(vehiclesRes.value)) {
         setVehicles(vehiclesRes.value);
         localStorage.setItem('gao_db_vehicles', JSON.stringify(vehiclesRes.value));
+      }
+
+      if (peopleRes.status === 'fulfilled' && Array.isArray(peopleRes.value)) {
+        const loadedPeople: Person[] = peopleRes.value.map((p: any) => ({
+          id: p.id || p.tagId || p.TagID,
+          name: p.name || p.personName || 'Personnel',
+          role: p.role || 'Field Personnel',
+          tradeCompany: p.company || p.tradeCompany || 'Contractor',
+          ppeStatus: p.ppeStatus || 'COMPLIANT',
+          shiftStatus: p.shiftStatus || 'ON_SITE',
+          trainingStatus: p.trainingStatus || 'COMPLIANT',
+          hardhatTagId: p.hardhatTagId || p.tagId || p.TagID || p.id,
+          currentZone: p.currentZone || p.location || 'Tower Core',
+          presenceState: p.presenceState || 'MOVING',
+          dwellTime: p.dwellTime || 0,
+          x: p.x || 50,
+          y: p.y || 50,
+          rssi: p.rssi || -65,
+          battery: p.battery || 90,
+          lastSeen: p.lastSeen ? new Date(p.lastSeen) : new Date(),
+          trail: p.trail || []
+        }));
+        setPeople(loadedPeople);
       }
     } catch (err) {
       console.warn('[TrackingContext] Initial config load error:', err);
