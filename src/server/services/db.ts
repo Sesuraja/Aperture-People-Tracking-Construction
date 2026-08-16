@@ -24,10 +24,17 @@ const inMemoryStore: Record<string, any[]> = {
   alert_dispatch_logs: [],
   emergency_broadcasts: [],
   live_tags: [],
+  real_time_tags: [],
+  rfid_realtime_events: [],
   tag_history: [],
   audit_logs: [],
   settings: [],
-  incidents_enterprise: []
+  incidents_enterprise: [],
+  zones: [],
+  map_configurations: [],
+  geofences: [],
+  reader_zone_mappings: [],
+  people: []
 };
 
 export function getMongoUri(): string {
@@ -59,6 +66,8 @@ export async function initDatabase(customUri?: string): Promise<void> {
     console.warn('[DB Service] Falling back to transient in-memory storage (NON-PERSISTENT).');
     mongoClient = null;
     mongoDb = null;
+  } finally {
+    await bootstrapMapAndZoneDefinitions();
   }
 }
 
@@ -459,6 +468,234 @@ export async function cleanupStaleRealTimeTags(maxAgeMinutes: number = 60): Prom
 
   const remainingCount = (inMemoryStore['real_time_tags'] || []).length;
   return { cleanedCount, remainingCount };
+}
+
+export const DEFAULT_PERMANENT_ZONES = [
+  {
+    id: 'zone_excavation_shaft',
+    zoneId: 'zone_excavation_shaft',
+    name: 'Excavation & Foundation Pit',
+    aliasNames: ['Excavation Shaft', 'Excavation & Foundation Pit', 'Deep Excavation Shaft', 'Zone2'],
+    category: 'EXCAVATION & SHORING',
+    hazardLevel: 'warning',
+    capacity: 8,
+    siteId: 'metro-tower',
+    x: 10,
+    y: 15,
+    width: 34,
+    height: 62,
+    readerIds: ['RDR-002', 'GAO-UHF-READER-02'],
+    antennaIds: [1]
+  },
+  {
+    id: 'zone_tower_core',
+    zoneId: 'zone_tower_core',
+    name: 'Structure & Scaffolding (L1-L4)',
+    aliasNames: ['Tower Core', 'Structure & Scaffolding (L1-L4)', 'Tower Core Structure', 'Zone1', 'd6'],
+    category: 'CONCRETE REINFORCEMENT',
+    hazardLevel: 'normal',
+    capacity: 25,
+    siteId: 'metro-tower',
+    x: 51,
+    y: 25,
+    width: 32,
+    height: 50,
+    readerIds: ['RDR-003', 'GAO-UHF-READER-01'],
+    antennaIds: [1]
+  },
+  {
+    id: 'zone_crane_area',
+    zoneId: 'zone_crane_area',
+    name: 'Heavy Crane & Exclusion Area',
+    aliasNames: ['Crane Swing Zone', 'Heavy Crane & Exclusion Area', 'd8', 'Crane Exclusion'],
+    category: 'CRANE SWING RADIUS',
+    hazardLevel: 'critical',
+    capacity: 4,
+    siteId: 'metro-tower',
+    x: 80,
+    y: 5,
+    width: 16,
+    height: 42,
+    readerIds: ['RDR-002', 'GAO-UHF-READER-03'],
+    antennaIds: [1]
+  },
+  {
+    id: 'zone_high_voltage',
+    zoneId: 'zone_high_voltage',
+    name: 'High Voltage Area',
+    aliasNames: ['High Voltage Area', 'Substation Area', 'Substation Perimeter'],
+    category: 'SUBSTATION PERIMETER',
+    hazardLevel: 'critical',
+    capacity: 2,
+    siteId: 'metro-tower',
+    x: 46,
+    y: 5,
+    width: 14,
+    height: 16,
+    readerIds: ['RDR-003', 'GAO-UHF-READER-03'],
+    antennaIds: [2]
+  },
+  {
+    id: 'zone_gate_1',
+    zoneId: 'zone_gate_1',
+    name: 'Gate 1 / Main Access Gate',
+    aliasNames: ['Gate 1', 'Main Access Gate', 'Gate 1 Turnstile', 'Muster Point A'],
+    category: 'MUSTER POINT & ACCESS',
+    hazardLevel: 'normal',
+    capacity: 50,
+    siteId: 'metro-tower',
+    x: 2,
+    y: 10,
+    width: 12,
+    height: 16,
+    readerIds: ['RDR-001', 'GAO-UHF-READER-01'],
+    antennaIds: [1]
+  },
+  {
+    id: 'zone_material_laydown',
+    zoneId: 'zone_material_laydown',
+    name: 'Material Laydown & Loading',
+    aliasNames: ['Material Laydown & Loading', 'Storage Yard', 'Storage Yard Reader'],
+    category: 'MATERIAL STORAGE',
+    hazardLevel: 'normal',
+    capacity: 15,
+    siteId: 'metro-tower',
+    x: 20,
+    y: 75,
+    width: 30,
+    height: 20,
+    readerIds: ['RDR-004', 'GAO-UHF-READER-01'],
+    antennaIds: [2]
+  },
+  {
+    id: 'zone_site_office',
+    zoneId: 'zone_site_office',
+    name: 'Site Office & Welfare Container',
+    aliasNames: ['Site Office', 'Welfare Container', 'Site Office & Welfare Container'],
+    category: 'ADMINISTRATION',
+    hazardLevel: 'normal',
+    capacity: 30,
+    siteId: 'metro-tower',
+    x: 5,
+    y: 40,
+    width: 15,
+    height: 25,
+    readerIds: ['RDR-001'],
+    antennaIds: [2]
+  },
+  {
+    id: 'zone_confined_shaft',
+    zoneId: 'zone_confined_shaft',
+    name: 'Confined Shaft & Tunneling',
+    aliasNames: ['Confined Shaft', 'Tunneling', 'Confined Shaft & Tunneling'],
+    category: 'CONFINED SPACE',
+    hazardLevel: 'critical',
+    capacity: 4,
+    siteId: 'metro-tower',
+    x: 60,
+    y: 75,
+    width: 25,
+    height: 20,
+    readerIds: ['RDR-003'],
+    antennaIds: [2]
+  }
+];
+
+export const DEFAULT_READER_ZONE_MAPPINGS = [
+  { id: 'GAO-UHF-READER-01_1', readerId: 'GAO-UHF-READER-01', antennaPort: 1, zoneId: 'zone_tower_core', zoneName: 'Structure & Scaffolding (L1-L4)' },
+  { id: 'GAO-UHF-READER-01_2', readerId: 'GAO-UHF-READER-01', antennaPort: 2, zoneId: 'zone_material_laydown', zoneName: 'Material Laydown & Loading' },
+  { id: 'GAO-UHF-READER-02_1', readerId: 'GAO-UHF-READER-02', antennaPort: 1, zoneId: 'zone_excavation_shaft', zoneName: 'Excavation & Foundation Pit' },
+  { id: 'GAO-UHF-READER-02_2', readerId: 'GAO-UHF-READER-02', antennaPort: 2, zoneId: 'zone_site_office', zoneName: 'Site Office & Welfare Container' },
+  { id: 'GAO-UHF-READER-03_1', readerId: 'GAO-UHF-READER-03', antennaPort: 1, zoneId: 'zone_crane_area', zoneName: 'Heavy Crane & Exclusion Area' },
+  { id: 'GAO-UHF-READER-03_2', readerId: 'GAO-UHF-READER-03', antennaPort: 2, zoneId: 'zone_high_voltage', zoneName: 'High Voltage Area' },
+  { id: 'RDR-001_1', readerId: 'RDR-001', antennaPort: 1, zoneId: 'zone_gate_1', zoneName: 'Gate 1 / Main Access Gate' },
+  { id: 'RDR-001_2', readerId: 'RDR-001', antennaPort: 2, zoneId: 'zone_site_office', zoneName: 'Site Office & Welfare Container' },
+  { id: 'RDR-002_1', readerId: 'RDR-002', antennaPort: 1, zoneId: 'zone_crane_area', zoneName: 'Heavy Crane & Exclusion Area' },
+  { id: 'RDR-002_2', readerId: 'RDR-002', antennaPort: 2, zoneId: 'zone_excavation_shaft', zoneName: 'Excavation & Foundation Pit' },
+  { id: 'RDR-003_1', readerId: 'RDR-003', antennaPort: 1, zoneId: 'zone_tower_core', zoneName: 'Structure & Scaffolding (L1-L4)' },
+  { id: 'RDR-003_2', readerId: 'RDR-003', antennaPort: 2, zoneId: 'zone_confined_shaft', zoneName: 'Confined Shaft & Tunneling' },
+  { id: 'RDR-004_1', readerId: 'RDR-004', antennaPort: 1, zoneId: 'zone_material_laydown', zoneName: 'Material Laydown & Loading' }
+];
+
+export const DEFAULT_MAP_CONFIG = {
+  id: 'metro-tower',
+  siteId: 'metro-tower',
+  name: 'Metro Commercial Tower Site',
+  contractor: 'Apex Construction JV',
+  sizeSqFt: 350000,
+  dimensions: '250m x 180m',
+  floorplanUrl: 'https://images.unsplash.com/photo-1581094288338-2314dddb7ecc?auto=format&fit=crop&q=80&w=1200',
+  buildings: [
+    {
+      id: 'bldg-main',
+      name: 'Main Tower Structure',
+      floors: [
+        {
+          id: 'fl-1',
+          name: 'Ground Floor & Podiums',
+          levelNumber: 1,
+          activeVersionId: 'v-1.0',
+          versions: [
+            {
+              id: 'v-1.0',
+              versionNumber: '1.0',
+              status: 'published',
+              createdAt: new Date().toISOString(),
+              author: 'System Initializer',
+              notes: 'Initial synchronized site blueprint vector definitions',
+              zones: DEFAULT_PERMANENT_ZONES.reduce((acc: any, z) => {
+                acc[z.name] = {
+                  zoneId: z.zoneId,
+                  x: z.x,
+                  y: z.y,
+                  width: z.width,
+                  height: z.height,
+                  category: z.category,
+                  hazardLevel: z.hazardLevel,
+                  capacity: z.capacity
+                };
+                return acc;
+              }, {}),
+              floorplanUrl: 'https://images.unsplash.com/photo-1581094288338-2314dddb7ecc?auto=format&fit=crop&q=80&w=1200'
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  updatedAt: new Date().toISOString()
+};
+
+/**
+ * Bootstraps permanent zones, map configurations, and reader-to-zone mappings in DB
+ */
+export async function bootstrapMapAndZoneDefinitions(): Promise<void> {
+  try {
+    const existingZones = await getCollectionDocs('zones');
+    if (existingZones.length === 0) {
+      for (const z of DEFAULT_PERMANENT_ZONES) {
+        await upsertDoc('zones', z);
+        await upsertDoc('geofences', z);
+      }
+      console.log(`[DB Service] Initialized ${DEFAULT_PERMANENT_ZONES.length} permanent zones in database.`);
+    }
+
+    const existingMappings = await getCollectionDocs('reader_zone_mappings');
+    if (existingMappings.length === 0) {
+      for (const m of DEFAULT_READER_ZONE_MAPPINGS) {
+        await upsertDoc('reader_zone_mappings', m);
+      }
+      console.log(`[DB Service] Initialized ${DEFAULT_READER_ZONE_MAPPINGS.length} Reader/Antenna -> zoneId mappings.`);
+    }
+
+    const existingMapConfig = await getDocById('map_configurations', 'metro-tower');
+    if (!existingMapConfig) {
+      await upsertDoc('map_configurations', DEFAULT_MAP_CONFIG);
+      console.log('[DB Service] Initialized default map configuration in database.');
+    }
+  } catch (err: any) {
+    console.warn('[DB Service] Warning during map & zone bootstrapping:', err.message);
+  }
 }
 
 /**

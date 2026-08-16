@@ -11,8 +11,7 @@ import HardwareConfigModal, { HardwareDevice } from './HardwareConfigModal';
 import MapEditorModal, { ZoneBounds } from './MapEditorModal';
 import { INITIAL_DEVICES, getBlueprintSvg } from './LiveFloorMap';
 import { AssetItem, VehicleItem, CCTVCameraItem, EnvironmentalSensorItem, INITIAL_ASSETS, INITIAL_VEHICLES, INITIAL_INFRASTRUCTURE, INITIAL_CCTVS, INITIAL_ENV_SENSORS } from '../lib/trackingLayers';
-import { doc, setDoc, deleteDoc, collection, onSnapshot } from '../lib/db';
-import { db } from '../lib/firebase';
+import { doc, setDoc, deleteDoc, collection, onSnapshot, db } from '../lib/db';
 
 export interface MapLayerConfig {
   id: string;
@@ -358,8 +357,47 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
     };
   };
 
-  // Real-time Firestore sync for Geofenced Areas
+  // Real-time Database sync for Zones & Geofences
   useEffect(() => {
+    const fetchDatabaseZones = async () => {
+      try {
+        const [zonesRes, mapRes] = await Promise.allSettled([
+          fetch('/api/data/zones').then(r => r.ok ? r.json() : []),
+          fetch(`/api/data/map_configurations/${activeProject}`).then(r => r.ok ? r.json() : null)
+        ]);
+
+        if (zonesRes.status === 'fulfilled' && Array.isArray(zonesRes.value) && zonesRes.value.length > 0) {
+          const loadedZones: Record<string, ZoneBounds> = {};
+          zonesRes.value.forEach((z: any) => {
+            if (z && z.name) {
+              loadedZones[z.name] = {
+                x: z.x,
+                y: z.y,
+                width: z.width,
+                height: z.height,
+                category: z.category || 'GENERAL',
+                hazardLevel: z.hazardLevel || 'normal',
+                capacity: z.capacity || 10,
+                proximityAlertEnabled: z.proximityAlertEnabled ?? false,
+                polygonPoints: z.polygonPoints
+              };
+            }
+          });
+          setCustomZones(prev => ({ ...prev, ...loadedZones }));
+        }
+
+        if (mapRes.status === 'fulfilled' && mapRes.value) {
+          if (mapRes.value.floorplanUrl) setCustomFloorplan(mapRes.value.floorplanUrl);
+          if (mapRes.value.svgSource) setCustomSvgSource(mapRes.value.svgSource);
+          if (mapRes.value.zones) setCustomZones(prev => ({ ...prev, ...mapRes.value.zones }));
+        }
+      } catch (err) {
+        console.warn('Failed to load database zones in CustomMapPage:', err);
+      }
+    };
+
+    fetchDatabaseZones();
+
     try {
       const unsub = onSnapshot(collection(db, 'geofences'), (snapshot) => {
         const firestoreGeofences: Record<string, ZoneBounds> = {};
@@ -387,7 +425,7 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
     } catch (err) {
       console.warn('Firestore geofences listener setup error:', err);
     }
-  }, []);
+  }, [activeProject]);
 
   const toggleLayerVisibility = (key: string) => {
     setLayerConfigs(prev => ({
@@ -481,8 +519,34 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
 
     try {
       await setDoc(doc(db, 'geofences', geofenceId), newGeofenceDoc);
+      await fetch('/api/data/geofences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newGeofenceDoc)
+      });
+      // Also register as a permanent zone in database
+      const zoneId = `zone_${geofenceForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`;
+      await fetch('/api/data/zones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: zoneId,
+          zoneId,
+          name: geofenceForm.name,
+          category: geofenceForm.category.toUpperCase(),
+          hazardLevel: geofenceForm.hazardLevel,
+          capacity: Number(geofenceForm.capacity),
+          proximityAlertEnabled: geofenceForm.proximityAlertEnabled,
+          siteId: activeProject,
+          x,
+          y,
+          width,
+          height,
+          polygonPoints: drawnPoints
+        })
+      });
     } catch (err) {
-      console.warn('Firestore setDoc geofence error, falling back local:', err);
+      console.warn('Geofence database save warning:', err);
     }
 
     setCustomZones(prev => ({
@@ -500,14 +564,63 @@ export default function CustomMapPage({ activeProject, setActiveProject }: Custo
     setIsSavingGeofenceModalOpen(false);
     setDrawnPoints([]);
     setDrawToolMode('select');
-    setSuccessMsg(`Geofence "${geofenceForm.name}" saved to Firestore database for proximity alerting!`);
+    setSuccessMsg(`Geofence "${geofenceForm.name}" saved to database for proximity alerting!`);
     setTimeout(() => setSuccessMsg(null), 4500);
   };
 
-  const handleSaveZonesFromEditor = (updatedZones: Record<string, ZoneBounds>) => {
+  const handleSaveZonesFromEditor = async (
+    updatedZones: Record<string, ZoneBounds>,
+    newFloorplanUrl?: string | null,
+    newSvgSource?: string | null
+  ) => {
     setCustomZones(updatedZones);
+    if (newFloorplanUrl !== undefined) setCustomFloorplan(newFloorplanUrl);
+    if (newSvgSource !== undefined) setCustomSvgSource(newSvgSource);
+
+    try {
+      // Save all zones to the database with permanent zoneIds
+      for (const [name, bounds] of Object.entries(updatedZones)) {
+        const zoneId = `zone_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`;
+        await fetch('/api/data/zones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: zoneId,
+            zoneId,
+            name,
+            siteId: activeProject,
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            category: bounds.category || 'GENERAL',
+            hazardLevel: bounds.hazardLevel || 'normal',
+            capacity: bounds.capacity || 10,
+            polygonPoints: bounds.polygonPoints,
+            proximityAlertEnabled: bounds.proximityAlertEnabled
+          })
+        });
+      }
+
+      // Persist full map configuration to database
+      await fetch('/api/data/map_configurations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeProject,
+          siteId: activeProject,
+          floorplanUrl: newFloorplanUrl || customFloorplan,
+          svgSource: newSvgSource || customSvgSource,
+          zones: updatedZones,
+          updatedAt: new Date().toISOString()
+        })
+      });
+    } catch (err) {
+      console.warn('Failed to sync map editor changes to database:', err);
+    }
+
     setIsMapEditorOpen(false);
-    setSuccessMsg('Map vector zones updated!');
+    setSuccessMsg('Map vector zones & site configuration synchronized to database!');
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 

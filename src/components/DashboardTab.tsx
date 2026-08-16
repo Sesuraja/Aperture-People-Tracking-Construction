@@ -71,8 +71,7 @@ import SystemHealthWidget from './SystemHealthWidget';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { useMemo, ReactNode, useState, useEffect, useContext } from 'react';
 import React from 'react';
-import { collection, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { collection, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc, query, orderBy, limit, db } from '../lib/db';
 import { useNavigate } from 'react-router-dom';
 import { AppModeContext } from '../App';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
@@ -208,7 +207,7 @@ export default function DashboardTab({
         note: quickNoteText,
         status: quickNoteStatus,
         timestamp: new Date().toISOString(),
-        author: auth.currentUser?.email || 'Site Supervisor'
+        author: 'Site Supervisor'
       });
       setQuickNoteText('');
       setShowQuickNoteModal(false);
@@ -534,7 +533,7 @@ export default function DashboardTab({
   useEffect(() => {
     const fetchLayout = async () => {
       try {
-        const userId = auth.currentUser?.uid || 'default';
+        const userId = 'default';
         const docRef = doc(db, 'settings', `dashboard_${userId}`);
         const docSnap = await getDoc(docRef);
         
@@ -571,7 +570,7 @@ export default function DashboardTab({
       }
     };
     fetchLayout();
-  }, [auth.currentUser]);
+  }, []);
 
   // Open Edit Layout panel
   const openCustomizeModal = () => {
@@ -670,7 +669,7 @@ export default function DashboardTab({
   // Commits newly customized layout configs back to Firestore & LocalStorage
   const handleSaveLayout = async (newKpis: KPIConfig[], newPanels: PanelConfig[]) => {
     setIsSaving(true);
-    const userId = auth.currentUser?.uid || 'default';
+    const userId = 'default';
     
     // Normalize correct order values (1 to N)
     const normalizedKpis = [...newKpis]

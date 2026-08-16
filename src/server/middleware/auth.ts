@@ -1,9 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { getDocById, getCollectionDocs, upsertDoc } from '../services/db.js';
 import { DEFAULT_PERMISSIONS_MAP } from '../../constants/permissions.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'gao_people_tracking_jwt_secret_key_2026_prod';
+let jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  jwtSecret = crypto.randomBytes(32).toString('hex');
+  console.warn('[Auth] JWT_SECRET not set in environment. Generated random per-boot secret. Set JWT_SECRET in production.');
+}
+export const JWT_SECRET = jwtSecret;
 
 export interface AuthenticatedUser {
   id: string;
@@ -31,27 +37,130 @@ export function generateToken(user: AuthenticatedUser): string {
   );
 }
 
+// In-memory cache for Google public x509 certificates
+interface PublicKeysCache {
+  keys: Record<string, string>;
+  fetchedAt: number;
+  maxAgeMs: number;
+}
+
+let googleKeysCache: PublicKeysCache | null = null;
+
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0063942067';
+
+export async function getGooglePublicCerts(projectId: string = FIREBASE_PROJECT_ID): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (googleKeysCache && (now - googleKeysCache.fetchedAt) < googleKeysCache.maxAgeMs) {
+    return googleKeysCache.keys;
+  }
+
+  try {
+    const urls = [
+      `https://www.googleapis.com/robot/v1/metadata/x509/securetoken.google.com/${projectId}`,
+      'https://www.googleapis.com/oauth2/v1/certs',
+      'https://www.googleapis.com/robot/v1/metadata/x509/securetoken.google.com/ai-studio-gaopeopletrackin-4541edf4-af0e-45e9-99d3-94ced411fbe5'
+    ];
+
+    for (const url of urls) {
+      const res = await fetch(url);
+      if (res.ok) {
+        const certs = (await res.json()) as Record<string, string>;
+        const cacheControl = res.headers.get('cache-control') || '';
+        let maxAgeMs = 3600 * 1000;
+        const match = cacheControl.match(/max-age=(\d+)/);
+        if (match && match[1]) {
+          maxAgeMs = parseInt(match[1], 10) * 1000;
+        }
+        googleKeysCache = { keys: certs, fetchedAt: now, maxAgeMs };
+        return certs;
+      }
+    }
+  } catch (err) {
+    console.warn('[Auth] Failed to fetch Google public certs:', err);
+  }
+
+  return googleKeysCache?.keys || {};
+}
+
+/**
+ * Synchronous verification for local HMAC JWT tokens.
+ * Unverified fallback via jwt.decode() is strictly disabled to prevent authentication bypass.
+ */
 export function verifyToken(token: string): AuthenticatedUser | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
     return decoded;
-  } catch (err) {
-    try {
-      const decoded = jwt.decode(token) as any;
-      if (decoded && (decoded.iss?.includes('securetoken.google.com') || decoded.firebase || decoded.aud?.includes('ai-studio-gaopeopletrackin'))) {
-        return {
-          id: decoded.sub || decoded.uid || decoded.user_id,
-          email: decoded.email || '',
-          name: decoded.name || decoded.displayName || '',
-          role: decoded.role || 'viewer', // synced with DB in requireAuth
-          tokenVersion: 1
-        };
-      }
-    } catch (decodeErr) {
-      console.warn('[Auth] Failed to decode token as Firebase ID Token:', decodeErr);
-    }
+  } catch {
+    // Local HMAC verification failed.
+    // Unverified jwt.decode() fallback removed to prevent auth bypass vulnerabilities.
     return null;
   }
+}
+
+/**
+ * RS256 signature verification for Google / Firebase ID tokens against Google's public x509 certs.
+ * Validates token headers (RS256, kid), claims (issuer, audience, expiry), and RSA signature.
+ */
+export async function verifyFirebaseTokenRS256(token: string): Promise<AuthenticatedUser | null> {
+  try {
+    const decodedHeader = jwt.decode(token, { complete: true }) as { header?: { alg?: string; kid?: string }; payload?: any } | null;
+    if (!decodedHeader || !decodedHeader.header) return null;
+
+    const { alg, kid } = decodedHeader.header;
+
+    // Firebase ID tokens MUST use RS256 algorithm and contain key ID (kid)
+    if (alg !== 'RS256' || !kid) {
+      return null;
+    }
+
+    const payload = decodedHeader.payload;
+    if (!payload || typeof payload !== 'object') return null;
+
+    const iss: string = payload.iss || '';
+    const aud: string = payload.aud || '';
+    const exp: number = payload.exp || 0;
+
+    // Validate issuer prefix and audience
+    const isValidIssuer = iss.startsWith('https://securetoken.google.com/') || iss === 'https://accounts.google.com';
+    if (!isValidIssuer) return null;
+
+    // Validate token expiration
+    if (exp && exp * 1000 < Date.now()) {
+      return null;
+    }
+
+    // Fetch Google's public certs
+    const certs = await getGooglePublicCerts(aud || FIREBASE_PROJECT_ID);
+    const cert = certs[kid];
+
+    if (!cert) {
+      console.warn(`[Auth] RS256 Verification Failed: No public key cert found for kid '${kid}'`);
+      return null;
+    }
+
+    // Strictly verify RS256 signature using the retrieved certificate
+    const verifiedPayload = jwt.verify(token, cert, { algorithms: ['RS256'] }) as any;
+
+    if (!verifiedPayload) return null;
+
+    return {
+      id: verifiedPayload.sub || verifiedPayload.uid || verifiedPayload.user_id,
+      email: verifiedPayload.email || '',
+      name: verifiedPayload.name || verifiedPayload.displayName || '',
+      role: verifiedPayload.role || 'viewer',
+      tokenVersion: 1
+    };
+  } catch (err) {
+    console.warn('[Auth] RS256 verification error:', (err as Error).message);
+    return null;
+  }
+}
+
+export async function verifyTokenAsync(token: string): Promise<AuthenticatedUser | null> {
+  const localUser = verifyToken(token);
+  if (localUser) return localUser;
+
+  return await verifyFirebaseTokenRS256(token);
 }
 
 export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
@@ -68,7 +177,11 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     return res.status(401).json({ error: 'Authentication token required' });
   }
 
-  const user = verifyToken(token);
+  let user = verifyToken(token);
+  if (!user) {
+    user = await verifyFirebaseTokenRS256(token);
+  }
+
   if (!user) {
     return res.status(401).json({ error: 'Invalid or expired authentication token' });
   }

@@ -4,8 +4,7 @@ import {
   XCircle, QrCode, CreditCard, RefreshCw, Printer, User, Building
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
-import { collection, setDoc, doc, onSnapshot } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, setDoc, doc, onSnapshot, db } from '../lib/db';
 import { VisitorRecord, SecurityListItem } from './VisitorsTab';
 
 interface VisitorCheckInFormProps {

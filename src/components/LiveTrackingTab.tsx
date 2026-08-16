@@ -8,7 +8,7 @@ import {
   Radio, Navigation, Eye, EyeOff, Map as MapIcon, Layout, ShieldAlert, Activity,
   Database, Info, Terminal, Zap, ChevronDown, Filter, Settings, Bell, Flame,
   Box, Warehouse, MoreVertical, SlidersHorizontal, Trash2, BarChart3, ShieldCheck, Check,
-  FileText, PenTool, Volume2, BellRing, Wifi, WifiOff
+  FileText, PenTool, Volume2, VolumeX, BellRing, Wifi, WifiOff
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import ManageWorkforceModal from './ManageWorkforceModal';
@@ -17,6 +17,7 @@ import { ZoneBounds } from './MapEditorModal';
 import { HardwareDevice } from './HardwareConfigModal';
 import { generatePDFReport } from '../lib/exportUtils';
 import { useWebSocket } from '../lib/useWebSocket';
+import { useTracking } from '../context/TrackingContext';
 
 // Mock additional entities for enterprise view
 const MOCK_READERS: ReaderDevice[] = [
@@ -159,14 +160,31 @@ export default function LiveTrackingTab({
   const [sensors, setSensors] = useState<EnvSensor[]>([]);
   const [projectMeta, setProjectMeta] = useState<any>(null);
 
-  // Combine props (simulated/real-time) with DB items, avoiding duplicates
+  const trackingCtx = useTracking();
+
+  // Combine TrackingContext real live RFID tags/people with any DB items
   const people = useMemo(() => {
-    const combined = [...dbPeople];
-    propPeople.forEach(simP => {
-      if (!combined.find(p => p.id === simP.id)) combined.push(simP);
+    const trackingPeople = trackingCtx?.people || [];
+    const combined = [...trackingPeople];
+    
+    // Merge dbPeople if not already included
+    dbPeople.forEach(dbP => {
+      if (!combined.find(p => p.id === dbP.id || p.hardhatTagId === dbP.hardhatTagId)) {
+        combined.push(dbP);
+      }
     });
+
+    // Merge propPeople if demo or present
+    if (propPeople && propPeople.length > 0) {
+      propPeople.forEach(simP => {
+        if (!combined.find(p => p.id === simP.id || p.hardhatTagId === simP.hardhatTagId)) {
+          combined.push(simP);
+        }
+      });
+    }
+
     return combined;
-  }, [dbPeople, propPeople]);
+  }, [trackingCtx?.people, dbPeople, propPeople]);
 
   // Custom Geofences & Capacity Thresholds
   const [customZonesState, setCustomZonesState] = useState<Record<string, any>>(() => {
@@ -188,7 +206,9 @@ export default function LiveTrackingTab({
   // Geofence Drawing State
   const [isDrawingGeofence, setIsDrawingGeofence] = useState(false);
 
-  // Emergency SOS State
+  // Emergency SOS & Audio Alarm Mute State
+  const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const lastAlarmAudioTimeRef = React.useRef<number>(0);
   const [emergencySosState, setEmergencySosState] = useState<{
     active: boolean;
     workerId?: string;
@@ -199,10 +219,38 @@ export default function LiveTrackingTab({
     y?: number;
   } | null>(null);
 
+  // Audio Emergency Alarm Synthesizer (throttled & mute-aware)
+  const playEmergencyAudioAlarm = useCallback((overrideMute: boolean = false) => {
+    if (isAudioMuted && !overrideMute) return;
+    const now = Date.now();
+    // Throttle sound synthesis to at most once every 15 seconds
+    if (now - lastAlarmAudioTimeRef.current < 15000 && !overrideMute) return;
+    lastAlarmAudioTimeRef.current = now;
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      console.warn('Audio synthesis not supported or blocked:', e);
+    }
+  }, [isAudioMuted]);
+
   // Real-time WebSocket listener for Live Tracking & Zero-Latency Safety Feeds
   const handleLiveTrackingWSMessage = useCallback((msg: any) => {
     if (msg.type === 'safety_alert' || msg.type === 'trigger_safety_alert') {
-      playEmergencyAudioAlarm();
+      playEmergencyAudioAlarm(false);
       const p = msg.payload || {};
       setEmergencySosState({
         active: true,
@@ -213,13 +261,19 @@ export default function LiveTrackingTab({
       setIsEmergencyMode(true);
       setMapMode('evacuation');
     }
-  }, []);
+  }, [playEmergencyAudioAlarm]);
 
   const { isConnected: isWsConnected, triggerSafetyAlert: wsTriggerSafetyAlert, broadcastTagMovement } = useWebSocket(handleLiveTrackingWSMessage);
 
   const activeZones = useMemo(() => {
+    if (trackingCtx?.zonesDict && Object.keys(trackingCtx.zonesDict).length > 0) {
+      return {
+        ...customZonesState,
+        ...trackingCtx.zonesDict
+      };
+    }
     return projectMeta?.customZones || localProjectProps?.customZones || currentProject.customZones || customZonesState;
-  }, [projectMeta, localProjectProps, currentProject, customZonesState]);
+  }, [trackingCtx?.zonesDict, projectMeta, localProjectProps, currentProject, customZonesState]);
 
   // Over Capacity Check
   const overCapacityZones = useMemo(() => {
@@ -230,28 +284,6 @@ export default function LiveTrackingTab({
     });
   }, [activeZones, people, zoneCapacities]);
 
-  // Audio Emergency Alarm Synthesizer
-  const playEmergencyAudioAlarm = () => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.6);
-    } catch (e) {
-      console.warn('Audio synthesis not supported or blocked:', e);
-    }
-  };
-
   // Toggle Emergency SOS
   const handleToggleEmergencySOS = () => {
     if (emergencySosState?.active) {
@@ -259,7 +291,7 @@ export default function LiveTrackingTab({
       setIsEmergencyMode(false);
       setMapMode('standard');
     } else {
-      playEmergencyAudioAlarm();
+      playEmergencyAudioAlarm(true);
       const targetWorker: Person = people.find(p => p.ppeStatus === 'NON_COMPLIANT' || p.currentZone === 'Crane Swing Zone') || people[0] || {
         id: 'W-104',
         name: 'John Smith',
@@ -558,6 +590,19 @@ export default function LiveTrackingTab({
           >
             <PenTool className="w-4 h-4 text-amber-500" />
             <span className="hidden md:inline">{isDrawingGeofence ? 'Drawing Mode' : 'Draw Geofence'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsAudioMuted(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition shadow-sm border ${
+              isAudioMuted 
+                ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300' 
+                : 'bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-400'
+            }`}
+            title={isAudioMuted ? 'Audio Siren Muted (Click to Unmute Siren)' : 'Audio Siren Unmuted (Click to Mute Siren)'}
+          >
+            {isAudioMuted ? <VolumeX className="w-4 h-4 text-slate-500" /> : <Volume2 className="w-4 h-4 text-amber-700 animate-pulse" />}
+            <span className="hidden sm:inline">{isAudioMuted ? 'Muted' : 'Siren On'}</span>
           </button>
 
           <button

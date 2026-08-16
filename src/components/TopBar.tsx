@@ -1,4 +1,4 @@
-import { Download, Sun, Moon, Calendar, Bell } from 'lucide-react';
+import { Download, Sun, Moon, Calendar, Bell, Search, Command } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect, useContext } from 'react';
 import { AppModeContext } from '../App';
@@ -6,7 +6,11 @@ import ExportReportModal from './ExportReportModal';
 import { ConnectionStatus } from '../lib/realtimeClients';
 import { subscribeWsHealth } from '../lib/gaoSyncService';
 
-export default function TopBar() {
+interface TopBarProps {
+  onOpenCommandPalette?: () => void;
+}
+
+export default function TopBar({ onOpenCommandPalette }: TopBarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -65,6 +69,19 @@ export default function TopBar() {
           <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Construction Worker Tracking</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 tracking-wide mt-0.5 font-medium">UHF RFID & AI Safety Tracking System</p>
         </div>
+
+        {/* Global Command Palette Trigger Button */}
+        <button
+          onClick={onOpenCommandPalette}
+          className="hidden lg:flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700 transition cursor-pointer shadow-2xs ml-4"
+          title="Open Command Palette (Cmd + K)"
+        >
+          <Search className="w-3.5 h-3.5 text-[#007BC4]" />
+          <span className="text-xs font-medium">Search or jump to...</span>
+          <kbd className="flex items-center gap-0.5 text-[10px] font-mono font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-2xs text-slate-600 dark:text-slate-300">
+            <Command className="w-2.5 h-2.5" />K
+          </kbd>
+        </button>
       </div>
 
       <div className="flex items-center gap-3">

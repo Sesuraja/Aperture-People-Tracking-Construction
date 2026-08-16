@@ -1,5 +1,4 @@
-import { collection, doc, setDoc, serverTimestamp, getDoc } from './db';
-import { db } from './firebase';
+import { collection, doc, setDoc, serverTimestamp, getDoc, db } from './db';
 import { gaoApi, RealtimeTag } from './gaoApi';
 import { globalWsClient, ConnectionStatus } from './realtimeClients';
 

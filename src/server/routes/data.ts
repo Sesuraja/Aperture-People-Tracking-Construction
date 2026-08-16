@@ -1,5 +1,4 @@
-import { Router, Request, Response } from 'express';
-import { z } from 'zod';
+import { Router, Response } from 'express';
 import {
   getCollectionDocs,
   getDocById,
@@ -8,14 +7,17 @@ import {
   isMongoConnected,
   logAuditEvent
 } from '../services/db.js';
-import { verifyToken } from '../middleware/auth.js';
+import { requireAuth, AuthRequest } from '../middleware/auth.js';
 import { broadcastSseEvent } from '../services/sse.js';
 import { broadcastWebSocketEvent } from '../services/websocket.js';
 
 export const dataRouter = Router();
 
+// Require authenticated session for all /api/data/* endpoints
+dataRouter.use(requireAuth);
+
 // GET /api/data/stats
-dataRouter.get('/stats', async (req: Request, res: Response) => {
+dataRouter.get('/stats', async (req: AuthRequest, res: Response) => {
   try {
     const people = await getCollectionDocs('registered_people');
     const devices = await getCollectionDocs('devices');
@@ -38,11 +40,11 @@ dataRouter.get('/stats', async (req: Request, res: Response) => {
 });
 
 // GET /api/data/:collection
-dataRouter.get('/:collection', async (req: Request, res: Response) => {
+dataRouter.get('/:collection', async (req: AuthRequest, res: Response) => {
   const { collection } = req.params;
   const allowed = [
     'registered_people', 'devices', 'visitors', 'alerts',
-    'live_tags', 'tag_history', 'settings', 'projects', 'floorplans',
+    'live_tags', 'real_time_tags', 'rfid_realtime_events', 'tag_history', 'settings', 'projects', 'floorplans',
     'visitor_security_list', 'visitor_access_tokens', 'visitor_access_logs',
     'attendance_logs', 'leave_requests', 'shift_schedules',
     'alerts_enterprise', 'alert_rules', 'alert_dispatch_logs', 'emergency_broadcasts',
@@ -51,7 +53,7 @@ dataRouter.get('/:collection', async (req: Request, res: Response) => {
     'ai_recommendations', 'incidents', 'ai_rca_reports', 'ai_hazard_predictions',
     'assets', 'vehicles', 'cameras', 'sensors', 'maintenance_nodes', 'work_orders',
     'technicians', 'schedules', 'compliance_frameworks', 'retention_policies', 'compliance_reports',
-    'people'
+    'people', 'zones', 'map_configurations', 'geofences', 'reader_zone_mappings'
   ];
 
   if (!allowed.includes(collection)) {
@@ -68,7 +70,7 @@ dataRouter.get('/:collection', async (req: Request, res: Response) => {
 });
 
 // GET /api/data/:collection/:id
-dataRouter.get('/:collection/:id', async (req: Request, res: Response) => {
+dataRouter.get('/:collection/:id', async (req: AuthRequest, res: Response) => {
   const { collection, id } = req.params;
   try {
     const doc = await getDocById(collection, id);
@@ -83,11 +85,9 @@ dataRouter.get('/:collection/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/data/:collection (upsert)
-dataRouter.post('/:collection', async (req: Request, res: Response) => {
+dataRouter.post('/:collection', async (req: AuthRequest, res: Response) => {
   const { collection } = req.params;
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-  const user = token ? verifyToken(token) : null;
+  const user = req.user;
 
   const body = req.body;
   if (!body || typeof body !== 'object') {
@@ -118,11 +118,9 @@ dataRouter.post('/:collection', async (req: Request, res: Response) => {
 });
 
 // POST /api/data/:collection/:id
-dataRouter.post('/:collection/:id', async (req: Request, res: Response) => {
+dataRouter.post('/:collection/:id', async (req: AuthRequest, res: Response) => {
   const { collection, id } = req.params;
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-  const user = token ? verifyToken(token) : null;
+  const user = req.user;
 
   const body = req.body || {};
   body.id = id;
@@ -151,11 +149,9 @@ dataRouter.post('/:collection/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/data/:collection/:id
-dataRouter.delete('/:collection/:id', async (req: Request, res: Response) => {
+dataRouter.delete('/:collection/:id', async (req: AuthRequest, res: Response) => {
   const { collection, id } = req.params;
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-  const user = token ? verifyToken(token) : null;
+  const user = req.user;
 
   try {
     const deleted = await deleteDocById(collection, id);

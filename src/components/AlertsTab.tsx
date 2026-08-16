@@ -11,8 +11,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, db } from '../lib/db';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
 import { useWebSocket } from '../lib/useWebSocket';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, PieChart, Pie, Cell, CartesianGrid } from 'recharts';

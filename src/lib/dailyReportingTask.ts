@@ -1,6 +1,5 @@
 import { generatePDFReport, ExportColumn } from './exportUtils';
-import { collection, doc, setDoc, getDocs } from './db';
-import { db } from './firebase';
+import { collection, doc, setDoc, getDocs, db } from './db';
 import { Person } from '../types';
 
 export interface DailyReportSummary {

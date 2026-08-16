@@ -125,8 +125,12 @@ function getDefaultRealtimeTags() {
 // 1. GET /api/GetHistoryTotalCount
 const handleGetTotalCount = async (req: Request, res: Response) => {
   try {
+    const isDemo = req.query.demo === 'true' || req.headers['x-demo-mode'] === 'true';
     const history = await getCollectionDocs('tag_history');
-    const total = history.length > 0 ? history.length : getDefaultHistoryRecords().length;
+    let total = history.length;
+    if (total === 0 && isDemo) {
+      total = getDefaultHistoryRecords().length;
+    }
     
     // According to GAO spec: Response body is plain number e.g. 100 with application/json header
     if (req.query.format === 'object') {
@@ -148,10 +152,14 @@ const handleGetHistory = async (req: Request, res: Response) => {
   const skipCount = parseInt(req.params.SkipCount || req.params.skip || (req.query.skip as string) || '0', 10);
   const rawTake = parseInt(req.params.TakeCount || req.params.take || (req.query.take as string) || '50', 10);
   const takeCount = Math.min(Math.max(1, rawTake), 200); // Max value is 200 per GAO spec
+  const isDemo = req.query.demo === 'true' || req.headers['x-demo-mode'] === 'true';
 
   try {
     const dbHistory = await getCollectionDocs('tag_history');
-    let records = dbHistory.length > 0 ? dbHistory : getDefaultHistoryRecords();
+    let records = dbHistory;
+    if (records.length === 0 && isDemo) {
+      records = getDefaultHistoryRecords();
+    }
 
     // Ensure all records strictly match the GAO specification fields
     const formattedRecords = records.map((item: any) => {
@@ -202,16 +210,31 @@ rfidRouter.get('/history', handleGetHistory);
 
 // 3. GET /api/GetTagsInRealtime
 const handleGetRealtime = async (req: Request, res: Response) => {
+  const isDemo = req.query.demo === 'true' || req.headers['x-demo-mode'] === 'true';
+
   try {
     const liveTags = await getCollectionDocs('live_tags');
-    let tagsToProcess = liveTags.length > 0 ? liveTags : getDefaultRealtimeTags();
+    let tagsToProcess = liveTags;
+    if (tagsToProcess.length === 0 && isDemo) {
+      tagsToProcess = getDefaultRealtimeTags();
+    }
 
     const formattedTags = tagsToProcess.map((item: any) => {
       const ts = item.Timestamp || item.timestamp || item.lastSeen || new Date().toISOString();
       return {
         TagID: item.TagID || item.tagId || item.epc || 'E28011606000020788842D31',
         Timestamp: formatUtcTimestampMs(ts),
-        Location: item.Location || item.location || item.LocationName || item.zone || 'Zone1'
+        Location: item.Location || item.location || item.LocationName || item.zone || 'Zone1',
+        LocationName: item.LocationName || item.Location || item.zone || 'Zone1',
+        personName: item.personName || item.name || '',
+        personId: item.personId || null,
+        zoneId: item.zoneId || null,
+        zoneName: item.zoneName || item.Location || 'Zone1',
+        x: item.x,
+        y: item.y,
+        rssi: item.rssi,
+        readerId: item.readerId,
+        antennaId: item.antennaId
       };
     });
 
@@ -228,8 +251,31 @@ const handleGetRealtime = async (req: Request, res: Response) => {
 rfidRouter.get('/GetTagsInRealtime', handleGetRealtime);
 rfidRouter.get('/realtime', handleGetRealtime);
 
+// Middleware for verifying device API key or token on RFID hardware ingestion endpoints
+function requireDeviceApiKey(req: Request, res: Response, next: () => void) {
+  const configuredKey = process.env.GAO_DEVICE_API_KEY || process.env.RFID_READER_API_KEY || process.env.APERTURE_RFID_API_KEY;
+  if (!configuredKey) {
+    return next();
+  }
+
+  const providedKey =
+    (req.headers['x-gao-api-key'] as string) ||
+    (req.headers['x-api-key'] as string) ||
+    req.headers['authorization']?.replace(/^Bearer\s+/i, '') ||
+    (req.query.apiKey as string) ||
+    (req.query.key as string);
+
+  if (providedKey === configuredKey) {
+    return next();
+  }
+
+  return res.status(401).json({
+    error: 'Unauthorized: Invalid or missing RFID Device API Key (X-GAO-API-Key header required)'
+  });
+}
+
 // POST /api/rfid/scan - Post new tag scans into system
-rfidRouter.post('/scan', async (req: Request, res: Response) => {
+rfidRouter.post('/scan', requireDeviceApiKey, async (req: Request, res: Response) => {
   const parseResult = scanSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({
@@ -281,7 +327,7 @@ rfidRouter.post('/scan', async (req: Request, res: Response) => {
 });
 
 // POST /api/rfid/realtime-tags/bulk - Process raw incoming WebSocket tag streams and perform bulk write to MongoDB 'real_time_tags'
-rfidRouter.post('/realtime-tags/bulk', async (req: Request, res: Response) => {
+rfidRouter.post('/realtime-tags/bulk', requireDeviceApiKey, async (req: Request, res: Response) => {
   try {
     const rawTags = req.body?.tags || req.body?.data || (Array.isArray(req.body) ? req.body : [req.body]);
     if (!Array.isArray(rawTags) || rawTags.length === 0) {
@@ -301,7 +347,7 @@ rfidRouter.post('/realtime-tags/bulk', async (req: Request, res: Response) => {
   }
 });
 
-rfidRouter.post('/bulk-ingest', async (req: Request, res: Response) => {
+rfidRouter.post('/bulk-ingest', requireDeviceApiKey, async (req: Request, res: Response) => {
   try {
     const rawTags = req.body?.tags || req.body?.data || (Array.isArray(req.body) ? req.body : [req.body]);
     const aiResult = await processTelemetryWithAI(rawTags, 'Bulk Ingest Stream');
@@ -312,7 +358,7 @@ rfidRouter.post('/bulk-ingest', async (req: Request, res: Response) => {
 });
 
 // POST /api/rfid/realtime-tags/cleanup - Cleanup stale real-time data from MongoDB 'real_time_tags'
-rfidRouter.post('/realtime-tags/cleanup', async (req: Request, res: Response) => {
+rfidRouter.post('/realtime-tags/cleanup', requireDeviceApiKey, async (req: Request, res: Response) => {
   try {
     const maxAgeMinutes = Number(req.body?.maxAgeMinutes || req.query?.maxAgeMinutes || 60);
     const result = await cleanupStaleRealTimeTags(maxAgeMinutes);

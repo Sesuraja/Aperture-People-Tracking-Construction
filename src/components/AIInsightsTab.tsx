@@ -57,9 +57,9 @@ import {
   deleteDoc, 
   doc, 
   serverTimestamp,
-  getDocs
+  getDocs,
+  db
 } from '../lib/db';
-import { db } from '../lib/firebase';
 import { generatePDFReport, exportToCSV } from '../lib/exportUtils';
 import { useWebSocket } from '../lib/useWebSocket';
 

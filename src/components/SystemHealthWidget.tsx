@@ -16,8 +16,7 @@ import {
   ShieldCheck,
   Zap
 } from 'lucide-react';
-import { db } from '../lib/firebase';
-import { doc, getDoc } from '../lib/db';
+import { doc, getDoc, db } from '../lib/db';
 import { useNavigate } from 'react-router-dom';
 
 export interface HealthState {

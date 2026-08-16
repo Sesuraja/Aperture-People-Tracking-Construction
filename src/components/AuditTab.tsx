@@ -6,8 +6,7 @@ import {
   Cpu, UserCheck, Shield, ExternalLink, Calendar, Layers, Activity, User, 
   Server, ArrowUpRight, BarChart3, HelpCircle, CheckSquare, Square
 } from 'lucide-react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, db } from '../lib/db';
 
 // Interfaces
 export interface AuditLogItem {

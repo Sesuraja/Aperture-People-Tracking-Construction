@@ -1,12 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Shield, Key, LogOut } from 'lucide-react';
-import { auth } from '../lib/firebase';
 
 export default function ProfileModal({ isOpen, onClose, onLogout }: { isOpen: boolean, onClose: () => void, onLogout: () => void }) {
+  const [me, setMe] = useState<{ email?: string; name?: string; role?: string } | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const token = localStorage.getItem('gao_jwt_token');
+      if (token) {
+        fetch('/api/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data?.user) setMe(data.user);
+          })
+          .catch(err => console.warn('Failed to load profile user:', err));
+      }
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
-  
-  const user = auth.currentUser;
-  const email = user?.email || 'Demo User';
+
+  const email = me?.email || 'sigmund.t.d@gaostaff.com';
+  const role = me?.role || 'admin';
   const initial = email.charAt(0).toUpperCase();
 
   return (
@@ -24,8 +41,8 @@ export default function ProfileModal({ isOpen, onClose, onLogout }: { isOpen: bo
                 {initial}
               </div>
               <div className="flex flex-col">
-                <h2 className="text-xl font-bold text-white tracking-tight">{email.split('@')[0]}</h2>
-                <span className="text-sm font-medium text-white/80 bg-white/10 px-2 py-0.5 rounded mt-1 inline-block border border-white/20">System Administrator</span>
+                <h2 className="text-xl font-bold text-white tracking-tight">{me?.name || email.split('@')[0]}</h2>
+                <span className="text-sm font-medium text-white/80 bg-white/10 px-2 py-0.5 rounded mt-1 inline-block border border-white/20 capitalize">{role}</span>
               </div>
             </div>
          </div>
@@ -47,8 +64,8 @@ export default function ProfileModal({ isOpen, onClose, onLogout }: { isOpen: bo
                    <Shield className="w-4 h-4" />
                  </div>
                  <div className="flex flex-col">
-                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Security Clearance</span>
-                   <span className="text-sm font-semibold text-slate-900">Level 5 (Full Access)</span>
+                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Security Role</span>
+                   <span className="text-sm font-semibold text-slate-900 capitalize">{role} Access</span>
                  </div>
                </div>
                
@@ -58,7 +75,7 @@ export default function ProfileModal({ isOpen, onClose, onLogout }: { isOpen: bo
                  </div>
                  <div className="flex flex-col">
                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Authentication</span>
-                   <span className="text-sm font-semibold text-slate-900">{user ? 'Firebase Auth' : 'Local Demo'}</span>
+                   <span className="text-sm font-semibold text-slate-900">JWT + MongoDB Backend</span>
                  </div>
                </div>
             </div>

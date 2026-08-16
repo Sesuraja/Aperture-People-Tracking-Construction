@@ -227,16 +227,17 @@ class GaoWebSocketService {
     this.notifyStatusListeners();
 
     // Process tag events
-    if (msg.type === 'tag_update' || msg.type === 'rfid_scan' || msg.TagID || msg.payload?.TagID) {
+    if (msg.type === 'tag_update' || msg.type === 'rfid_scan' || msg.type === 'synthetic_rfid_scan' || msg.TagID || msg.payload?.TagID) {
       const tagPayload: RawGaoTagMessage = msg.payload?.TagID ? msg.payload : (msg.TagID ? msg : msg.record || msg.payload);
       if (tagPayload && (tagPayload.TagID || tagPayload.tagId)) {
         const mapped = this.mapRawTagToSchema(tagPayload);
         
-        // Notify local listeners
+        // Notify local listeners for live UI rendering
         this.tagListeners.forEach(listener => listener(mapped));
 
-        // Queue for MongoDB bulk ingestion
-        if (this.autoBulkIngest) {
+        // Only queue for bulk ingestion if the tag was received from an external client-direct device stream,
+        // rather than events already stored and broadcast by the server backend.
+        if (this.autoBulkIngest && msg.source === 'external_device') {
           this.queueForBulkIngest(mapped.realTimeTag);
         }
       }
@@ -244,9 +245,6 @@ class GaoWebSocketService {
       msg.payload.forEach((rawTag: RawGaoTagMessage) => {
         const mapped = this.mapRawTagToSchema(rawTag);
         this.tagListeners.forEach(listener => listener(mapped));
-        if (this.autoBulkIngest) {
-          this.queueForBulkIngest(mapped.realTimeTag);
-        }
       });
     }
   }
@@ -283,25 +281,35 @@ class GaoWebSocketService {
     }
 
     if (this.pendingIngestQueue.length === 0) return;
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
 
     const batch = [...this.pendingIngestQueue];
     this.pendingIngestQueue = [];
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
       const response = await fetch('/api/rfid/realtime-tags/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags: batch })
+        body: JSON.stringify({ tags: batch }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         this.lastSyncTime = new Date().toISOString();
         this.notifyStatusListeners();
-      } else {
-        console.warn('[GaoWebSocketService] Bulk write returned non-OK status:', response.status);
       }
-    } catch (err) {
-      console.error('[GaoWebSocketService] Failed bulk ingestion to MongoDB:', err);
+    } catch {
+      // Requeue failed items up to 50 max to prevent runaway growth
+      if (this.pendingIngestQueue.length < 50) {
+        this.pendingIngestQueue.push(...batch.slice(0, 20));
+      }
     }
   }
 

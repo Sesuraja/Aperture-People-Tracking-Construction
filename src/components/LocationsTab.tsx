@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, MapPin, Map as MapIcon, Image as ImageIcon, Save, X, Radio } from 'lucide-react';
-import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, db } from '../lib/db';
 
 interface FloorPlan {
   id: string;

@@ -4,8 +4,7 @@ import {
   Clock, Copy, Printer, RefreshCw, Key, Scan
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
-import { collection, setDoc, doc, onSnapshot, updateDoc } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, setDoc, doc, onSnapshot, updateDoc, db } from '../lib/db';
 import { VisitorRecord, SecurityListItem } from './VisitorsTab';
 
 export interface VisitorAccessToken {

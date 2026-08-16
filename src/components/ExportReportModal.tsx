@@ -3,8 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, FileText, FileSpreadsheet, Download, CheckCircle2, Layers, Printer, Calendar, CheckSquare, Square, Check, Sparkles } from 'lucide-react';
 import { exportToCSV, generatePDFReport, exportToJSON, copyToClipboard, ExportColumn } from '../lib/exportUtils';
 import { executeDailyReportingTask } from '../lib/dailyReportingTask';
-import { collection, getDocs } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, getDocs, db } from '../lib/db';
 
 interface ExportReportModalProps {
   isOpen: boolean;

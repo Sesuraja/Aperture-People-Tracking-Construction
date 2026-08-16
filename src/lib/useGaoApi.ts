@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, limit, orderBy } from './db';
-import { db } from './firebase';
+import { collection, onSnapshot, query, limit, orderBy, db } from './db';
 import { gaoApi, RealtimeTag, HistoryRecord } from './gaoApi';
 
 export function useGaoRealtime(pollingIntervalMs = 2000) {

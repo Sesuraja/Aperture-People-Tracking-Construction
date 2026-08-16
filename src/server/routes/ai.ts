@@ -2,17 +2,40 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { GoogleGenAI } from '@google/genai';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 export const aiRouter = Router();
 
 let runtimeGeminiKey: string | null = null;
+let geminiAuthDisabled = false;
+let lastGeminiAuthError: string | null = null;
 
 export function setRuntimeGeminiKey(key: string) {
-  runtimeGeminiKey = key;
+  runtimeGeminiKey = key.trim();
+  geminiAuthDisabled = false;
+  lastGeminiAuthError = null;
 }
 
 export function getGeminiApiKey(): string | undefined {
-  return runtimeGeminiKey || process.env.GEMINI_API_KEY || undefined;
+  if (geminiAuthDisabled) {
+    return undefined;
+  }
+  const key = runtimeGeminiKey || process.env.GEMINI_API_KEY || undefined;
+  if (!key) return undefined;
+  // If key is an OAuth access token (starts with ya29.) or Bearer prefix, it cannot be used with @google/genai API key auth
+  if (key.startsWith('ya29.') || key.startsWith('Bearer ')) {
+    return undefined;
+  }
+  return key;
+}
+
+export function isGeminiAvailable(): boolean {
+  return Boolean(getGeminiApiKey());
+}
+
+export function markGeminiAuthFailed(reason: string = 'Authentication failed') {
+  geminiAuthDisabled = true;
+  lastGeminiAuthError = reason;
 }
 
 // GET /api/ai/status
@@ -20,12 +43,14 @@ aiRouter.get('/ai/status', (req: Request, res: Response) => {
   const key = getGeminiApiKey();
   return res.json({
     configured: Boolean(key),
-    source: runtimeGeminiKey ? 'frontend_runtime' : process.env.GEMINI_API_KEY ? 'environment_variable' : 'none'
+    source: runtimeGeminiKey ? 'frontend_runtime' : process.env.GEMINI_API_KEY ? 'environment_variable' : 'none',
+    authDisabled: geminiAuthDisabled,
+    lastAuthError: lastGeminiAuthError
   });
 });
 
 // POST /api/ai/config-key
-aiRouter.post('/ai/config-key', (req: Request, res: Response) => {
+aiRouter.post('/ai/config-key', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
   const { geminiApiKey } = req.body || {};
   if (typeof geminiApiKey === 'string') {
     setRuntimeGeminiKey(geminiApiKey.trim());
@@ -239,7 +264,7 @@ Respond ONLY with valid JSON with the exact structure:
 }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.7-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json'
@@ -251,7 +276,9 @@ Respond ONLY with valid JSON with the exact structure:
 
     return res.json(parsed);
   } catch (err: any) {
-    console.warn('[AI Route] Gemini analysis warning (using offline fallback):', err.message);
+    if (err.status === 401 || err.message?.includes('UNAUTHENTICATED') || err.message?.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
+      markGeminiAuthFailed(err.message);
+    }
     return res.json({
       executiveSummary: "UHF hardhat RFID personnel scans are active across the facility. Telemetry monitoring is operational with real-time zone security.",
       safetyComplianceScore: 89,
@@ -335,7 +362,7 @@ Provide a clear, professional, markdown-formatted response with key safety insig
 }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.7-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json'
@@ -348,7 +375,9 @@ Provide a clear, professional, markdown-formatted response with key safety insig
       suggestedActions: parsed.suggestedActions || ['Audit active reader gates', 'Verify lone worker safety pings']
     });
   } catch (err: any) {
-    console.warn('[AI Copilot] Gemini response warning (using offline fallback):', err.message);
+    if (err.status === 401 || err.message?.includes('UNAUTHENTICATED') || err.message?.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
+      markGeminiAuthFailed(err.message);
+    }
     return res.json({
       answer: `🤖 **AI Safety Assistant response for:** "${question}"\n\nAll RFID tags and worker badges are connected to zero-latency real-time tracking. Current site status shows high safety compliance across all active zones.`,
       suggestedActions: ["Check Live Map", "Review Alert Center"]
@@ -403,7 +432,7 @@ Respond strictly with a JSON object with the following fields:
 }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.7-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json'
@@ -420,7 +449,9 @@ Respond strictly with a JSON object with the following fields:
       regulatoryImpact: parsed.regulatoryImpact || 'OSHA EHS Protocol Recordable.'
     });
   } catch (err: any) {
-    console.warn('[AI Incident RCA] Gemini warning (using offline fallback):', err.message);
+    if (err.status === 401 || err.message?.includes('UNAUTHENTICATED') || err.message?.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
+      markGeminiAuthFailed(err.message);
+    }
     return res.json({
       severityScore: 70,
       aiSummary: `AI RCA generated for ${category} at ${locationZone}.`,
@@ -473,7 +504,7 @@ Provide a clear, highly structured, executive-level BI summary in markdown style
 4. Executive Recommendations & Action Plan`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.7-flash',
       contents: aiPrompt,
     });
 
@@ -492,7 +523,9 @@ Provide a clear, highly structured, executive-level BI summary in markdown style
       ]
     });
   } catch (err: any) {
-    console.warn('[AI Telemetry] Gemini warning (using offline fallback):', err.message);
+    if (err.status === 401 || err.message?.includes('UNAUTHENTICATED') || err.message?.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
+      markGeminiAuthFailed(err.message);
+    }
     return res.json({
       synthesis: `🤖 Gemini Enterprise BI Synthesis (${dateRange || '7d'}):
 1. Attendance & Productivity: Shift arrivals peaked with 96.8% on-time rate. Rigging & Electrical trades demonstrated 84%+ tool-time productivity.

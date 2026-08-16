@@ -149,7 +149,7 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
       apiKey: extractedApiKey,
       connectedAt: formatUtcDateTime(),
       clientIp: ip,
-      syntheticEnabled: true,
+      syntheticEnabled: false,
       lastPing: Date.now(),
       path: requestPath
     };
@@ -166,10 +166,10 @@ export function initWebSocketServer(server: HttpServer): WebSocketServer {
         sessionId,
         apiKey: extractedApiKey,
         path: requestPath,
-        syntheticDataEngine: 'ACTIVE',
+        mode: 'REAL_RFID_STREAM',
         serverTime: formatUtcDateTime(),
         activeConnections: clients.size,
-        message: `GAO RFID WebSocket Server active. API Key [${extractedApiKey}] verified.`
+        message: `GAO RFID Real-Time WebSocket Server active. API Key [${extractedApiKey}] verified.`
       }
     });
 
@@ -279,6 +279,10 @@ function startSyntheticDataEngine() {
   syntheticEngineInterval = setInterval(async () => {
     if (clients.size === 0) return;
 
+    // Only generate synthetic frames if at least one connected client has explicitly enabled Demo Mode
+    const hasSyntheticSubscribers = Array.from(clientSessions.values()).some(s => s.syntheticEnabled);
+    if (!hasSyntheticSubscribers) return;
+
     try {
       // Pick random worker & zone
       const person = SYNTHETIC_PEOPLE[Math.floor(Math.random() * SYNTHETIC_PEOPLE.length)];
@@ -374,6 +378,36 @@ async function handleIncomingWSMessage(ws: WebSocket, msg: WSMessage, session: C
         }
       });
       break;
+
+    case 'enable_demo_mode':
+    case 'enable_synthetic': {
+      session.syntheticEnabled = true;
+      sendToClient(ws, {
+        type: 'mode_changed',
+        payload: { mode: 'demo', syntheticEnabled: true, message: 'Switched to Demo Mode (Synthetic RFID Stream Active)' }
+      });
+      break;
+    }
+
+    case 'disable_demo_mode':
+    case 'disable_synthetic': {
+      session.syntheticEnabled = false;
+      sendToClient(ws, {
+        type: 'mode_changed',
+        payload: { mode: 'real', syntheticEnabled: false, message: 'Switched to Real API Mode (Live RFID Hardware Stream)' }
+      });
+      break;
+    }
+
+    case 'set_mode': {
+      const isDemo = msg.payload?.mode === 'demo' || msg.payload?.isDemo === true;
+      session.syntheticEnabled = isDemo;
+      sendToClient(ws, {
+        type: 'mode_changed',
+        payload: { mode: isDemo ? 'demo' : 'real', syntheticEnabled: isDemo }
+      });
+      break;
+    }
 
     case 'toggle_synthetic':
     case 'toggle_synthetic_data': {

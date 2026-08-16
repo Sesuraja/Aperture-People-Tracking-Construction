@@ -6,8 +6,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs, deleteDoc } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs, deleteDoc, db } from '../lib/db';
 import QRCode from 'react-qr-code';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
 import VisitorCheckInForm from './VisitorCheckInForm';

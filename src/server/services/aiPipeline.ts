@@ -1,9 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
-import { getDocById, upsertDoc, getCollectionDocs } from './db.js';
+import { upsertDoc, getCollectionDocs } from './db.js';
 import { broadcastWebSocketEvent } from './websocket.js';
 import { broadcastSseEvent } from './sse.js';
 import { publishMqttMessage } from './mqtt.js';
-import { getGeminiApiKey } from '../routes/ai.js';
+import { getGeminiApiKey, isGeminiAvailable, markGeminiAuthFailed } from '../routes/ai.js';
 
 export interface TelemetryPayload {
   TagID?: string;
@@ -151,8 +151,8 @@ export async function processTelemetryWithAI(
 
     let aiResult = classifyTelemetryRules(tagId, location, fullName, item.rssi);
 
-    // If Gemini key is available and it's a high risk scenario or periodic sample, perform AI enhancement
-    if (apiKey && (aiResult.aiRiskLevel === 'HIGH' || aiResult.aiRiskLevel === 'CRITICAL')) {
+    // If Gemini key is available and it's a high risk scenario, perform AI enhancement
+    if (isGeminiAvailable() && apiKey && (aiResult.aiRiskLevel === 'HIGH' || aiResult.aiRiskLevel === 'CRITICAL')) {
       try {
         const ai = new GoogleGenAI({ apiKey });
         const prompt = `Analyze this real-time RFID tag scan for worker safety:
@@ -171,7 +171,7 @@ Respond strictly with valid JSON:
 }`;
 
         const response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
+          model: 'gemini-3.7-flash',
           contents: prompt,
           config: { responseMimeType: 'application/json' }
         });
@@ -198,8 +198,10 @@ Respond strictly with valid JSON:
             aiInsight: parsed.aiInsight || aiResult.aiInsight
           };
         }
-      } catch (e) {
-        console.warn('[AI Pipeline] Gemini real-time tag enhancement skipped:', e);
+      } catch (e: any) {
+        if (e.status === 401 || e.message?.includes('UNAUTHENTICATED') || e.message?.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
+          markGeminiAuthFailed(e.message);
+        }
       }
     }
 

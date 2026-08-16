@@ -7,8 +7,7 @@ import {
   Clock, Shield, Sparkles, Filter, Check, RotateCcw, Grid, List, Edit3, Trash2,
   Upload, CheckSquare, Square, FileSpreadsheet, SlidersHorizontal, ChevronRight
 } from 'lucide-react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, db } from '../lib/db';
 import { useNavigate } from 'react-router-dom';
 import webSocketService, { WSConnectionStatus } from '../lib/webSocketService';
 import StreamDiagnostics from './StreamDiagnostics';

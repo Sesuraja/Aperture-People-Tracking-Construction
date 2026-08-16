@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { getCollectionDocs, upsertDoc, logAuditEvent } from '../services/db.js';
-import { generateToken, requireAuth, AuthRequest } from '../middleware/auth.js';
+import { generateToken, requireAuth, AuthRequest, verifyFirebaseTokenRS256 } from '../middleware/auth.js';
 
 export const authRouter = Router();
 
@@ -205,6 +205,84 @@ authRouter.post('/login', authRateLimiter, async (req: Request, res: Response) =
   } catch (err: any) {
     console.error('[Auth Route] Login error:', err);
     return res.status(500).json({ error: 'Server error during login' });
+  }
+});
+
+// POST /api/auth/firebase-login
+authRouter.post('/firebase-login', authRateLimiter, async (req: Request, res: Response) => {
+  const { idToken, role } = req.body || {};
+  if (!idToken || typeof idToken !== 'string') {
+    return res.status(400).json({ error: 'ID token is required' });
+  }
+
+  try {
+    const firebaseUser = await verifyFirebaseTokenRS256(idToken);
+    if (!firebaseUser) {
+      return res.status(401).json({ error: 'Invalid or expired Firebase ID token' });
+    }
+
+    const lowerEmail = (firebaseUser.email || '').toLowerCase();
+    const users = await getCollectionDocs('users');
+    let user = users.find((u: any) => u.id === firebaseUser.id || (u.email && u.email.toLowerCase() === lowerEmail));
+
+    const assignedRole = role || (lowerEmail.endsWith('@gaostaff.com') ? 'admin' : (user?.role || 'operator'));
+
+    if (!user) {
+      user = {
+        id: firebaseUser.id || `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        email: lowerEmail,
+        name: firebaseUser.name || lowerEmail.split('@')[0] || 'Google User',
+        displayName: firebaseUser.name || lowerEmail.split('@')[0] || 'Google User',
+        role: assignedRole,
+        tokenVersion: 1,
+        createdAt: new Date().toISOString()
+      };
+    } else {
+      user.role = role || user.role || assignedRole;
+      if (firebaseUser.name && !user.name) user.name = firebaseUser.name;
+    }
+
+    user.hasLoggedIn = true;
+    user.lastLogin = new Date().toISOString();
+    await upsertDoc('users', user);
+
+    try {
+      await upsertDoc('settings', {
+        id: `user_role_${user.id}`,
+        uid: user.id,
+        email: user.email,
+        displayName: user.name || user.email?.split('@')[0],
+        role: user.role,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (settingErr) {
+      console.warn('[Auth Route] Failed to sync user_role setting:', settingErr);
+    }
+
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tokenVersion: user.tokenVersion || 1
+    });
+
+    await logAuditEvent({
+      userId: user.id,
+      userEmail: user.email,
+      action: 'FIREBASE_GOOGLE_LOGIN_SUCCESS',
+      resource: 'auth',
+      ip: req.ip
+    });
+
+    return res.json({
+      message: 'Firebase authentication successful',
+      user: sanitizeUser(user),
+      token
+    });
+  } catch (err: any) {
+    console.error('[Auth Route] Firebase login error:', err);
+    return res.status(500).json({ error: 'Server error during Firebase authentication' });
   }
 });
 

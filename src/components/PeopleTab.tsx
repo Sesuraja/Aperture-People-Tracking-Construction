@@ -17,10 +17,9 @@ import {
 } from 'lucide-react';
 import WorkerQrScannerModal from './WorkerQrScannerModal';
 import LiveFloorMap from './LiveFloorMap';
-import { db } from '../lib/firebase';
 import { 
   collection, doc, setDoc, deleteDoc, query, 
-  onSnapshot, serverTimestamp, addDoc 
+  onSnapshot, serverTimestamp, addDoc, db 
 } from '../lib/db';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
 

@@ -12,8 +12,7 @@ import {
   ArrowLeft, Upload, FileText, Lock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, isMongoActive } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, isMongoActive, db } from '../lib/db';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
 
 const INCIDENT_CATEGORIES: { name: IncidentCategory; icon: React.ElementType; color: string; bg: string }[] = [

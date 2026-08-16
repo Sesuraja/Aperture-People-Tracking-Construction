@@ -10,8 +10,7 @@ import {
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useGaoHistory } from '../lib/useGaoApi';
-import { collection, query, orderBy, limit, getDocs, getCountFromServer } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, query, orderBy, limit, getDocs, getCountFromServer, db } from '../lib/db';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
 import { getBlueprintSvg, InteractiveSiteMap, MapMode } from './LiveFloorMap';
 

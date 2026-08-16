@@ -6,8 +6,7 @@ import {
   AlertTriangle, Send, Layers, ShieldCheck, Cpu, Radio, FileSpreadsheet, User, Phone, 
   Hammer, Check, ArrowUpRight, Gauge, FileText, CheckCircle
 } from 'lucide-react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from '../lib/db';
-import { db } from '../lib/firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, db } from '../lib/db';
 
 // Data Interfaces
 export interface MaintenanceNode {
