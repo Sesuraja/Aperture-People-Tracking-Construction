@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { db, doc, setDoc } from '../lib/db';
 import { ShieldAlert, PlayCircle, Loader2, Mail, Lock, User, Shield, LogIn, UserPlus } from 'lucide-react';
+import ApertureLogo, { ApertureLogoMark } from './ApertureLogo';
 
 interface LoginProps {
   onLoginSuccess: (mode: 'real' | 'demo') => void;
@@ -117,39 +118,29 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
         
 {/* Enterprise Brand Header */}
-<div className="relative overflow-hidden bg-gradient-to-br from-[#007BC4] via-[#0A84D6] to-[#0064A0] px-8 py-10 text-center">
+<div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 px-8 py-9 text-center border-b border-blue-900/50">
 
   {/* Background Decoration */}
-  <div className="absolute inset-0 opacity-10">
-    <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white"></div>
-    <div className="absolute -bottom-20 -left-20 w-56 h-56 rounded-full bg-white"></div>
+  <div className="absolute inset-0 opacity-15">
+    <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-blue-500 blur-2xl"></div>
+    <div className="absolute -bottom-20 -left-20 w-56 h-56 rounded-full bg-sky-500 blur-2xl"></div>
   </div>
 
-  {/* Logo */}
-  <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 shadow-lg">
-    <Shield className="w-8 h-8 text-white" />
+  {/* Official Logo Banner */}
+  <div className="relative flex justify-center mb-4">
+    <div className="bg-white/95 backdrop-blur-md px-6 py-3.5 rounded-2xl shadow-xl border border-white/40 inline-flex items-center justify-center">
+      <ApertureLogo variant="stacked" size="md" theme="light" showSubtitle={false} />
+    </div>
   </div>
 
-  {/* Company */}
-  <h1 className="relative mt-6 text-4xl font-extrabold tracking-tight text-white">
-    Aperture
-  </h1>
-
-
-  {/* Divider */}
-  <div className="relative flex justify-center my-6">
-    <div className="w-16 h-[2px] rounded-full bg-white/40"></div>
-  </div>
-
-  {/* Product */}
-  <h2 className="relative text-2xl font-bold text-white">
+  {/* Product Title */}
+  <h2 className="relative text-lg font-extrabold text-white tracking-tight">
     People Tracking in Construction
   </h2>
 
   {/* Tagline */}
-  <p className="relative mt-3 text-sm text-sky-100 max-w-xs mx-auto leading-6">
-    Enterprise RFID Workforce Tracking, Live Location Monitoring &
-    Construction Safety Management
+  <p className="relative mt-1 text-xs text-sky-200/80 max-w-xs mx-auto leading-relaxed">
+    Enterprise RFID Workforce Tracking, Live Location Monitoring & AI Safety Telemetry
   </p>
 
 </div>

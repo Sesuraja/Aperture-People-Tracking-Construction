@@ -41,12 +41,14 @@ import {
   CheckSquare,
   Square,
   Pencil,
-  Zap
+  Zap,
+  Code2
 } from "lucide-react";
 import RealTimeConnectionsTab from "./RealTimeConnectionsTab";
 import WebhookInspector from "./WebhookInspector";
 import HardwareIntegrationForm from "./HardwareIntegrationForm";
 import { RfidApiConfiguration } from "./RfidApiConfiguration";
+import DeveloperApiTab from "./DeveloperApiTab";
 import { gaoApi, DEFAULT_HOST } from "../lib/gaoApi";
 import { doc, getDoc, setDoc, isMongoActive, db } from "../lib/db";
 import { AppModeContext } from "../App";
@@ -1631,6 +1633,18 @@ export default function SettingsTab() {
           </button>
 
           <button
+            onClick={() => setActiveSection("developer_api")}
+            id="settings_developer_api_tab"
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeSection === "developer_api" || activeSection === "api_docs" || activeSection === "developer_console" || activeSection === "api_documentation"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Code2 className="w-4 h-4 text-cyan-500" /> API Documentation & Developer Console
+          </button>
+
+          <button
             onClick={() => setActiveSection("webhook_inspector")}
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "webhook_inspector"
@@ -1852,6 +1866,13 @@ export default function SettingsTab() {
           {activeSection === "webhook_inspector" && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               <WebhookInspector />
+            </div>
+          )}
+
+          {/* DEVELOPER API & DOCUMENTATION SECTION */}
+          {(activeSection === "developer_api" || activeSection === "api_docs" || activeSection === "developer_console" || activeSection === "api_documentation" || activeSection === "dev_console") && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <DeveloperApiTab />
             </div>
           )}
 

@@ -5,6 +5,7 @@ import { AppModeContext } from '../App';
 import ExportReportModal from './ExportReportModal';
 import { ConnectionStatus } from '../lib/realtimeClients';
 import { subscribeWsHealth } from '../lib/gaoSyncService';
+import { ApertureLogoMark } from './ApertureLogo';
 
 interface TopBarProps {
   onOpenCommandPalette?: () => void;
@@ -62,8 +63,8 @@ export default function TopBar({ onOpenCommandPalette }: TopBarProps) {
         defaultCategory={defaultCategory}
       />
       <div className="flex items-center gap-4">
-        <div className="p-2 bg-[#007BC4]/10 rounded border border-[#007BC4]/20 hidden md:block">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007BC4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/><path d="m14 12 4-4-4-4"/><path d="m10 12-4 4 4 4"/></svg>
+        <div className="p-1.5 bg-blue-50 dark:bg-slate-800/90 rounded-xl border border-blue-100 dark:border-slate-700/80 shadow-2xs hidden md:flex items-center justify-center">
+          <ApertureLogoMark size={26} />
         </div>
         <div className="flex flex-col">
           <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Construction Worker Tracking</h1>

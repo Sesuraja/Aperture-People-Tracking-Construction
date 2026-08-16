@@ -223,7 +223,19 @@ export function generatePDFReport(
 
         <div class="header">
           <div class="logo-title">
-            <div class="brand-badge">Aperture RFID</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <svg width="34" height="34" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="52,14 12,106 32,106 62,37" fill="#1247A8" />
+                <polygon points="68,14 108,106 88,106 58,37" fill="#1247A8" />
+                <polygon points="52,14 68,14 60,0" fill="#103F96" />
+                <polygon points="38,62 82,62 90,70 30,70" fill="#A6C8F5" opacity="0.95" />
+                <polygon points="30,70 90,70 82,78 40,78" fill="#7CAAF0" opacity="0.9" />
+              </svg>
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-size: 16px; font-weight: 900; letter-spacing: 3.5px; color: #1247A8; line-height: 1;">APERTURE</span>
+              </div>
+            </div>
+            <div style="height: 28px; width: 1px; background: #cbd5e1; margin: 0 4px;"></div>
             <div class="title-area">
               <h1>${title}</h1>
               <p>${subtitle}</p>

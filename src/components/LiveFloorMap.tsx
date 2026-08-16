@@ -1584,26 +1584,62 @@ export default function LiveFloorMap({
 
 
 
+      {/* Floating Map Zoom & Pan Action Controls Dock */}
+      <div className="absolute bottom-6 left-6 z-40 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-700/80 shadow-2xl pointer-events-auto">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setZoom(prev => Math.min(3, prev + 0.25));
+          }}
+          className="h-8 w-8 inline-flex items-center justify-center rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-600 text-slate-200 hover:text-white transition shadow-xs"
+          title="Zoom In (+)"
+        >
+          <ZoomIn className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setZoom(prev => Math.max(0.4, prev - 0.25));
+          }}
+          className="h-8 w-8 inline-flex items-center justify-center rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-600 text-slate-200 hover:text-white transition shadow-xs"
+          title="Zoom Out (-)"
+        >
+          <ZoomOut className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setZoom(1);
+            setOffset({ x: 0, y: 0 });
+          }}
+          className="h-8 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-600 text-slate-200 hover:text-white text-[10px] font-black font-mono transition shadow-xs"
+          title="Reset Zoom to 100%"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>{Math.round(zoom * 100)}%</span>
+        </button>
+      </div>
+
       {/* Floating Drawing Control Bar */}
       {isDrawingGeofence && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl border border-sky-500/50 flex items-center gap-3">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl border border-sky-500/50 flex flex-wrap items-center justify-center gap-3 pointer-events-auto">
           <div className="flex items-center gap-2 text-xs font-black text-sky-400">
             <PenTool className="w-4 h-4 text-sky-400 animate-spin" />
             <span>GEOFENCE DRAWING MODE ({drawingPoints.length} Points)</span>
           </div>
-          <div className="text-[11px] text-slate-300 hidden sm:inline">Click blueprint to place boundary vertices</div>
+          <div className="text-[11px] text-slate-300 hidden md:inline">Click blueprint to place boundary vertices</div>
           <button
             onClick={() => setDrawingPoints([])}
-            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-bold transition"
+            className="h-7 px-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 rounded-lg text-[10px] font-bold inline-flex items-center justify-center transition leading-none"
           >
             Clear
           </button>
           <button
             onClick={handleOpenGeofenceModal}
             disabled={drawingPoints.length < 3}
-            className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition ${
+            className={`h-7 px-3.5 rounded-lg text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center transition leading-none ${
               drawingPoints.length >= 3 
-                ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-md' 
+                ? 'bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white shadow-md' 
                 : 'bg-slate-800 text-slate-500 cursor-not-allowed'
             }`}
           >
@@ -1614,7 +1650,8 @@ export default function LiveFloorMap({
               setDrawingPoints([]);
               onCancelDrawing?.();
             }}
-            className="p-1 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition"
+            className="h-7 w-7 inline-flex items-center justify-center hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
+            title="Exit Drawing Mode"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1630,7 +1667,7 @@ export default function LiveFloorMap({
                 <PenTool className="w-5 h-5" />
                 <span>Define Geofence Zone</span>
               </div>
-              <button onClick={() => setIsGeofenceModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsGeofenceModalOpen(false)} className="h-7 w-7 inline-flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1677,13 +1714,13 @@ export default function LiveFloorMap({
             <div className="flex items-center gap-2 pt-2">
               <button
                 onClick={() => setIsGeofenceModalOpen(false)}
-                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                className="flex-1 h-10 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold inline-flex items-center justify-center transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveGeofence}
-                className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition"
+                className="flex-1 h-10 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg inline-flex items-center justify-center transition"
               >
                 Save Zone
               </button>
@@ -1693,8 +1730,8 @@ export default function LiveFloorMap({
       )}
 
       {/* Map Navigation & Status Indicator */}
-      <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-auto">
-         <div className={`backdrop-blur-md text-white px-3 py-2 rounded-xl border shadow-xl flex items-center gap-2.5 transition-colors duration-500 ${
+      <div className="absolute bottom-6 right-6 z-40 flex flex-col items-end gap-2 pointer-events-auto">
+         <div className={`backdrop-blur-md text-white px-3.5 py-2 rounded-xl border shadow-xl flex items-center gap-2.5 transition-colors duration-500 ${
            mode === 'evacuation' ? 'bg-rose-600/90 border-rose-500' : 'bg-slate-900/90 border-slate-700'
          }`}>
             <Navigation className={`w-3.5 h-3.5 ${mode === 'evacuation' ? 'text-white' : 'text-sky-400'}`} />

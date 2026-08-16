@@ -30,6 +30,7 @@ import RealTimeConnectionsTab from './components/RealTimeConnectionsTab';
 import CustomMapPage from './components/CustomMapPage';
 import ProfileModal from './components/ProfileModal';
 import Login from './components/Login';
+import ApertureLogo, { ApertureLogoMark } from './components/ApertureLogo';
 import { startGaoSync, stopGaoSync } from './lib/gaoSyncService';
 import { doc, getDoc, setDoc, db } from './lib/db';
 
@@ -336,20 +337,19 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         </button>
 
         {/* LOGO */}
-        <div className={`mb-5 flex flex-col ${isSidebarCollapsed ? 'items-center px-2' : 'px-4'}`}>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#007BC4] flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm">
-              A
+        <div className={`mb-5 flex flex-col ${isSidebarCollapsed ? 'items-center px-2' : 'px-3.5'}`}>
+          {isSidebarCollapsed ? (
+            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 flex items-center justify-center shadow-xs hover:scale-105 transition cursor-pointer" title="Aperture">
+              <ApertureLogoMark size={24} />
             </div>
-            {!isSidebarCollapsed && (
-              <h1 className="text-xl font-extrabold tracking-tight text-[#007BC4] leading-none">Aperture</h1>
-            )}
-          </div>
-          {!isSidebarCollapsed && (
-            <div className="flex flex-col mt-1.5">
-              <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 tracking-tight leading-tight">
-                People Tracking in Construction
-              </span>
+          ) : (
+            <div className="flex flex-col">
+              <ApertureLogo variant="horizontal" size="sm" />
+              <div className="flex items-center gap-1.5 mt-2 px-0.5">
+                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 tracking-tight leading-tight">
+                  People Tracking in Construction
+                </span>
+              </div>
             </div>
           )}
         </div>

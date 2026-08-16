@@ -4,6 +4,7 @@ import { syncApertureHistory } from './apertureClient.js';
 import { upsertDoc } from './db.js';
 import { broadcastSseEvent } from './sse.js';
 import { broadcastWebSocketEvent } from './websocket.js';
+import { processTelemetryWithAI } from './aiPipeline.js';
 
 export interface DecodedKeyPayload {
   isDecoded: boolean;
@@ -214,9 +215,9 @@ export async function extractAndIngestAllFromApiKey(customApiKey?: string): Prom
       }
     }
 
-    // 1b. Ingest embedded tags
+    // 1b. Ingest embedded tags and process through AI Pipeline
     const embeddedTags = decodedInfo.payload.tags || decodedInfo.payload.rfidTags || [];
-    if (Array.isArray(embeddedTags)) {
+    if (Array.isArray(embeddedTags) && embeddedTags.length > 0) {
       for (const t of embeddedTags) {
         if (!t) continue;
         const tagId = t.TagID || t.tagId || t.epc || t.id;
@@ -235,6 +236,14 @@ export async function extractAndIngestAllFromApiKey(customApiKey?: string): Prom
         collectionsUpdated.add('real_time_tags');
         collectionsUpdated.add('live_tags');
         totalMongoRecordsSaved += 2;
+      }
+
+      // Trigger AI Telemetry Analysis on embedded tags
+      try {
+        await processTelemetryWithAI(embeddedTags, 'API Key Embedded Tags');
+        collectionsUpdated.add('ai_insights');
+      } catch (aiErr) {
+        console.warn('[API Key Extractor] AI analysis warning:', aiErr);
       }
     }
 

@@ -7,6 +7,7 @@ import { inspectApiKeyData, extractAndIngestAllFromApiKey } from '../services/ap
 import { bulkWriteRfidRealtimeEvents, getCollectionDocs } from '../services/db.js';
 import { broadcastSseEvent } from '../services/sse.js';
 import { broadcastWebSocketEvent } from '../services/websocket.js';
+import { processTelemetryWithAI } from '../services/aiPipeline.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 export const apertureRouter = Router();
@@ -285,9 +286,13 @@ apertureRouter.post('/beeceptor-ingest', async (req: Request, res: Response) => 
       return res.status(400).json({ error: 'Valid RFID event payload required.' });
     }
 
-    const result = await bulkWriteRfidRealtimeEvents(rawEvents, 'Beeceptor Mock Ingest');
+    // 1. Bulk write to MongoDB
+    const result = await bulkWriteRfidRealtimeEvents(rawEvents, 'Beeceptor Ingest');
 
-    // Broadcast SSE & WebSocket updates
+    // 2. Process all events through AI Telemetry Analysis Engine (stores to MongoDB + broadcasts to frontend)
+    const aiResult = await processTelemetryWithAI(rawEvents, 'Beeceptor Ingest');
+
+    // 3. Broadcast real-time notifications
     for (const evt of rawEvents) {
       const tagId = evt.TagID || evt.tagId || evt.epc || 'TAG_UNKNOWN';
       const loc = evt.Location || evt.LocationName || evt.zone || 'Zone1';
@@ -298,8 +303,12 @@ apertureRouter.post('/beeceptor-ingest', async (req: Request, res: Response) => 
     return res.json({
       success: true,
       provider: 'GAO RFID API Webhook Ingest',
-      message: `Successfully ingested and stored ${result.totalProcessed} RFID event(s) in MongoDB.`,
-      result
+      message: `Successfully ingested and analyzed ${result.totalProcessed} RFID event(s) in MongoDB with AI Engine.`,
+      result,
+      aiAnalysis: {
+        processedCount: aiResult.processedCount,
+        analyzedResults: aiResult.analyzedResults
+      }
     });
   } catch (err: any) {
     console.error('[GAO Router] Ingest error:', err);
@@ -311,8 +320,21 @@ apertureRouter.post('/ingest', async (req: Request, res: Response) => {
   try {
     const body = req.body;
     const rawEvents = Array.isArray(body) ? body : (body.tags || body.data || body.events || [body]);
+    if (!Array.isArray(rawEvents) || rawEvents.length === 0) {
+      return res.status(400).json({ error: 'Valid RFID event payload required.' });
+    }
+
     const result = await bulkWriteRfidRealtimeEvents(rawEvents, 'Direct Ingest');
-    return res.json({ success: true, result });
+    const aiResult = await processTelemetryWithAI(rawEvents, 'Direct Ingest');
+
+    return res.json({
+      success: true,
+      result,
+      aiAnalysis: {
+        processedCount: aiResult.processedCount,
+        analyzedResults: aiResult.analyzedResults
+      }
+    });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message || 'Ingest failed' });
   }

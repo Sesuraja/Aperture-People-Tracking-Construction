@@ -514,40 +514,26 @@ export default function LiveTrackingTab({
       
       {/* 1. TOP BAR DASHBOARD HEADER */}
       <div className="bg-white rounded-2xl p-4 shadow-md border border-slate-200 flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4">
-        <div className="flex items-center gap-4 border-r border-slate-200 pr-6 mr-2">
-          <div className="p-3 bg-slate-900 rounded-xl text-white">
-            <Building2 className="w-6 h-6" />
+        <div className="flex items-center gap-3.5 xl:border-r xl:border-slate-200 xl:pr-6 shrink-0">
+          <div className="w-11 h-11 bg-slate-900 rounded-xl text-white inline-flex items-center justify-center shrink-0 shadow-sm">
+            <Building2 className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">{projectMeta?.name || currentProject.name}</h1>
-              <ChevronDown className="w-4 h-4 text-slate-400" />
+              <h1 className="text-lg font-black text-slate-900 tracking-tight leading-tight">{projectMeta?.name || currentProject.name}</h1>
+              <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
             </div>
-            <div className="flex items-center gap-3 text-xs font-bold text-slate-500">
-               <span className="flex items-center gap-1"><MapIcon className="w-3 h-3" /> Area A Sector 4</span>
-               <span className="flex items-center gap-1 border-l pl-3 border-slate-200"><Info className="w-3 h-3" /> {currentProject.contractor}</span>
+            <div className="flex items-center gap-3 text-xs font-bold text-slate-500 mt-0.5">
+               <span className="inline-flex items-center gap-1"><MapIcon className="w-3 h-3 text-slate-400" /> Area A Sector 4</span>
+               <span className="inline-flex items-center gap-1 border-l pl-3 border-slate-200"><Info className="w-3 h-3 text-slate-400" /> {currentProject.contractor}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-1 items-center gap-4">
-          {/* Floor Selector */}
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-             {['B3', 'B2', 'B1', 'L1', 'L2', 'L3', 'L15'].map(floor => (
-               <button 
-                 key={floor} 
-                 onClick={() => setActiveFloor(floor)}
-                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition ${
-                   activeFloor === floor ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
-                 }`}
-               >
-                 {floor}
-               </button>
-             ))}
-          </div>
-
-          <div className="flex bg-slate-100 border border-slate-200 rounded-xl overflow-hidden flex-1 max-w-md focus-within:ring-2 focus-within:ring-sky-500/50 transition-all">
-            <div className="pl-3 py-2.5 text-slate-400 flex items-center">
+        {/* Search Bar */}
+        <div className="flex-1 flex items-center min-w-0 max-w-xl">
+          <div className="w-full h-10 flex items-center bg-slate-100 border border-slate-200 rounded-xl overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-sky-500/50 focus-within:border-sky-500 transition-all">
+            <div className="pl-3.5 text-slate-400 flex items-center justify-center shrink-0">
               <Search className="w-4 h-4" />
             </div>
             <input 
@@ -555,54 +541,55 @@ export default function LiveTrackingTab({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search Personnel, Assets, Tags..."
-              className="bg-transparent pl-2 pr-3 py-2 text-sm font-semibold text-slate-900 outline-none w-full placeholder:text-slate-400"
+              className="bg-transparent pl-2.5 pr-3.5 py-2 text-xs font-bold text-slate-900 outline-none w-full placeholder:text-slate-400"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <span className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border shadow-sm ${
+        {/* Top Header Action Buttons Cluster */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
+          <span className={`h-10 px-3 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 border shadow-sm shrink-0 select-none ${
             isWsConnected 
               ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
               : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
           }`}>
-            {isWsConnected ? <Wifi className="w-3.5 h-3.5 text-emerald-500 animate-pulse" /> : <WifiOff className="w-3.5 h-3.5 text-amber-500" />}
-            <span className="hidden lg:inline">{isWsConnected ? 'WS 0ms Live' : 'WS Reconnecting...'}</span>
+            {isWsConnected ? <Wifi className="w-3.5 h-3.5 text-emerald-500 animate-pulse shrink-0" /> : <WifiOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+            <span className="hidden lg:inline whitespace-nowrap">{isWsConnected ? 'WS 0ms Live' : 'WS Reconnecting...'}</span>
           </span>
 
           <button 
             onClick={handleExportAttendancePDF}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold shadow-sm transition"
+            className="h-10 px-3.5 bg-white border border-slate-200 hover:bg-slate-50 active:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold shadow-sm inline-flex items-center justify-center gap-2 shrink-0 transition"
             title="Generate and Download Shift Attendance & Zone Presence PDF Log"
           >
-            <FileText className="w-4 h-4 text-sky-600" />
-            <span className="hidden md:inline">PDF Compliance Log</span>
+            <FileText className="w-4 h-4 text-sky-600 shrink-0" />
+            <span className="hidden md:inline whitespace-nowrap">PDF Compliance Log</span>
           </button>
 
           <button
             onClick={() => setIsDrawingGeofence(!isDrawingGeofence)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm border ${
+            className={`h-10 px-3.5 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 shrink-0 transition shadow-sm border ${
               isDrawingGeofence 
                 ? 'bg-sky-600 text-white border-sky-600 ring-2 ring-sky-300' 
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 active:bg-slate-100'
             }`}
             title="Draw custom geofence polygon directly on map"
           >
-            <PenTool className="w-4 h-4 text-amber-500" />
-            <span className="hidden md:inline">{isDrawingGeofence ? 'Drawing Mode' : 'Draw Geofence'}</span>
+            <PenTool className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="hidden md:inline whitespace-nowrap">{isDrawingGeofence ? 'Drawing Mode' : 'Draw Geofence'}</span>
           </button>
 
           <button
             onClick={() => setIsAudioMuted(prev => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition shadow-sm border ${
+            className={`h-10 px-3.5 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 shrink-0 transition shadow-sm border ${
               isAudioMuted 
                 ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300' 
                 : 'bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-400'
             }`}
             title={isAudioMuted ? 'Audio Siren Muted (Click to Unmute Siren)' : 'Audio Siren Unmuted (Click to Mute Siren)'}
           >
-            {isAudioMuted ? <VolumeX className="w-4 h-4 text-slate-500" /> : <Volume2 className="w-4 h-4 text-amber-700 animate-pulse" />}
-            <span className="hidden sm:inline">{isAudioMuted ? 'Muted' : 'Siren On'}</span>
+            {isAudioMuted ? <VolumeX className="w-4 h-4 text-slate-500 shrink-0" /> : <Volume2 className="w-4 h-4 text-amber-700 animate-pulse shrink-0" />}
+            <span className="hidden sm:inline whitespace-nowrap">{isAudioMuted ? 'Muted' : 'Siren On'}</span>
           </button>
 
           <button
@@ -614,14 +601,14 @@ export default function LiveTrackingTab({
               );
               handleToggleEmergencySOS();
             }}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg ${
+            className={`h-10 px-4 rounded-xl text-xs font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 shrink-0 transition shadow-md whitespace-nowrap ${
               emergencySosState?.active || isEmergencyMode 
                 ? 'bg-rose-600 text-white ring-4 ring-rose-400 animate-pulse' 
-                : 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500'
+                : 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white border border-rose-500'
             }`}
           >
-            <ShieldAlert className="w-4.5 h-4.5 animate-bounce" />
-            <span>{emergencySosState?.active ? 'ALARM ACTIVE - SILENCE' : 'EMERGENCY SOS'}</span>
+            <ShieldAlert className="w-4 h-4 animate-bounce shrink-0" />
+            <span>{emergencySosState?.active ? 'ALARM ACTIVE' : 'EMERGENCY SOS'}</span>
           </button>
         </div>
       </div>
@@ -936,8 +923,8 @@ export default function LiveTrackingTab({
             : 'flex-1 bg-white rounded-2xl border border-slate-200 shadow-md flex flex-col overflow-hidden'
         }`}>
           {/* Map Mode Selector Top Bar & Layer Controls */}
-          <div className="p-2 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
-             <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0 scroll-smooth">
+          <div className="p-2.5 bg-white border-b border-slate-100 flex flex-wrap lg:flex-nowrap items-center justify-between gap-2 shrink-0">
+             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0 scroll-smooth flex-1 min-w-0">
                 {[
                   { id: 'standard', label: '2D Layout', icon: MapIcon },
                   { id: 'bim', label: 'Digital Twin', icon: Warehouse },
@@ -953,47 +940,47 @@ export default function LiveTrackingTab({
                   <button
                     key={mode.id}
                     onClick={() => setMapMode(mode.id as MapMode)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition whitespace-nowrap ${
-                      mapMode === mode.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+                    className={`h-8 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition whitespace-nowrap inline-flex items-center justify-center gap-1.5 shrink-0 ${
+                      mapMode === mode.id ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                     }`}
                   >
-                    <mode.icon className="w-3.5 h-3.5" />
-                    {mode.label}
+                    <mode.icon className="w-3.5 h-3.5 shrink-0" />
+                    <span>{mode.label}</span>
                   </button>
                 ))}
              </div>
              
              {/* Layer Control Dropdown & Fullscreen Toggle */}
-             <div className="flex items-center gap-2 px-3 border-l border-slate-100 ml-2 relative shrink-0">
+             <div className="flex items-center gap-2 pl-2 border-l border-slate-200 shrink-0">
                 {/* Full Screen Toggle Button */}
                 <button
                   onClick={() => setIsMapFullScreen(!isMapFullScreen)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition shadow-sm ${
+                  className={`h-8 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition shadow-sm shrink-0 ${
                     isMapFullScreen 
                       ? 'bg-rose-600 text-white hover:bg-rose-700 ring-2 ring-rose-300' 
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
                   title={isMapFullScreen ? 'Exit Full Screen' : 'Expand Map to Full Screen'}
                 >
-                  {isMapFullScreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                  <span className="hidden sm:inline">{isMapFullScreen ? 'Exit Full Screen' : 'Full Screen'}</span>
+                  {isMapFullScreen ? <Minimize2 className="w-3.5 h-3.5 shrink-0" /> : <Maximize2 className="w-3.5 h-3.5 shrink-0" />}
+                  <span className="hidden sm:inline whitespace-nowrap">{isMapFullScreen ? 'Exit Full Screen' : 'Full Screen'}</span>
                 </button>
 
                 <div className="relative">
                   <button
                     onClick={() => setIsLayerMenuOpen(!isLayerMenuOpen)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition shadow-sm ${
+                    className={`h-8 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition shadow-sm shrink-0 ${
                       isLayerMenuOpen || Object.values(visibleLayers).some(v => v === false) || visibleLayers.heatmapOverlay
                         ? 'bg-sky-600 text-white ring-2 ring-sky-300'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    <Layers className="w-3.5 h-3.5" />
+                    <Layers className="w-3.5 h-3.5 shrink-0" />
                     <span>Layers</span>
-                    <span className="px-1.5 py-0.5 bg-black/20 rounded-full text-[9px] font-black">
+                    <span className="px-1.5 py-0.5 bg-black/20 rounded-full text-[9px] font-black leading-none">
                       {Object.values(visibleLayers).filter(Boolean).length}/8
                     </span>
-                    <ChevronDown className={`w-3 h-3 transition-transform ${isLayerMenuOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${isLayerMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {/* Layer Control Popover */}
@@ -1001,20 +988,20 @@ export default function LiveTrackingTab({
                     <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
                         <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 uppercase tracking-tight">
-                          <Layers className="w-4 h-4 text-sky-600" />
+                          <Layers className="w-4 h-4 text-sky-600 shrink-0" />
                           <span>Map Visibility Layers</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => setVisibleLayers({ workers: true, assets: true, vehicles: true, readers: true, zones: true, cameras: true, sensors: true, heatmapOverlay: true })}
-                            className="text-[9px] font-bold text-sky-600 hover:underline px-1.5 py-0.5 rounded hover:bg-sky-50"
+                            className="text-[10px] font-bold text-sky-600 hover:underline px-2 py-0.5 rounded hover:bg-sky-50 transition"
                           >
                             All On
                           </button>
                           <span className="text-slate-300">|</span>
                           <button
                             onClick={() => setVisibleLayers({ workers: false, assets: false, vehicles: false, readers: false, zones: false, cameras: false, sensors: false, heatmapOverlay: false })}
-                            className="text-[9px] font-bold text-slate-400 hover:underline px-1.5 py-0.5 rounded hover:bg-slate-100"
+                            className="text-[10px] font-bold text-slate-400 hover:underline px-2 py-0.5 rounded hover:bg-slate-100 transition"
                           >
                             Hide All
                           </button>
@@ -1047,7 +1034,7 @@ export default function LiveTrackingTab({
                             >
                               <div className="flex items-center gap-2.5">
                                 <div className={`p-1.5 rounded-lg border ${layer.color}`}>
-                                  <LayerIcon className="w-3.5 h-3.5" />
+                                  <LayerIcon className="w-3.5 h-3.5 shrink-0" />
                                 </div>
                                 <div>
                                   <div className="text-xs font-bold text-slate-800">{layer.label}</div>
@@ -1055,7 +1042,7 @@ export default function LiveTrackingTab({
                                 </div>
                               </div>
 
-                              <div className={`w-5 h-5 rounded-md flex items-center justify-center transition ${
+                              <div className={`w-5 h-5 rounded-md inline-flex items-center justify-center transition ${
                                 isVisible ? 'bg-sky-600 text-white' : 'bg-slate-200 text-slate-400'
                               }`}>
                                 {isVisible ? <Check className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
@@ -1068,18 +1055,18 @@ export default function LiveTrackingTab({
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2">
-                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden sm:inline">Live Connect</span>
+                <div className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-200 inline-flex items-center gap-1.5 shrink-0">
+                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shrink-0" />
+                   <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest hidden sm:inline whitespace-nowrap">Live Connect</span>
                 </div>
              </div>
           </div>
 
-          {/* Trade Filter Pills Row */}
-          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 overflow-x-auto no-scrollbar scroll-smooth shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 pr-2 border-r border-slate-200">
-                <Filter className="w-3.5 h-3.5 text-sky-600" />
+          {/* Trade Filter Pills & Floor Levels Row */}
+          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth">
+              <div className="h-7 inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 pr-2.5 border-r border-slate-200">
+                <Filter className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                 <span>Trades:</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -1089,7 +1076,7 @@ export default function LiveTrackingTab({
                     <button
                       key={trade.id}
                       onClick={() => setSelectedTrade(trade.id)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap shadow-sm border ${
+                      className={`h-7 px-2.5 rounded-lg text-xs font-bold transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-sm border shrink-0 ${
                         isSelected
                           ? 'bg-sky-600 text-white border-sky-600 ring-2 ring-sky-300'
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
@@ -1097,7 +1084,7 @@ export default function LiveTrackingTab({
                     >
                       <span>{trade.icon}</span>
                       <span>{trade.label}</span>
-                      <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none ${
                         isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {trade.count}
@@ -1110,18 +1097,18 @@ export default function LiveTrackingTab({
 
             {/* Floor Selector (Floor 1 to Floor 7) */}
             <div className="flex items-center gap-1.5 shrink-0">
-              <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">
-                <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+              <div className="h-7 inline-flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">
+                <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                 <span>Level:</span>
               </div>
               {['Floor 7', 'Floor 6', 'Floor 5', 'Floor 4', 'Floor 3', 'Floor 2', 'Floor 1'].map(floor => (
                 <button
                   key={floor}
                   onClick={() => setActiveFloor(floor)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
+                  className={`h-7 px-2.5 rounded-lg text-[10px] font-mono font-bold inline-flex items-center justify-center transition border ${
                     activeFloor === floor
-                      ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400'
-                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-400'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   {floor}
@@ -1131,24 +1118,24 @@ export default function LiveTrackingTab({
           </div>
 
           {/* Timeline Replay Scrubber Bar */}
-          <div className="px-3 py-1.5 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between gap-4 shrink-0 text-xs font-mono">
-            <div className="flex items-center gap-2">
+          <div className="px-3 py-2 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between gap-4 shrink-0 text-xs font-mono">
+            <div className="flex items-center gap-2.5 shrink-0">
               <button 
                 onClick={() => setIsReplaying(!isReplaying)}
-                className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 rounded text-[10px] font-black uppercase tracking-wider text-white transition flex items-center gap-1"
+                className="h-6 px-3 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 rounded-md text-[10px] font-black uppercase tracking-wider text-white transition inline-flex items-center justify-center gap-1.5 shadow-sm"
               >
                 <span>{isReplaying ? '⏸ PAUSE' : '▶ REPLAY'}</span>
               </button>
-              <span className="text-[10px] font-bold text-sky-400">Timeline: {timelineTime}</span>
+              <span className="text-[11px] font-bold text-sky-400">Timeline: {timelineTime}</span>
             </div>
             <div className="flex-1 max-w-md flex items-center gap-3">
-              <span className="text-[9px] text-slate-400">08:00 AM</span>
+              <span className="text-[9px] text-slate-400 shrink-0">08:00 AM</span>
               <input 
                 type="range" 
                 min="0" 
                 max="100" 
                 defaultValue="100"
-                className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
                 onChange={(e) => {
                   const val = Number(e.target.value);
                   if (val < 20) setTimelineTime('08:30 AM');
@@ -1158,9 +1145,9 @@ export default function LiveTrackingTab({
                   else setTimelineTime('NOW (Live)');
                 }}
               />
-              <span className="text-[9px] font-bold text-emerald-400 whitespace-nowrap">NOW (Live)</span>
+              <span className="text-[9px] font-bold text-emerald-400 whitespace-nowrap shrink-0">NOW (Live)</span>
             </div>
-            <div className="text-[10px] text-slate-400 hidden lg:block">
+            <div className="text-[10px] text-slate-400 hidden lg:block shrink-0">
               15-min path history loaded
             </div>
           </div>
@@ -1169,7 +1156,7 @@ export default function LiveTrackingTab({
           {emergencySosState?.active && (
             <div className="bg-rose-600 text-white px-4 py-2.5 flex items-center justify-between shrink-0 shadow-xl border-b border-rose-700 animate-pulse z-40">
               <div className="flex items-center gap-3">
-                <ShieldAlert className="w-5 h-5 text-amber-300 animate-bounce" />
+                <ShieldAlert className="w-5 h-5 text-amber-300 animate-bounce shrink-0" />
                 <div>
                   <div className="text-xs font-black uppercase tracking-wider">
                     🚨 EMERGENCY SOS ACTIVE — WORKER AT RISK
@@ -1181,7 +1168,7 @@ export default function LiveTrackingTab({
               </div>
               <button
                 onClick={handleToggleEmergencySOS}
-                className="px-3.5 py-1.5 bg-white text-rose-700 hover:bg-rose-50 rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition"
+                className="h-8 px-3.5 bg-white hover:bg-rose-50 text-rose-700 rounded-xl text-xs font-black uppercase tracking-wider shadow-md inline-flex items-center justify-center gap-1.5 transition shrink-0"
               >
                 SILENCE & RESOLVE ALARM
               </button>
