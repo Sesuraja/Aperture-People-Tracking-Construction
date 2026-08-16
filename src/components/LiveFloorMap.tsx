@@ -15,13 +15,13 @@ export interface MaterialAsset { id: string; name: string; type: string; x: numb
 export type MapMode = 'standard' | 'bim' | 'satellite' | 'heatmap' | 'coverage' | 'evacuation' | 'asset' | 'hardware' | 'productivity' | 'security' | 'inventory' | 'environment';
 
 export function getBlueprintSvg(projectId: string, title: string, contractor: string, dimensions: string, mode: MapMode = 'standard'): string {
-  // Always use high-end professional visual look
-  const bgColor = '#090d16';
-  const gridColor = 'rgba(56,189,248,0.06)';
-  const subGridColor = 'rgba(56,189,248,0.02)';
-  const lineStroke = '#38bdf8';
-  const wallFill = '#111827';
-  const wallStroke = '#1e293b';
+  // Clean architectural white/light theme CAD blueprint
+  const bgColor = '#f8fafc';
+  const gridColor = 'rgba(100,116,139,0.12)';
+  const subGridColor = 'rgba(100,116,139,0.05)';
+  const lineStroke = '#0284c7';
+  const wallFill = '#ffffff';
+  const wallStroke = '#cbd5e1';
 
   const svg = `
     <svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
@@ -35,16 +35,16 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
         </pattern>
         <!-- Rebar grid for concrete pads -->
         <pattern id="rebarGrid" width="15" height="15" patternUnits="userSpaceOnUse">
-          <path d="M 15 0 L 0 0 0 15" fill="none" stroke="rgba(56,189,248,0.08)" stroke-width="0.5"/>
+          <path d="M 15 0 L 0 0 0 15" fill="none" stroke="rgba(2,132,199,0.10)" stroke-width="0.5"/>
         </pattern>
         <!-- Hazard Stripes -->
         <pattern id="hazardStripes" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect width="10" height="20" fill="rgba(239,68,68,0.15)" />
-          <rect x="10" width="10" height="20" fill="rgba(9,13,22,0.05)" />
+          <rect width="10" height="20" fill="rgba(239,68,68,0.12)" />
+          <rect x="10" width="10" height="20" fill="rgba(248,250,252,0.6)" />
         </pattern>
         <!-- Dirt hatch for Excavation -->
         <pattern id="dirtHatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
-          <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(146,64,14,0.15)" stroke-width="1.5" />
+          <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(217,119,6,0.18)" stroke-width="1.5" />
         </pattern>
       </defs>
       
@@ -56,18 +56,22 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
       <!-- ========================================== -->
       <!-- ACCESS ROADS & VEHICULAR LANES             -->
       <!-- ========================================== -->
-      <g opacity="0.8">
-        <!-- Main Entrance Road (Runs vertically on left side, splits to horizontal center lane) -->
-        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#1e293b" stroke-width="48" stroke-linecap="round" />
-        <path d="M 150 520 L 1180 520" fill="none" stroke="#1e293b" stroke-width="40" stroke-linecap="round" />
+      <g opacity="0.95">
+        <!-- Main Entrance Road (Clean slate pavement) -->
+        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#e2e8f0" stroke-width="48" stroke-linecap="round" />
+        <path d="M 150 520 L 1180 520" fill="none" stroke="#e2e8f0" stroke-width="40" stroke-linecap="round" />
         
+        <!-- Road borders -->
+        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#cbd5e1" stroke-width="50" stroke-linecap="round" opacity="0.4" />
+        <path d="M 150 520 L 1180 520" fill="none" stroke="#cbd5e1" stroke-width="42" stroke-linecap="round" opacity="0.4" />
+
         <!-- Road center dash lines -->
-        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="8,8" stroke-linecap="round" />
-        <path d="M 150 520 L 1180 520" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="8,8" stroke-linecap="round" />
+        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="10,10" stroke-linecap="round" />
+        <path d="M 150 520 L 1180 520" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="10,10" stroke-linecap="round" />
         
         <!-- Road Label Text -->
-        <text x="80" y="505" font-family="monospace" font-size="8" font-weight="900" fill="#64748b" letter-spacing="1">MAIN ENTERPRISE ROUTE</text>
-        <text x="400" y="535" font-family="monospace" font-size="8" font-weight="900" fill="#64748b" letter-spacing="1">HEAVY TRUCK ACCESS CORRIDOR</text>
+        <text x="80" y="505" font-family="sans-serif" font-size="9" font-weight="900" fill="#475569" letter-spacing="1">MAIN ENTERPRISE ROUTE</text>
+        <text x="400" y="535" font-family="sans-serif" font-size="9" font-weight="900" fill="#475569" letter-spacing="1">HEAVY TRUCK ACCESS CORRIDOR</text>
       </g>
 
       <!-- ========================================== -->
@@ -75,15 +79,14 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
       <!-- (Corresponds to: Muster Point A)          -->
       <!-- ========================================== -->
       <g>
-        <rect x="24" y="80" width="96" height="96" rx="12" fill="rgba(16,185,129,0.1)" stroke="#10b981" stroke-width="2.5" />
-        <!-- Diagonal hash patterns for safety yard -->
-        <rect x="28" y="84" width="88" height="88" rx="8" fill="none" stroke="rgba(16,185,129,0.05)" stroke-width="6" stroke-dasharray="4,8" />
+        <rect x="24" y="80" width="96" height="96" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2.5" />
+        <rect x="28" y="84" width="88" height="88" rx="8" fill="none" stroke="rgba(16,185,129,0.15)" stroke-width="6" stroke-dasharray="4,8" />
         <!-- Green cross muster symbol -->
         <circle cx="72" cy="120" r="18" fill="#10b981" />
         <rect x="68" y="108" width="8" height="24" fill="#ffffff" rx="1" />
         <rect x="60" y="116" width="24" height="8" fill="#ffffff" rx="1" />
-        <text x="72" y="162" text-anchor="middle" font-family="sans-serif" font-size="9" font-weight="900" fill="#10b981" letter-spacing="0.5">MUSTER POINT A</text>
-        <text x="72" y="98" text-anchor="middle" font-family="monospace" font-size="7" font-weight="bold" fill="#34d399">SAFE ZONE</text>
+        <text x="72" y="162" text-anchor="middle" font-family="sans-serif" font-size="9" font-weight="900" fill="#065f46" letter-spacing="0.5">MUSTER POINT A</text>
+        <text x="72" y="98" text-anchor="middle" font-family="sans-serif" font-size="7.5" font-weight="bold" fill="#059669">SAFE ZONE</text>
       </g>
 
       <!-- ========================================== -->
@@ -92,32 +95,32 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
       <!-- ========================================== -->
       <g>
         <!-- Outer Boundary -->
-        <rect x="120" y="120" width="408" height="496" rx="16" fill="#0f172a" stroke="#d97706" stroke-width="2.5" stroke-dasharray="6,4" />
+        <rect x="120" y="120" width="408" height="496" rx="16" fill="#fef3c7" stroke="#d97706" stroke-width="2.5" stroke-dasharray="6,4" />
         <rect x="120" y="120" width="408" height="496" rx="16" fill="url(#dirtHatch)" />
         
-        <!-- Excavation Stepped Rings (Octagons or nested rings representing pit depth) -->
-        <rect x="150" y="150" width="348" height="436" rx="12" fill="#1e293b" stroke="rgba(217,119,6,0.3)" stroke-width="2" />
-        <rect x="180" y="180" width="288" height="376" rx="8" fill="#0f172a" stroke="rgba(217,119,6,0.2)" stroke-width="2" />
-        <rect x="210" y="210" width="228" height="316" rx="6" fill="#020617" stroke="rgba(217,119,6,0.15)" stroke-width="1.5" />
+        <!-- Excavation Stepped Rings -->
+        <rect x="150" y="150" width="348" height="436" rx="12" fill="#fef9c3" stroke="rgba(217,119,6,0.4)" stroke-width="2" />
+        <rect x="180" y="180" width="288" height="376" rx="8" fill="#fffbeb" stroke="rgba(217,119,6,0.3)" stroke-width="2" />
+        <rect x="210" y="210" width="228" height="316" rx="6" fill="#ffffff" stroke="rgba(217,119,6,0.25)" stroke-width="1.5" />
         
         <!-- Structural cross braces (shoring struts) -->
-        <line x1="120" y1="120" x2="210" y2="210" stroke="#475569" stroke-width="4" stroke-linecap="round" />
-        <line x1="528" y1="120" x2="438" y2="210" stroke="#475569" stroke-width="4" stroke-linecap="round" />
-        <line x1="120" y1="616" x2="210" y2="526" stroke="#475569" stroke-width="4" stroke-linecap="round" />
-        <line x1="528" y1="616" x2="438" y2="526" stroke="#475569" stroke-width="4" stroke-linecap="round" />
+        <line x1="120" y1="120" x2="210" y2="210" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+        <line x1="528" y1="120" x2="438" y2="210" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+        <line x1="120" y1="616" x2="210" y2="526" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+        <line x1="528" y1="616" x2="438" y2="526" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
         
-        <line x1="324" y1="120" x2="324" y2="210" stroke="#475569" stroke-width="3" />
-        <line x1="324" y1="616" x2="324" y2="526" stroke="#475569" stroke-width="3" />
-        <line x1="120" y1="368" x2="210" y2="368" stroke="#475569" stroke-width="3" />
-        <line x1="528" y1="368" x2="438" y2="368" stroke="#475569" stroke-width="3" />
+        <line x1="324" y1="120" x2="324" y2="210" stroke="#94a3b8" stroke-width="2.5" />
+        <line x1="324" y1="616" x2="324" y2="526" stroke="#94a3b8" stroke-width="2.5" />
+        <line x1="120" y1="368" x2="210" y2="368" stroke="#94a3b8" stroke-width="2.5" />
+        <line x1="528" y1="368" x2="438" y2="368" stroke="#94a3b8" stroke-width="2.5" />
 
         <!-- Labels -->
-        <rect x="230" y="340" width="188" height="56" rx="6" fill="#090d16" stroke="#d97706" stroke-width="1" />
-        <text x="324" y="358" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="900" fill="#fbbf24">EXCAVATION PIT</text>
-        <text x="324" y="372" text-anchor="middle" font-family="monospace" font-size="8" font-weight="bold" fill="#f59e0b">ELEV: -14.50 METERS</text>
-        <text x="324" y="384" text-anchor="middle" font-family="monospace" font-size="7" fill="#94a3b8">SHORING & PILING ROBUST</text>
+        <rect x="230" y="340" width="188" height="56" rx="8" fill="#ffffff" stroke="#d97706" stroke-width="1.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.06))" />
+        <text x="324" y="358" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="900" fill="#92400e">EXCAVATION PIT</text>
+        <text x="324" y="372" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="bold" fill="#b45309">ELEV: -14.50 METERS</text>
+        <text x="324" y="384" text-anchor="middle" font-family="sans-serif" font-size="7" font-weight="bold" fill="#64748b">SHORING & PILING MONITORED</text>
         
-        <text x="140" y="142" font-family="sans-serif" font-size="9" font-weight="900" fill="#fbbf24" letter-spacing="0.5">⚠️ HAZARD SHAFT PERIMETER</text>
+        <text x="140" y="142" font-family="sans-serif" font-size="9" font-weight="900" fill="#92400e" letter-spacing="0.5">⚠️ HAZARD SHAFT PERIMETER</text>
       </g>
 
       <!-- ========================================== -->
@@ -126,14 +129,14 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
       <!-- ========================================== -->
       <g>
         <!-- Main Foundation Slab Footprint -->
-        <rect x="612" y="200" width="384" height="400" rx="20" fill="#1e293b" stroke="#0284c7" stroke-width="3" />
+        <rect x="612" y="200" width="384" height="400" rx="20" fill="#f0f9ff" stroke="#0284c7" stroke-width="3" />
         <rect x="612" y="200" width="384" height="400" rx="20" fill="url(#rebarGrid)" />
         
-        <!-- Outer Concrete Shear Walls (Cyan structural blueprint outline) -->
-        <rect x="650" y="240" width="308" height="320" rx="10" fill="#111827" stroke="#38bdf8" stroke-width="4" />
+        <!-- Outer Concrete Shear Walls -->
+        <rect x="650" y="240" width="308" height="320" rx="10" fill="#ffffff" stroke="#0284c7" stroke-width="3.5" />
         
         <!-- Internal Columns & Structural Grid Matrix -->
-        <g stroke="#38bdf8" stroke-width="1.5" opacity="0.6">
+        <g stroke="#0284c7" stroke-width="1.2" opacity="0.35">
           <line x1="650" y1="320" x2="958" y2="320" stroke-dasharray="4,4" />
           <line x1="650" y1="400" x2="958" y2="400" stroke-dasharray="4,4" />
           <line x1="650" y1="480" x2="958" y2="480" stroke-dasharray="4,4" />
@@ -143,27 +146,27 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
           <line x1="881" y1="240" x2="881" y2="560" stroke-dasharray="4,4" />
         </g>
         
-        <!-- Heavy Structural Column Footings (Solid cyan rectangles) -->
-        <g fill="#38bdf8" opacity="0.9">
-          <rect x="717" y="310" width="20" height="20" rx="2" />
-          <rect x="794" y="310" width="20" height="20" rx="2" />
-          <rect x="871" y="310" width="20" height="20" rx="2" />
-          <rect x="717" y="390" width="20" height="20" rx="2" />
-          <rect x="794" y="390" width="20" height="20" rx="2" />
-          <rect x="871" y="390" width="20" height="20" rx="2" />
-          <rect x="717" y="470" width="20" height="20" rx="2" />
-          <rect x="794" y="470" width="20" height="20" rx="2" />
-          <rect x="871" y="470" width="20" height="20" rx="2" />
+        <!-- Heavy Structural Column Footings -->
+        <g fill="#0284c7" opacity="0.85">
+          <rect x="717" y="310" width="20" height="20" rx="3" />
+          <rect x="794" y="310" width="20" height="20" rx="3" />
+          <rect x="871" y="310" width="20" height="20" rx="3" />
+          <rect x="717" y="390" width="20" height="20" rx="3" />
+          <rect x="794" y="390" width="20" height="20" rx="3" />
+          <rect x="871" y="390" width="20" height="20" rx="3" />
+          <rect x="717" y="470" width="20" height="20" rx="3" />
+          <rect x="794" y="470" width="20" height="20" rx="3" />
+          <rect x="871" y="470" width="20" height="20" rx="3" />
         </g>
 
-        <!-- Elevator core shaft wells with connecting hoist lines -->
-        <rect x="764" y="250" width="80" height="40" rx="4" fill="#030712" stroke="#38bdf8" stroke-width="2" />
-        <line x1="764" y1="250" x2="844" y2="290" stroke="#38bdf8" stroke-width="0.8" opacity="0.5" />
-        <line x1="844" y1="250" x2="764" y2="290" stroke="#38bdf8" stroke-width="0.8" opacity="0.5" />
+        <!-- Elevator core shaft wells -->
+        <rect x="764" y="250" width="80" height="40" rx="4" fill="#e0f2fe" stroke="#0284c7" stroke-width="2" />
+        <line x1="764" y1="250" x2="844" y2="290" stroke="#0284c7" stroke-width="1" opacity="0.6" />
+        <line x1="844" y1="250" x2="764" y2="290" stroke="#0284c7" stroke-width="1" opacity="0.6" />
         
-        <text x="804" y="232" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="900" fill="#38bdf8">BUILDING A (CORE TOWER)</text>
-        <text x="804" y="415" text-anchor="middle" font-family="monospace" font-size="8" font-weight="bold" fill="#0ea5e9">LEVEL 7 - REINFORCING ACTIVE</text>
-        <text x="804" y="430" text-anchor="middle" font-family="monospace" font-size="7" fill="#64748b">88.00m SITE SPAN GRID</text>
+        <text x="804" y="232" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="900" fill="#0369a1">BUILDING A (CORE TOWER)</text>
+        <text x="804" y="415" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="bold" fill="#0284c7">LEVEL 7 - REINFORCING ACTIVE</text>
+        <text x="804" y="430" text-anchor="middle" font-family="sans-serif" font-size="7" font-weight="bold" fill="#64748b">88.00m SITE SPAN GRID</text>
       </g>
 
       <!-- ========================================== -->
@@ -172,87 +175,81 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
       <!-- ========================================== -->
       <g>
         <!-- Boundary Box -->
-        <rect x="960" y="40" width="192" height="336" rx="16" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="8,4" />
+        <rect x="960" y="40" width="192" height="336" rx="16" fill="#fff1f2" stroke="#ef4444" stroke-width="2" stroke-dasharray="8,4" />
         
         <!-- Large Transparent Crane Jib Swing Circle -->
         <circle cx="1040" cy="190" r="140" fill="url(#hazardStripes)" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,4" />
         
-        <!-- Structural Yellow Lattice Crane Base (Lattice cross bracing) -->
+        <!-- Structural Yellow Lattice Crane Base -->
         <rect x="1025" y="175" width="30" height="30" rx="4" fill="#fbbf24" stroke="#d97706" stroke-width="2" />
-        <line x1="1025" y1="175" x2="1055" y2="205" stroke="#000000" stroke-width="1.5" opacity="0.5" />
-        <line x1="1055" y1="175" x2="1025" y2="205" stroke="#000000" stroke-width="1.5" opacity="0.5" />
+        <line x1="1025" y1="175" x2="1055" y2="205" stroke="#78350f" stroke-width="1.5" opacity="0.5" />
+        <line x1="1055" y1="175" x2="1025" y2="205" stroke="#78350f" stroke-width="1.5" opacity="0.5" />
         
         <!-- Crane Jib Slewing Ring Assembly & Long Slewing Arm Jib Line -->
-        <circle cx="1040" cy="190" r="6" fill="#1e293b" stroke="#fbbf24" stroke-width="2.5" />
-        <line x1="1040" y1="190" x2="940" y2="100" stroke="#fbbf24" stroke-width="3" stroke-linecap="round" />
-        <line x1="1040" y1="190" x2="1080" y2="226" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" />
-        <!-- Counterweights blocks -->
+        <circle cx="1040" cy="190" r="6" fill="#ffffff" stroke="#d97706" stroke-width="2.5" />
+        <line x1="1040" y1="190" x2="940" y2="100" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" />
+        <line x1="1040" y1="190" x2="1080" y2="226" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" />
         <rect x="1074" y="220" width="12" height="12" rx="2" fill="#d97706" />
 
-        <text x="1040" y="354" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="900" fill="#ef4444">CRANE SWING ZONE</text>
-        <text x="1040" y="62" text-anchor="middle" font-family="monospace" font-size="7" font-weight="bold" fill="#fca5a5">CRITICAL DANGER ZONE</text>
-        <text x="1040" y="130" text-anchor="middle" font-family="monospace" font-size="7" font-weight="bold" fill="#fbbf24">CRANE T1 ACTIVE</text>
+        <text x="1040" y="354" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="900" fill="#dc2626">CRANE SWING ZONE</text>
+        <text x="1040" y="62" text-anchor="middle" font-family="sans-serif" font-size="7" font-weight="bold" fill="#ef4444">CRITICAL DANGER ZONE</text>
+        <text x="1040" y="130" text-anchor="middle" font-family="sans-serif" font-size="7" font-weight="bold" fill="#b45309">CRANE T1 ACTIVE</text>
       </g>
 
       <!-- ========================================== -->
-      <!-- OUT OF BOUNDS / COMPACT SECONDARY AREAS    -->
+      <!-- COMPACT SECONDARY AREAS                    -->
       <!-- ========================================== -->
       
-      <!-- 1. Site Admin Offices (Office Trailers Layout) -->
+      <!-- 1. Site Admin Offices -->
       <g>
-        <rect x="140" y="640" width="130" height="90" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="2" />
-        <!-- Sub-partitions inside trailer -->
+        <rect x="140" y="640" width="130" height="90" rx="6" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" />
         <line x1="180" y1="640" x2="180" y2="730" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3,3" />
         <line x1="225" y1="640" x2="225" y2="730" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3,3" />
-        <text x="205" y="688" text-anchor="middle" font-family="sans-serif" font-size="9" font-weight="900" fill="#60a5fa">SITE OFFICE</text>
-        <text x="205" y="704" text-anchor="middle" font-family="monospace" font-size="7" fill="#93c5fd">HQ & VISITOR CENTRE</text>
+        <text x="205" y="688" text-anchor="middle" font-family="sans-serif" font-size="9" font-weight="900" fill="#1d4ed8">SITE OFFICE</text>
+        <text x="205" y="704" text-anchor="middle" font-family="sans-serif" font-size="7" font-weight="bold" fill="#3b82f6">HQ & COMMAND</text>
       </g>
       
       <!-- 2. Vehicle Parking Bay Area -->
       <g>
-        <rect x="24" y="640" width="96" height="96" rx="6" fill="#0f172a" stroke="#475569" stroke-width="1.5" />
-        <!-- Parking Grid slots -->
-        <line x1="24" y1="664" x2="120" y2="664" stroke="#475569" stroke-width="1" stroke-dasharray="4,2" />
-        <line x1="24" y1="688" x2="120" y2="688" stroke="#475569" stroke-width="1" stroke-dasharray="4,2" />
-        <line x1="24" y1="712" x2="120" y2="712" stroke="#475569" stroke-width="1" stroke-dasharray="4,2" />
-        <text x="72" y="654" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="900" fill="#94a3b8">PARKING</text>
-        <text x="72" y="726" text-anchor="middle" font-family="monospace" font-size="6" fill="#64748b">14 VEHICLES MAX</text>
+        <rect x="24" y="640" width="96" height="96" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" />
+        <line x1="24" y1="664" x2="120" y2="664" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,2" />
+        <line x1="24" y1="688" x2="120" y2="688" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,2" />
+        <line x1="24" y1="712" x2="120" y2="712" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,2" />
+        <text x="72" y="654" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="900" fill="#475569">PARKING</text>
+        <text x="72" y="726" text-anchor="middle" font-family="sans-serif" font-size="6.5" font-weight="bold" fill="#64748b">14 VEHICLES MAX</text>
       </g>
       
       <!-- 3. Material Staging Area -->
       <g>
-        <rect x="480" y="640" width="180" height="90" rx="8" fill="#1e293b" stroke="#8b5cf6" stroke-width="1.5" />
-        <!-- Draw shipping container stack boxes -->
-        <rect x="492" y="652" width="48" height="20" rx="2" fill="#8b5cf6" opacity="0.3" stroke="#8b5cf6" stroke-width="1" />
-        <rect x="492" y="682" width="48" height="20" rx="2" fill="#3b82f6" opacity="0.3" stroke="#3b82f6" stroke-width="1" />
-        <rect x="552" y="652" width="48" height="20" rx="2" fill="#10b981" opacity="0.3" stroke="#10b981" stroke-width="1" />
-        <rect x="552" y="682" width="48" height="20" rx="2" fill="#f59e0b" opacity="0.3" stroke="#f59e0b" stroke-width="1" />
+        <rect x="480" y="640" width="180" height="90" rx="8" fill="#faf5ff" stroke="#8b5cf6" stroke-width="1.5" />
+        <rect x="492" y="652" width="48" height="20" rx="2" fill="#c084fc" opacity="0.5" stroke="#8b5cf6" stroke-width="1" />
+        <rect x="492" y="682" width="48" height="20" rx="2" fill="#60a5fa" opacity="0.5" stroke="#3b82f6" stroke-width="1" />
+        <rect x="552" y="652" width="48" height="20" rx="2" fill="#34d399" opacity="0.5" stroke="#10b981" stroke-width="1" />
+        <rect x="552" y="682" width="48" height="20" rx="2" fill="#fbbf24" opacity="0.5" stroke="#f59e0b" stroke-width="1" />
         
-        <text x="618" y="700" font-family="sans-serif" font-size="9" font-weight="900" fill="#c084fc">MATERIAL</text>
-        <text x="618" y="712" font-family="sans-serif" font-size="9" font-weight="900" fill="#c084fc">STAGING</text>
-        <text x="570" y="648" text-anchor="middle" font-family="monospace" font-size="7" fill="#c084fc">YARD B</text>
+        <text x="618" y="700" font-family="sans-serif" font-size="9" font-weight="900" fill="#6b21a8">MATERIAL</text>
+        <text x="618" y="712" font-family="sans-serif" font-size="9" font-weight="900" fill="#6b21a8">STAGING</text>
+        <text x="570" y="648" text-anchor="middle" font-family="sans-serif" font-size="7" font-weight="bold" fill="#7c3aed">YARD B</text>
       </g>
 
       <!-- 4. Steel Storage Yard -->
       <g>
-        <rect x="820" y="620" width="180" height="90" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5" />
-        <!-- Stacked cylindrical metal tubes symbols -->
-        <line x1="840" y1="645" x2="900" y2="645" stroke="#f59e0b" stroke-width="4" stroke-linecap="round" opacity="0.8" />
-        <line x1="840" y1="655" x2="900" y2="655" stroke="#f59e0b" stroke-width="4" stroke-linecap="round" opacity="0.8" />
-        <line x1="840" y1="665" x2="900" y2="665" stroke="#f59e0b" stroke-width="4" stroke-linecap="round" opacity="0.8" />
-        <line x1="840" y1="675" x2="900" y2="675" stroke="#f59e0b" stroke-width="4" stroke-linecap="round" opacity="0.8" />
+        <rect x="820" y="620" width="180" height="90" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5" />
+        <line x1="840" y1="645" x2="900" y2="645" stroke="#d97706" stroke-width="4" stroke-linecap="round" opacity="0.9" />
+        <line x1="840" y1="655" x2="900" y2="655" stroke="#d97706" stroke-width="4" stroke-linecap="round" opacity="0.9" />
+        <line x1="840" y1="665" x2="900" y2="665" stroke="#d97706" stroke-width="4" stroke-linecap="round" opacity="0.9" />
+        <line x1="840" y1="675" x2="900" y2="675" stroke="#d97706" stroke-width="4" stroke-linecap="round" opacity="0.9" />
         
-        <rect x="912" y="640" width="76" height="40" rx="4" fill="#111827" stroke="#fbbf24" stroke-width="1" />
-        <text x="950" y="656" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="900" fill="#f59e0b">STEEL</text>
-        <text x="950" y="670" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="900" fill="#f59e0b">YARD</text>
-        <text x="910" y="632" text-anchor="middle" font-family="monospace" font-size="7" fill="#fbbf24">ZONE S3</text>
+        <rect x="912" y="640" width="76" height="40" rx="4" fill="#ffffff" stroke="#f59e0b" stroke-width="1" />
+        <text x="950" y="656" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="900" fill="#b45309">STEEL</text>
+        <text x="950" y="670" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="900" fill="#b45309">YARD</text>
+        <text x="910" y="632" text-anchor="middle" font-family="sans-serif" font-size="7" font-weight="bold" fill="#d97706">ZONE S3</text>
       </g>
 
       <!-- ========================================== -->
       <!-- TECHNICAL DIMENSION LINES                  -->
       <!-- ========================================== -->
-      <g stroke="#38bdf8" stroke-width="0.8" opacity="0.4" font-family="monospace" font-size="8" fill="#38bdf8">
-        <!-- Horizontal grid marker lines -->
+      <g stroke="#64748b" stroke-width="0.8" opacity="0.5" font-family="sans-serif" font-size="8" fill="#475569">
         <line x1="16" y1="20" x2="16" y2="780" stroke-dasharray="2,4" />
         <line x1="1184" y1="20" x2="1184" y2="780" stroke-dasharray="2,4" />
         
@@ -265,9 +262,9 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
 
       <!-- Compass North Indicator -->
       <g transform="translate(1140, 720) scale(0.75)">
-        <circle cx="0" cy="0" r="24" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5" />
-        <path d="M 0 -20 L 6 0 L 0 4 L -6 0 Z" fill="#38bdf8" />
-        <text x="0" y="-26" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="900" fill="#38bdf8">N</text>
+        <circle cx="0" cy="0" r="24" fill="#ffffff" stroke="#0284c7" stroke-width="1.5" />
+        <path d="M 0 -20 L 6 0 L 0 4 L -6 0 Z" fill="#0284c7" />
+        <text x="0" y="-26" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="900" fill="#0284c7">N</text>
       </g>
 
     </svg>
@@ -307,32 +304,32 @@ export function InteractiveSiteMap({
   const isHighVoltageBreached = getRFIDMarkersInZone('High Voltage Area').length > 0;
 
   return (
-    <svg viewBox="0 0 1200 800" className="absolute inset-0 w-full h-full bg-[#090d16] select-none">
+    <svg viewBox="0 0 1200 800" className="absolute inset-0 w-full h-full bg-slate-50 dark:bg-slate-900 select-none">
       <defs>
         <pattern id="cadGrid" width="60" height="60" patternUnits="userSpaceOnUse">
-          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(56,189,248,0.06)" strokeWidth="1"/>
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(100,116,139,0.12)" strokeWidth="1"/>
         </pattern>
         <pattern id="cadSubGrid" width="12" height="12" patternUnits="userSpaceOnUse">
-          <path d="M 12 0 L 0 0 0 12" fill="none" stroke="rgba(56,189,248,0.02)" strokeWidth="0.5"/>
+          <path d="M 12 0 L 0 0 0 12" fill="none" stroke="rgba(100,116,139,0.05)" strokeWidth="0.5"/>
         </pattern>
         <pattern id="rebarGrid" width="15" height="15" patternUnits="userSpaceOnUse">
-          <path d="M 15 0 L 0 0 0 15" fill="none" stroke="rgba(56,189,248,0.08)" strokeWidth="0.5"/>
+          <path d="M 15 0 L 0 0 0 15" fill="none" stroke="rgba(2,132,199,0.10)" strokeWidth="0.5"/>
         </pattern>
         <pattern id="hazardStripes" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="10" height="20" fill="rgba(239,68,68,0.15)" />
-          <rect x="10" width="10" height="20" fill="rgba(9,13,22,0.05)" />
+          <rect x="10" width="10" height="20" fill="rgba(248,250,252,0.6)" />
         </pattern>
         <pattern id="dirtHatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
-          <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(146,64,14,0.15)" strokeWidth="1.5" />
+          <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(217,119,6,0.18)" strokeWidth="1.5" />
         </pattern>
       </defs>
 
-      <rect width="100%" height="100%" fill="#090d16"/>
+      <rect width="100%" height="100%" fill="#f8fafc"/>
       <rect width="100%" height="100%" fill="url(#cadSubGrid)"/>
       <rect width="100%" height="100%" fill="url(#cadGrid)"/>
 
       {/* ACCESS ROADS & VEHICULAR LANES */}
-      <g opacity="0.8" className="transition-all hover:opacity-100 cursor-pointer" onClick={(e) => {
+      <g opacity="0.95" className="transition-all hover:opacity-100 cursor-pointer" onClick={(e) => {
         e.stopPropagation();
         onSelectEntity?.({
           type: 'infrastructure',
@@ -348,16 +345,16 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#101726" strokeWidth="52" strokeLinecap="round" />
-        <path d="M 150 520 L 1180 520" fill="none" stroke="#101726" strokeWidth="44" strokeLinecap="round" />
-        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#1e293b" strokeWidth="48" strokeLinecap="round" />
-        <path d="M 150 520 L 1180 520" fill="none" stroke="#1e293b" strokeWidth="40" strokeLinecap="round" />
+        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#cbd5e1" strokeWidth="52" strokeLinecap="round" />
+        <path d="M 150 520 L 1180 520" fill="none" stroke="#cbd5e1" strokeWidth="44" strokeLinecap="round" />
+        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#e2e8f0" strokeWidth="48" strokeLinecap="round" />
+        <path d="M 150 520 L 1180 520" fill="none" stroke="#e2e8f0" strokeWidth="40" strokeLinecap="round" />
         
-        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="10,10" strokeLinecap="round" opacity="0.8" />
-        <path d="M 150 520 L 1180 520" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="10,10" strokeLinecap="round" opacity="0.8" />
+        <path d="M 10 520 L 150 520 L 150 780" fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="10,10" strokeLinecap="round" opacity="0.9" />
+        <path d="M 150 520 L 1180 520" fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="10,10" strokeLinecap="round" opacity="0.9" />
         
-        <text x="80" y="505" fontFamily="monospace" fontSize="9" fontWeight="900" fill="#64748b" letterSpacing="1">MAIN ENTERPRISE ROUTE</text>
-        <text x="400" y="535" fontFamily="monospace" fontSize="9" fontWeight="900" fill="#64748b" letterSpacing="1">HEAVY TRUCK ACCESS CORRIDOR</text>
+        <text x="80" y="505" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#475569" letterSpacing="1">MAIN ENTERPRISE ROUTE</text>
+        <text x="400" y="535" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#475569" letterSpacing="1">HEAVY TRUCK ACCESS CORRIDOR</text>
       </g>
 
       {/* MUSTER ASSEMBLY POINT A */}
@@ -377,13 +374,13 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <rect x="24" y="80" width="96" height="96" rx="12" fill="rgba(16,185,129,0.06)" stroke="#10b981" strokeWidth="2" />
-        <rect x="28" y="84" width="88" height="88" rx="8" fill="none" stroke="rgba(16,185,129,0.04)" strokeWidth="6" strokeDasharray="4,8" />
+        <rect x="24" y="80" width="96" height="96" rx="12" fill="#ecfdf5" stroke="#10b981" strokeWidth="2.5" />
+        <rect x="28" y="84" width="88" height="88" rx="8" fill="none" stroke="rgba(16,185,129,0.15)" strokeWidth="6" strokeDasharray="4,8" />
         <circle cx="72" cy="120" r="18" fill="#10b981" />
         <rect x="68" y="108" width="8" height="24" fill="#ffffff" rx="1" />
         <rect x="60" y="116" width="24" height="8" fill="#ffffff" rx="1" />
-        <text x="72" y="162" textAnchor="middle" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#10b981" letterSpacing="0.5">MUSTER POINT A</text>
-        <text x="72" y="98" textAnchor="middle" fontFamily="monospace" fontSize="7" fontWeight="bold" fill="#34d399">SAFE ZONE</text>
+        <text x="72" y="162" textAnchor="middle" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#065f46" letterSpacing="0.5">MUSTER POINT A</text>
+        <text x="72" y="98" textAnchor="middle" fontFamily="sans-serif" fontSize="7.5" fontWeight="bold" fill="#059669">SAFE ZONE</text>
       </g>
 
       {/* DEEP EXCAVATION PIT SHAFT */}
@@ -403,33 +400,33 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <rect x="120" y="120" width="408" height="496" rx="16" fill="#0f172a" stroke={isExcavationShaftBreached ? '#ef4444' : '#d97706'} strokeWidth="2.5" strokeDasharray="6,4" className="transition-colors duration-300" />
+        <rect x="120" y="120" width="408" height="496" rx="16" fill="#fef3c7" stroke={isExcavationShaftBreached ? '#ef4444' : '#d97706'} strokeWidth="2.5" strokeDasharray="6,4" className="transition-colors duration-300" />
         <rect x="120" y="120" width="408" height="496" rx="16" fill="url(#dirtHatch)" />
         
-        <rect x="150" y="150" width="348" height="436" rx="12" fill="#1e293b" stroke={isExcavationShaftBreached ? 'rgba(239,68,68,0.4)' : 'rgba(217,119,6,0.3)'} strokeWidth="2" />
-        <rect x="180" y="180" width="288" height="376" rx="8" fill="#0f172a" stroke="rgba(217,119,6,0.2)" strokeWidth="2" />
-        <rect x="210" y="210" width="228" height="316" rx="6" fill="#020617" stroke="rgba(217,119,6,0.15)" strokeWidth="1.5" />
+        <rect x="150" y="150" width="348" height="436" rx="12" fill="#fef9c3" stroke={isExcavationShaftBreached ? 'rgba(239,68,68,0.5)' : 'rgba(217,119,6,0.4)'} strokeWidth="2" />
+        <rect x="180" y="180" width="288" height="376" rx="8" fill="#fffbeb" stroke="rgba(217,119,6,0.3)" strokeWidth="2" />
+        <rect x="210" y="210" width="228" height="316" rx="6" fill="#ffffff" stroke="rgba(217,119,6,0.25)" strokeWidth="1.5" />
         
-        <line x1="120" y1="120" x2="210" y2="210" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        <line x1="528" y1="120" x2="438" y2="210" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        <line x1="120" y1="616" x2="210" y2="526" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        <line x1="528" y1="616" x2="438" y2="526" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        <line x1="324" y1="120" x2="324" y2="210" stroke="#475569" strokeWidth="3" />
-        <line x1="324" y1="616" x2="324" y2="526" stroke="#475569" strokeWidth="3" />
-        <line x1="120" y1="368" x2="210" y2="368" stroke="#475569" strokeWidth="3" />
-        <line x1="528" y1="368" x2="438" y2="368" stroke="#475569" strokeWidth="3" />
+        <line x1="120" y1="120" x2="210" y2="210" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="528" y1="120" x2="438" y2="210" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="120" y1="616" x2="210" y2="526" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="528" y1="616" x2="438" y2="526" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="324" y1="120" x2="324" y2="210" stroke="#94a3b8" strokeWidth="2.5" />
+        <line x1="324" y1="616" x2="324" y2="526" stroke="#94a3b8" strokeWidth="2.5" />
+        <line x1="120" y1="368" x2="210" y2="368" stroke="#94a3b8" strokeWidth="2.5" />
+        <line x1="528" y1="368" x2="438" y2="368" stroke="#94a3b8" strokeWidth="2.5" />
 
         {isExcavationShaftBreached && (
-          <rect x="120" y="120" width="408" height="496" rx="16" fill="rgba(239, 68, 68, 0.08)" />
+          <rect x="120" y="120" width="408" height="496" rx="16" fill="rgba(239, 68, 68, 0.12)" />
         )}
 
-        <rect x="230" y="340" width="188" height="56" rx="6" fill="#090d16" stroke={isExcavationShaftBreached ? '#ef4444' : '#d97706'} strokeWidth="1.5" />
-        <text x="324" y="358" textAnchor="middle" fontFamily="sans-serif" fontSize="10" fontWeight="900" fill={isExcavationShaftBreached ? '#f43f5e' : '#fbbf24'}>
+        <rect x="230" y="340" width="188" height="56" rx="8" fill="#ffffff" stroke={isExcavationShaftBreached ? '#ef4444' : '#d97706'} strokeWidth="1.5" />
+        <text x="324" y="358" textAnchor="middle" fontFamily="sans-serif" fontSize="10" fontWeight="900" fill={isExcavationShaftBreached ? '#dc2626' : '#92400e'}>
           {isExcavationShaftBreached ? "🚨 SHAFT OCCUPIED" : "EXCAVATION PIT"}
         </text>
-        <text x="324" y="372" textAnchor="middle" fontFamily="monospace" fontSize="8" fontWeight="bold" fill="#f59e0b">ELEV: -14.50 METERS</text>
-        <text x="324" y="384" textAnchor="middle" fontFamily="monospace" fontSize="7" fill="#94a3b8">RFID GEOMATRIX CALIBRATED</text>
-        <text x="140" y="142" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#fbbf24" letterSpacing="0.5">⚠️ EXCAVATION PERIMETER</text>
+        <text x="324" y="372" textAnchor="middle" fontFamily="sans-serif" fontSize="8" fontWeight="bold" fill="#b45309">ELEV: -14.50 METERS</text>
+        <text x="324" y="384" textAnchor="middle" fontFamily="sans-serif" fontSize="7" fontWeight="bold" fill="#64748b">RFID GEOMATRIX CALIBRATED</text>
+        <text x="140" y="142" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#92400e" letterSpacing="0.5">⚠️ EXCAVATION PERIMETER</text>
       </g>
 
       {/* BUILDING A (TOWER CORE) */}
@@ -449,12 +446,12 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <rect x="612" y="200" width="384" height="400" rx="20" fill="#1e293b" stroke="#0284c7" strokeWidth="3" />
+        <rect x="612" y="200" width="384" height="400" rx="20" fill="#f0f9ff" stroke="#0284c7" strokeWidth="3" />
         <rect x="612" y="200" width="384" height="400" rx="20" fill="url(#rebarGrid)" />
         
-        <rect x="650" y="240" width="308" height="320" rx="10" fill="#111827" stroke="#38bdf8" strokeWidth="4" />
+        <rect x="650" y="240" width="308" height="320" rx="10" fill="#ffffff" stroke="#0284c7" strokeWidth="3.5" />
         
-        <g stroke="#38bdf8" strokeWidth="1.5" opacity="0.6">
+        <g stroke="#0284c7" strokeWidth="1.2" opacity="0.35">
           <line x1="650" y1="320" x2="958" y2="320" strokeDasharray="4,4" />
           <line x1="650" y1="400" x2="958" y2="400" strokeDasharray="4,4" />
           <line x1="650" y1="480" x2="958" y2="480" strokeDasharray="4,4" />
@@ -464,25 +461,25 @@ export function InteractiveSiteMap({
           <line x1="881" y1="240" x2="881" y2="560" strokeDasharray="4,4" />
         </g>
         
-        <g fill="#38bdf8" opacity="0.9">
-          <rect x="717" y="310" width="20" height="20" rx="2" />
-          <rect x="794" y="310" width="20" height="20" rx="2" />
-          <rect x="871" y="310" width="20" height="20" rx="2" />
-          <rect x="717" y="390" width="20" height="20" rx="2" />
-          <rect x="794" y="390" width="20" height="20" rx="2" />
-          <rect x="871" y="390" width="20" height="20" rx="2" />
-          <rect x="717" y="470" width="20" height="20" rx="2" />
-          <rect x="794" y="470" width="20" height="20" rx="2" />
-          <rect x="871" y="470" width="20" height="20" rx="2" />
+        <g fill="#0284c7" opacity="0.85">
+          <rect x="717" y="310" width="20" height="20" rx="3" />
+          <rect x="794" y="310" width="20" height="20" rx="3" />
+          <rect x="871" y="310" width="20" height="20" rx="3" />
+          <rect x="717" y="390" width="20" height="20" rx="3" />
+          <rect x="794" y="390" width="20" height="20" rx="3" />
+          <rect x="871" y="390" width="20" height="20" rx="3" />
+          <rect x="717" y="470" width="20" height="20" rx="3" />
+          <rect x="794" y="470" width="20" height="20" rx="3" />
+          <rect x="871" y="470" width="20" height="20" rx="3" />
         </g>
 
-        <rect x="764" y="250" width="80" height="40" rx="4" fill="#030712" stroke="#38bdf8" strokeWidth="2" />
-        <line x1="764" y1="250" x2="844" y2="290" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5" />
-        <line x1="844" y1="250" x2="764" y2="290" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5" />
+        <rect x="764" y="250" width="80" height="40" rx="4" fill="#e0f2fe" stroke="#0284c7" strokeWidth="2" />
+        <line x1="764" y1="250" x2="844" y2="290" stroke="#0284c7" strokeWidth="1" opacity="0.6" />
+        <line x1="844" y1="250" x2="764" y2="290" stroke="#0284c7" strokeWidth="1" opacity="0.6" />
         
-        <text x="804" y="232" textAnchor="middle" fontFamily="sans-serif" fontSize="11" fontWeight="900" fill="#38bdf8">BUILDING A (CORE TOWER)</text>
-        <text x="804" y="415" textAnchor="middle" fontFamily="monospace" fontSize="8" fontWeight="bold" fill="#0ea5e9">LEVEL 7 - REINFORCING ACTIVE</text>
-        <text x="804" y="430" textAnchor="middle" fontFamily="monospace" fontSize="7" fill="#64748b">88.00m SITE SPAN GRID</text>
+        <text x="804" y="232" textAnchor="middle" fontFamily="sans-serif" fontSize="11" fontWeight="900" fill="#0369a1">BUILDING A (CORE TOWER)</text>
+        <text x="804" y="415" textAnchor="middle" fontFamily="sans-serif" fontSize="8" fontWeight="bold" fill="#0284c7">LEVEL 7 - REINFORCING ACTIVE</text>
+        <text x="804" y="430" textAnchor="middle" fontFamily="sans-serif" fontSize="7" fontWeight="bold" fill="#64748b">88.00m SITE SPAN GRID</text>
       </g>
 
       {/* DYNAMIC RED-TINTED OVERLAYS & COLLISION ALERTS */}
@@ -504,29 +501,29 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <rect x="960" y="40" width="192" height="336" rx="16" fill="none" stroke={isCraneSwingBreached ? "#f43f5e" : "#ef4444"} strokeWidth={isCraneSwingBreached ? 3.5 : 2} strokeDasharray={isCraneSwingBreached ? "4,4" : "8,4"} className="transition-all duration-300" />
+        <rect x="960" y="40" width="192" height="336" rx="16" fill="#fff1f2" stroke={isCraneSwingBreached ? "#dc2626" : "#ef4444"} strokeWidth={isCraneSwingBreached ? 3.5 : 2} strokeDasharray={isCraneSwingBreached ? "4,4" : "8,4"} className="transition-all duration-300" />
         
-        <circle cx="1040" cy="190" r="140" fill={isCraneSwingBreached ? "rgba(244, 63, 94, 0.28)" : "rgba(239, 68, 68, 0.08)"} stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4,4" className="transition-all duration-300" />
+        <circle cx="1040" cy="190" r="140" fill={isCraneSwingBreached ? "rgba(239, 68, 68, 0.20)" : "rgba(239, 68, 68, 0.08)"} stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4,4" className="transition-all duration-300" />
         {isCraneSwingBreached && (
           <circle cx="1040" cy="190" r="140" fill="url(#hazardStripes)" opacity="0.65" />
         )}
         
         <rect x="1025" y="175" width="30" height="30" rx="4" fill="#fbbf24" stroke="#d97706" strokeWidth="2" />
-        <line x1="1025" y1="175" x2="1055" y2="205" stroke="#000000" strokeWidth="1.5" opacity="0.5" />
-        <line x1="1055" y1="175" x2="1025" y2="205" stroke="#000000" strokeWidth="1.5" opacity="0.5" />
+        <line x1="1025" y1="175" x2="1055" y2="205" stroke="#78350f" strokeWidth="1.5" opacity="0.5" />
+        <line x1="1055" y1="175" x2="1025" y2="205" stroke="#78350f" strokeWidth="1.5" opacity="0.5" />
         
-        <circle cx="1040" cy="190" r="6" fill="#1e293b" stroke="#fbbf24" strokeWidth="2.5" />
-        <line x1="1040" y1="190" x2="940" y2="100" stroke="#fbbf24" strokeWidth="3" strokeLinecap="round" />
-        <line x1="1040" y1="190" x2="1080" y2="226" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="1040" cy="190" r="6" fill="#ffffff" stroke="#d97706" strokeWidth="2.5" />
+        <line x1="1040" y1="190" x2="940" y2="100" stroke="#f59e0b" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="1040" y1="190" x2="1080" y2="226" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
         <rect x="1074" y="220" width="12" height="12" rx="2" fill="#d97706" />
 
-        <text x="1040" y="354" textAnchor="middle" fontFamily="sans-serif" fontSize="10" fontWeight="900" fill={isCraneSwingBreached ? "#f43f5e" : "#ef4444"}>
+        <text x="1040" y="354" textAnchor="middle" fontFamily="sans-serif" fontSize="10" fontWeight="900" fill={isCraneSwingBreached ? "#b91c1c" : "#dc2626"}>
           {isCraneSwingBreached ? "🚨 CRITICAL SWING BREACH" : "CRANE SWING ZONE"}
         </text>
-        <text x="1040" y="62" textAnchor="middle" fontFamily="monospace" fontSize="7" fontWeight="bold" fill={isCraneSwingBreached ? "#fda4af" : "#fca5a5"}>
+        <text x="1040" y="62" textAnchor="middle" fontFamily="sans-serif" fontSize="7" fontWeight="bold" fill={isCraneSwingBreached ? "#b91c1c" : "#ef4444"}>
           {isCraneSwingBreached ? "⚠️ PERSONNEL DETECTED" : "CRITICAL DANGER ZONE"}
         </text>
-        <text x="1040" y="130" textAnchor="middle" fontFamily="monospace" fontSize="7" fontWeight="bold" fill="#fbbf24">CRANE T1 ACTIVE</text>
+        <text x="1040" y="130" textAnchor="middle" fontFamily="sans-serif" fontSize="7" fontWeight="bold" fill="#b45309">CRANE T1 ACTIVE</text>
       </g>
 
       {/* 2. High Voltage Area Substation */}
@@ -546,17 +543,17 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <rect x="548" y="40" width="172" height="128" rx="12" fill={isHighVoltageBreached ? "rgba(244, 63, 94, 0.28)" : "rgba(239, 68, 68, 0.05)"} stroke={isHighVoltageBreached ? "#ef4444" : "#f43f5e"} strokeWidth={isHighVoltageBreached ? 3.5 : 1.8} strokeDasharray={isHighVoltageBreached ? "2,2" : "6,4"} className="transition-all duration-300" />
+        <rect x="548" y="40" width="172" height="128" rx="12" fill={isHighVoltageBreached ? "rgba(239, 68, 68, 0.22)" : "rgba(239, 68, 68, 0.06)"} stroke={isHighVoltageBreached ? "#dc2626" : "#ef4444"} strokeWidth={isHighVoltageBreached ? 3.5 : 1.8} strokeDasharray={isHighVoltageBreached ? "2,2" : "6,4"} className="transition-all duration-300" />
         {isHighVoltageBreached && (
           <rect x="548" y="40" width="172" height="128" rx="12" fill="url(#hazardStripes)" opacity="0.65" />
         )}
 
-        <path d="M 634 60 L 618 100 L 632 100 L 622 136 L 642 90 L 628 90 Z" fill={isHighVoltageBreached ? "#fbbf24" : "rgba(239, 68, 68, 0.15)"} />
+        <path d="M 634 60 L 618 100 L 632 100 L 622 136 L 642 90 L 628 90 Z" fill={isHighVoltageBreached ? "#d97706" : "rgba(239, 68, 68, 0.3)"} />
 
-        <text x="634" y="148" textAnchor="middle" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill={isHighVoltageBreached ? "#f43f5e" : "#f43f5e"}>
+        <text x="634" y="148" textAnchor="middle" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill={isHighVoltageBreached ? "#b91c1c" : "#dc2626"}>
           {isHighVoltageBreached ? "⚡ HIGH VOLTAGE BREACH" : "HIGH VOLTAGE AREA"}
         </text>
-        <text x="634" y="52" textAnchor="middle" fontFamily="monospace" fontSize="6.5" fontWeight="bold" fill={isHighVoltageBreached ? "#fda4af" : "#f9a8d4"}>
+        <text x="634" y="52" textAnchor="middle" fontFamily="sans-serif" fontSize="6.5" fontWeight="bold" fill={isHighVoltageBreached ? "#b91c1c" : "#ef4444"}>
           {isHighVoltageBreached ? "🚨 INTRUDER RFID TAGGED" : "DANGER: 440V SUBSTATION"}
         </text>
       </g>
@@ -580,11 +577,11 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <rect x="140" y="640" width="130" height="90" rx="6" fill="#1e293b" stroke="#3b82f6" strokeWidth="2" />
+        <rect x="140" y="640" width="130" height="90" rx="6" fill="#eff6ff" stroke="#3b82f6" strokeWidth="2" />
         <line x1="180" y1="640" x2="180" y2="730" stroke="#3b82f6" strokeWidth="1" strokeDasharray="3,3" />
         <line x1="225" y1="640" x2="225" y2="730" stroke="#3b82f6" strokeWidth="1" strokeDasharray="3,3" />
-        <text x="205" y="688" textAnchor="middle" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#60a5fa">SITE OFFICE</text>
-        <text x="205" y="704" textAnchor="middle" fontFamily="monospace" fontSize="7" fill="#93c5fd">HQ & VISITOR CENTRE</text>
+        <text x="205" y="688" textAnchor="middle" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#1d4ed8">SITE OFFICE</text>
+        <text x="205" y="704" textAnchor="middle" fontFamily="sans-serif" fontSize="7" fontWeight="bold" fill="#3b82f6">HQ & VISITOR CENTRE</text>
       </g>
       
       {/* Vehicle Parking Bay Area */}
@@ -604,12 +601,12 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <rect x="24" y="640" width="96" height="96" rx="6" fill="#0f172a" stroke="#475569" strokeWidth="1.5" />
-        <line x1="24" y1="664" x2="120" y2="664" stroke="#475569" strokeWidth="1" strokeDasharray="4,2" />
-        <line x1="24" y1="688" x2="120" y2="688" stroke="#475569" strokeWidth="1" strokeDasharray="4,2" />
-        <line x1="24" y1="712" x2="120" y2="712" stroke="#475569" strokeWidth="1" strokeDasharray="4,2" />
-        <text x="72" y="654" textAnchor="middle" fontFamily="sans-serif" fontSize="8" fontWeight="900" fill="#94a3b8">PARKING</text>
-        <text x="72" y="726" textAnchor="middle" fontFamily="monospace" fontSize="6" fill="#64748b">14 VEHICLES MAX</text>
+        <rect x="24" y="640" width="96" height="96" rx="6" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />
+        <line x1="24" y1="664" x2="120" y2="664" stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,2" />
+        <line x1="24" y1="688" x2="120" y2="688" stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,2" />
+        <line x1="24" y1="712" x2="120" y2="712" stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,2" />
+        <text x="72" y="654" textAnchor="middle" fontFamily="sans-serif" fontSize="8" fontWeight="900" fill="#475569">PARKING</text>
+        <text x="72" y="726" textAnchor="middle" fontFamily="sans-serif" fontSize="6.5" fontWeight="bold" fill="#64748b">14 VEHICLES MAX</text>
       </g>
       
       {/* Material Staging Area Yard B */}
@@ -629,14 +626,14 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <rect x="480" y="640" width="180" height="90" rx="8" fill="#1e293b" stroke="#8b5cf6" strokeWidth="1.5" />
-        <rect x="492" y="652" width="48" height="20" rx="2" fill="#8b5cf6" opacity="0.3" stroke="#8b5cf6" strokeWidth="1" />
-        <rect x="492" y="682" width="48" height="20" rx="2" fill="#3b82f6" opacity="0.3" stroke="#3b82f6" strokeWidth="1" />
-        <rect x="552" y="652" width="48" height="20" rx="2" fill="#10b981" opacity="0.3" stroke="#10b981" strokeWidth="1" />
-        <rect x="552" y="682" width="48" height="20" rx="2" fill="#f59e0b" opacity="0.3" stroke="#f59e0b" strokeWidth="1" />
-        <text x="618" y="700" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#c084fc">MATERIAL</text>
-        <text x="618" y="712" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#c084fc">STAGING</text>
-        <text x="570" y="648" textAnchor="middle" fontFamily="monospace" fontSize="7" fill="#c084fc">YARD B</text>
+        <rect x="480" y="640" width="180" height="90" rx="8" fill="#faf5ff" stroke="#8b5cf6" strokeWidth="1.5" />
+        <rect x="492" y="652" width="48" height="20" rx="2" fill="#c084fc" opacity="0.4" stroke="#8b5cf6" strokeWidth="1" />
+        <rect x="492" y="682" width="48" height="20" rx="2" fill="#60a5fa" opacity="0.4" stroke="#3b82f6" strokeWidth="1" />
+        <rect x="552" y="652" width="48" height="20" rx="2" fill="#34d399" opacity="0.4" stroke="#10b981" strokeWidth="1" />
+        <rect x="552" y="682" width="48" height="20" rx="2" fill="#fbbf24" opacity="0.4" stroke="#f59e0b" strokeWidth="1" />
+        <text x="618" y="700" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#6b21a8">MATERIAL</text>
+        <text x="618" y="712" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#6b21a8">STAGING</text>
+        <text x="570" y="648" textAnchor="middle" fontFamily="sans-serif" fontSize="7" fontWeight="bold" fill="#7c3aed">YARD B</text>
       </g>
 
       {/* Steel Storage Yard Zone S3 */}
@@ -656,19 +653,19 @@ export function InteractiveSiteMap({
           }
         });
       }}>
-        <rect x="820" y="620" width="180" height="90" rx="8" fill="#1e293b" stroke="#f59e0b" strokeWidth="1.5" />
-        <line x1="840" y1="645" x2="900" y2="645" stroke="#f59e0b" strokeWidth="4" strokeLinecap="round" opacity="0.8" />
-        <line x1="840" y1="655" x2="900" y2="655" stroke="#f59e0b" strokeWidth="4" strokeLinecap="round" opacity="0.8" />
-        <line x1="840" y1="665" x2="900" y2="665" stroke="#f59e0b" strokeWidth="4" strokeLinecap="round" opacity="0.8" />
-        <line x1="840" y1="675" x2="900" y2="675" stroke="#f59e0b" strokeWidth="4" strokeLinecap="round" opacity="0.8" />
-        <rect x="912" y="640" width="76" height="40" rx="4" fill="#111827" stroke="#fbbf24" strokeWidth="1" />
-        <text x="950" y="656" textAnchor="middle" fontFamily="sans-serif" fontSize="8" fontWeight="900" fill="#f59e0b">STEEL</text>
-        <text x="950" y="670" textAnchor="middle" fontFamily="sans-serif" fontSize="8" fontWeight="900" fill="#f59e0b">YARD</text>
-        <text x="910" y="632" textAnchor="middle" fontFamily="monospace" fontSize="7" fill="#fbbf24">ZONE S3</text>
+        <rect x="820" y="620" width="180" height="90" rx="8" fill="#fffbeb" stroke="#f59e0b" strokeWidth="1.5" />
+        <line x1="840" y1="645" x2="900" y2="645" stroke="#d97706" strokeWidth="4" strokeLinecap="round" opacity="0.9" />
+        <line x1="840" y1="655" x2="900" y2="655" stroke="#d97706" strokeWidth="4" strokeLinecap="round" opacity="0.9" />
+        <line x1="840" y1="665" x2="900" y2="665" stroke="#d97706" strokeWidth="4" strokeLinecap="round" opacity="0.9" />
+        <line x1="840" y1="675" x2="900" y2="675" stroke="#d97706" strokeWidth="4" strokeLinecap="round" opacity="0.9" />
+        <rect x="912" y="640" width="76" height="40" rx="4" fill="#ffffff" stroke="#f59e0b" strokeWidth="1" />
+        <text x="950" y="656" textAnchor="middle" fontFamily="sans-serif" fontSize="8" fontWeight="900" fill="#b45309">STEEL</text>
+        <text x="950" y="670" textAnchor="middle" fontFamily="sans-serif" fontSize="8" fontWeight="900" fill="#b45309">YARD</text>
+        <text x="910" y="632" textAnchor="middle" fontFamily="sans-serif" fontSize="7" fontWeight="bold" fill="#d97706">ZONE S3</text>
       </g>
 
       {/* Grid boundary markers & compass */}
-      <g stroke="#38bdf8" strokeWidth="0.8" opacity="0.4" fontFamily="monospace" fontSize="8" fill="#38bdf8">
+      <g stroke="#64748b" strokeWidth="0.8" opacity="0.5" fontFamily="sans-serif" fontSize="8" fill="#475569">
         <line x1="16" y1="20" x2="16" y2="780" strokeDasharray="2,4" />
         <line x1="1184" y1="20" x2="1184" y2="780" strokeDasharray="2,4" />
         <line x1="16" y1="40" x2="1184" y2="40" />
@@ -679,9 +676,9 @@ export function InteractiveSiteMap({
 
       {/* Compass North Indicator */}
       <g transform="translate(1140, 720) scale(0.75)">
-        <circle cx="0" cy="0" r="24" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" />
-        <path d="M 0 -20 L 6 0 L 0 4 L -6 0 Z" fill="#38bdf8" />
-        <text x="0" y="-26" textAnchor="middle" fontFamily="sans-serif" fontSize="14" fontWeight="900" fill="#38bdf8">N</text>
+        <circle cx="0" cy="0" r="24" fill="#ffffff" stroke="#0284c7" strokeWidth="1.5" />
+        <path d="M 0 -20 L 6 0 L 0 4 L -6 0 Z" fill="#0284c7" />
+        <text x="0" y="-26" textAnchor="middle" fontFamily="sans-serif" fontSize="14" fontWeight="900" fill="#0284c7">N</text>
       </g>
     </svg>
   );

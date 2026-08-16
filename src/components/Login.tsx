@@ -313,7 +313,10 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
             <button 
               type="button"
-              onClick={() => onLoginSuccess('demo')}
+              onClick={() => {
+                localStorage.setItem('gao_jwt_token', 'demo');
+                onLoginSuccess('demo');
+              }}
               className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-slate-100 transition flex items-center justify-between"
             >
               <div className="flex items-center gap-2">

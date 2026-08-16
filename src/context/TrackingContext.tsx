@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Person, Asset, Vehicle } from '../types';
 import { RealtimeTag, gaoApi } from '../lib/gaoApi';
-import { INITIAL_ASSETS, INITIAL_VEHICLES } from '../lib/trackingLayers';
+import { 
+  AssetItem, VehicleItem, CCTVCameraItem, EnvironmentalSensorItem, InfrastructureItem,
+  INITIAL_ASSETS, INITIAL_VEHICLES, INITIAL_INFRASTRUCTURE, INITIAL_CCTVS, INITIAL_ENV_SENSORS 
+} from '../lib/trackingLayers';
 import { ZoneBounds } from '../components/MapEditorModal';
 
 export interface MapZoneDefinition {
@@ -13,6 +16,8 @@ export interface MapZoneDefinition {
   hazardLevel?: 'normal' | 'warning' | 'critical';
   capacity?: number;
   siteId?: string;
+  buildingId?: string;
+  floorId?: string;
   x: number;
   y: number;
   width: number;
@@ -20,6 +25,8 @@ export interface MapZoneDefinition {
   readerIds?: string[];
   antennaIds?: number[];
   currentOccupancy?: number;
+  polygonPoints?: { x: number; y: number }[];
+  proximityAlertEnabled?: boolean;
 }
 
 export interface ReaderZoneMapping {
@@ -38,17 +45,36 @@ export interface TrackingContextType {
   wsConnected: boolean;
   liveTags: RealtimeTag[];
   people: Person[];
-  assets: Asset[];
-  vehicles: Vehicle[];
+  assets: AssetItem[];
+  vehicles: VehicleItem[];
+  cameras: CCTVCameraItem[];
+  envSensors: EnvironmentalSensorItem[];
+  infrastructure: InfrastructureItem[];
   zones: MapZoneDefinition[];
   zonesDict: Record<string, ZoneBounds>;
   readerMappings: ReaderZoneMapping[];
   mapConfig: any;
+  customFloorplan: string | null;
+  customSvgSource: string | null;
   isLoading: boolean;
   lastUpdateTimestamp: string | null;
+  // Sync handlers
   saveMapConfig: (cfg: any) => Promise<void>;
   saveZone: (zone: Partial<MapZoneDefinition>) => Promise<void>;
   deleteZone: (zoneId: string) => Promise<void>;
+  saveCustomZones: (zones: Record<string, ZoneBounds>, floorplanUrl?: string | null, svgSource?: string | null) => Promise<void>;
+  saveAsset: (item: AssetItem) => Promise<void>;
+  deleteAsset: (id: string) => Promise<void>;
+  saveVehicle: (item: VehicleItem) => Promise<void>;
+  deleteVehicle: (id: string) => Promise<void>;
+  saveCamera: (item: CCTVCameraItem) => Promise<void>;
+  deleteCamera: (id: string) => Promise<void>;
+  saveEnvSensor: (item: EnvironmentalSensorItem) => Promise<void>;
+  deleteEnvSensor: (id: string) => Promise<void>;
+  saveInfrastructure: (item: InfrastructureItem) => Promise<void>;
+  deleteInfrastructure: (id: string) => Promise<void>;
+  setCustomFloorplan: (url: string | null) => void;
+  setCustomSvgSource: (svg: string | null) => void;
   getZoneByNameOrId: (nameOrId: string) => MapZoneDefinition | undefined;
   refreshLiveState: () => Promise<void>;
   reportManualScan: (tagId: string, location: string, name?: string) => Promise<void>;
@@ -58,7 +84,7 @@ const DEFAULT_INITIAL_ZONES: MapZoneDefinition[] = [
   {
     id: 'zone_excavation_shaft',
     zoneId: 'zone_excavation_shaft',
-    name: 'Excavation & Foundation Pit',
+    name: 'Excavation Shaft',
     aliasNames: ['Excavation Shaft', 'Excavation & Foundation Pit', 'Zone2'],
     category: 'EXCAVATION & SHORING',
     hazardLevel: 'warning',
@@ -72,8 +98,8 @@ const DEFAULT_INITIAL_ZONES: MapZoneDefinition[] = [
   {
     id: 'zone_tower_core',
     zoneId: 'zone_tower_core',
-    name: 'Structure & Scaffolding (L1-L4)',
-    aliasNames: ['Tower Core', 'Structure & Scaffolding (L1-L4)', 'Zone1', 'd6'],
+    name: 'Tower Core',
+    aliasNames: ['Tower Core', 'Structure & Scaffolding (L1-L4)', 'Building A', 'Zone1', 'd6'],
     category: 'CONCRETE REINFORCEMENT',
     hazardLevel: 'normal',
     capacity: 25,
@@ -86,7 +112,7 @@ const DEFAULT_INITIAL_ZONES: MapZoneDefinition[] = [
   {
     id: 'zone_crane_area',
     zoneId: 'zone_crane_area',
-    name: 'Heavy Crane & Exclusion Area',
+    name: 'Crane Swing Zone',
     aliasNames: ['Crane Swing Zone', 'Heavy Crane & Exclusion Area', 'd8'],
     category: 'CRANE SWING RADIUS',
     hazardLevel: 'critical',
@@ -112,60 +138,18 @@ const DEFAULT_INITIAL_ZONES: MapZoneDefinition[] = [
     height: 16
   },
   {
-    id: 'zone_gate_1',
-    zoneId: 'zone_gate_1',
-    name: 'Gate 1 / Main Access Gate',
-    aliasNames: ['Gate 1', 'Main Access Gate', 'Muster Point A'],
-    category: 'MUSTER POINT & ACCESS',
+    id: 'zone_muster_point_a',
+    zoneId: 'zone_muster_point_a',
+    name: 'Muster Point A',
+    aliasNames: ['Muster Point A', 'Gate 1', 'Main Access Gate'],
+    category: 'MUSTER POINT',
     hazardLevel: 'normal',
     capacity: 50,
     siteId: 'metro-tower',
     x: 2,
     y: 10,
-    width: 12,
-    height: 16
-  },
-  {
-    id: 'zone_material_laydown',
-    zoneId: 'zone_material_laydown',
-    name: 'Material Laydown & Loading',
-    aliasNames: ['Material Laydown & Loading', 'Storage Yard'],
-    category: 'MATERIAL STORAGE',
-    hazardLevel: 'normal',
-    capacity: 15,
-    siteId: 'metro-tower',
-    x: 20,
-    y: 75,
-    width: 30,
-    height: 20
-  },
-  {
-    id: 'zone_site_office',
-    zoneId: 'zone_site_office',
-    name: 'Site Office & Welfare Container',
-    aliasNames: ['Site Office', 'Welfare Container'],
-    category: 'ADMINISTRATION',
-    hazardLevel: 'normal',
-    capacity: 30,
-    siteId: 'metro-tower',
-    x: 5,
-    y: 40,
-    width: 15,
-    height: 25
-  },
-  {
-    id: 'zone_confined_shaft',
-    zoneId: 'zone_confined_shaft',
-    name: 'Confined Shaft & Tunneling',
-    aliasNames: ['Confined Shaft', 'Tunneling'],
-    category: 'CONFINED SPACE',
-    hazardLevel: 'critical',
-    capacity: 4,
-    siteId: 'metro-tower',
-    x: 60,
-    y: 75,
-    width: 25,
-    height: 20
+    width: 8,
+    height: 12
   }
 ];
 
@@ -179,7 +163,7 @@ const INITIAL_PEOPLE_ROSTER: Person[] = [
     shiftStatus: 'ON_SITE',
     trainingStatus: 'COMPLIANT',
     hardhatTagId: '1',
-    currentZone: 'Structure & Scaffolding (L1-L4)',
+    currentZone: 'Tower Core',
     presenceState: 'MOVING',
     dwellTime: 42,
     x: 55,
@@ -192,13 +176,13 @@ const INITIAL_PEOPLE_ROSTER: Person[] = [
   {
     id: '2',
     name: 'Marcus Vance',
-    role: 'Crane Operator Lead',
-    tradeCompany: 'Apex Structural JV',
+    role: 'Scaffolder Lead',
+    tradeCompany: 'BuildCorp Structural',
     ppeStatus: 'COMPLIANT',
     shiftStatus: 'ON_SITE',
     trainingStatus: 'COMPLIANT',
     hardhatTagId: '2',
-    currentZone: 'Gate 1 / Main Access Gate',
+    currentZone: 'Muster Point A',
     presenceState: 'MOVING',
     dwellTime: 18,
     x: 6,
@@ -217,7 +201,7 @@ const INITIAL_PEOPLE_ROSTER: Person[] = [
     shiftStatus: 'ON_SITE',
     trainingStatus: 'COMPLIANT',
     hardhatTagId: '3',
-    currentZone: 'Excavation & Foundation Pit',
+    currentZone: 'Excavation Shaft',
     presenceState: 'IDLE',
     dwellTime: 75,
     x: 22,
@@ -230,21 +214,21 @@ const INITIAL_PEOPLE_ROSTER: Person[] = [
   {
     id: '4',
     name: 'David Kim',
-    role: 'Material Logistics Tech',
-    tradeCompany: 'Apex Structural JV',
+    role: 'Crane Logistics Specialist',
+    tradeCompany: 'Heavy Lift Engineering',
     ppeStatus: 'COMPLIANT',
     shiftStatus: 'ON_SITE',
     trainingStatus: 'COMPLIANT',
     hardhatTagId: '4',
-    currentZone: 'Material Laydown & Loading',
+    currentZone: 'Crane Swing Zone',
     presenceState: 'MOVING',
     dwellTime: 29,
-    x: 32,
-    y: 82,
+    x: 84,
+    y: 20,
     rssi: -65,
     battery: 95,
     lastSeen: new Date(),
-    trail: [{ x: 32, y: 82 }]
+    trail: [{ x: 84, y: 20 }]
   }
 ];
 
@@ -262,9 +246,82 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
   const [wsConnected, setWsConnected] = useState(false);
   const [liveTags, setLiveTags] = useState<RealtimeTag[]>([]);
   const [people, setPeople] = useState<Person[]>(INITIAL_PEOPLE_ROSTER);
-  const [assets] = useState<Asset[]>(INITIAL_ASSETS as any);
-  const [vehicles] = useState<Vehicle[]>(INITIAL_VEHICLES as any);
-  const [zones, setZones] = useState<MapZoneDefinition[]>(DEFAULT_INITIAL_ZONES);
+
+  // Entities initialized from persistent localStorage with fallbacks
+  const [assets, setAssets] = useState<AssetItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('gao_db_assets');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_ASSETS;
+  });
+
+  const [vehicles, setVehicles] = useState<VehicleItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('gao_db_vehicles');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_VEHICLES;
+  });
+
+  const [cameras, setCameras] = useState<CCTVCameraItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('gao_db_cameras');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_CCTVS;
+  });
+
+  const [envSensors, setEnvSensors] = useState<EnvironmentalSensorItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('gao_db_sensors');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_ENV_SENSORS;
+  });
+
+  const [infrastructure, setInfrastructure] = useState<InfrastructureItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('gao_db_infrastructure');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_INFRASTRUCTURE;
+  });
+
+  const [zones, setZones] = useState<MapZoneDefinition[]>(() => {
+    try {
+      const saved = localStorage.getItem('gao_db_zones');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_INITIAL_ZONES;
+  });
+
+  const [customFloorplan, setCustomFloorplanState] = useState<string | null>(() => {
+    return localStorage.getItem('gao_custom_floorplan') || null;
+  });
+
+  const [customSvgSource, setCustomSvgSourceState] = useState<string | null>(() => {
+    return localStorage.getItem('gao_custom_svg_source') || null;
+  });
+
   const [readerMappings, setReaderMappings] = useState<ReaderZoneMapping[]>([]);
   const [mapConfig, setMapConfig] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -281,13 +338,32 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
   const setMode = useCallback((newMode: 'real' | 'demo') => {
     setModeState(newMode);
     localStorage.setItem('gao_app_mode', newMode);
-    // Notify WebSocket server about mode change
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: newMode === 'demo' ? 'enable_demo_mode' : 'disable_demo_mode',
         payload: { mode: newMode }
       }));
     }
+  }, []);
+
+  const setCustomFloorplan = useCallback((url: string | null) => {
+    setCustomFloorplanState(url);
+    if (url) {
+      localStorage.setItem('gao_custom_floorplan', url);
+    } else {
+      localStorage.removeItem('gao_custom_floorplan');
+    }
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  const setCustomSvgSource = useCallback((svg: string | null) => {
+    setCustomSvgSourceState(svg);
+    if (svg) {
+      localStorage.setItem('gao_custom_svg_source', svg);
+    } else {
+      localStorage.removeItem('gao_custom_svg_source');
+    }
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
   }, []);
 
   // Helper to find zone by name or zoneId
@@ -313,7 +389,9 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
         height: z.height,
         category: z.category,
         hazardLevel: z.hazardLevel,
-        capacity: z.capacity
+        capacity: z.capacity,
+        polygonPoints: z.polygonPoints,
+        proximityAlertEnabled: z.proximityAlertEnabled
       };
       if (z.zoneId && z.zoneId !== z.name) {
         dict[z.zoneId] = dict[z.name];
@@ -322,18 +400,193 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
     return dict;
   }, [zones]);
 
+  // Save full set of custom zones from Map Editor or Custom Map Page
+  const saveCustomZones = useCallback(async (
+    newZones: Record<string, ZoneBounds>, 
+    newFloorplanUrl?: string | null, 
+    newSvgSource?: string | null
+  ) => {
+    const zoneDefinitions: MapZoneDefinition[] = Object.entries(newZones).map(([name, bounds]) => {
+      const zoneId = `zone_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`;
+      return {
+        id: zoneId,
+        zoneId,
+        name,
+        category: bounds.category || 'GENERAL',
+        hazardLevel: bounds.hazardLevel || 'normal',
+        capacity: bounds.capacity || 10,
+        siteId: activeProject,
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        polygonPoints: bounds.polygonPoints,
+        proximityAlertEnabled: bounds.proximityAlertEnabled,
+        aliasNames: [name]
+      };
+    });
+
+    setZones(zoneDefinitions);
+    localStorage.setItem('gao_db_zones', JSON.stringify(zoneDefinitions));
+
+    if (newFloorplanUrl !== undefined) {
+      setCustomFloorplan(newFloorplanUrl);
+    }
+    if (newSvgSource !== undefined) {
+      setCustomSvgSource(newSvgSource);
+    }
+
+    try {
+      await fetch('/api/data/zones_bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zones: zoneDefinitions, siteId: activeProject })
+      });
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, [activeProject, setCustomFloorplan, setCustomSvgSource]);
+
+  // Asset CRUD
+  const saveAsset = useCallback(async (item: AssetItem) => {
+    setAssets(prev => {
+      const idx = prev.findIndex(a => a.id === item.id);
+      const next = idx >= 0 ? [...prev] : [item, ...prev];
+      if (idx >= 0) next[idx] = item;
+      localStorage.setItem('gao_db_assets', JSON.stringify(next));
+      return next;
+    });
+    try {
+      await fetch('/api/data/assets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+      });
+    } catch {}
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  const deleteAsset = useCallback(async (id: string) => {
+    setAssets(prev => {
+      const next = prev.filter(a => a.id !== id);
+      localStorage.setItem('gao_db_assets', JSON.stringify(next));
+      return next;
+    });
+    try {
+      await fetch(`/api/data/assets/${id}`, { method: 'DELETE' });
+    } catch {}
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  // Vehicle CRUD
+  const saveVehicle = useCallback(async (item: VehicleItem) => {
+    setVehicles(prev => {
+      const idx = prev.findIndex(v => v.id === item.id);
+      const next = idx >= 0 ? [...prev] : [item, ...prev];
+      if (idx >= 0) next[idx] = item;
+      localStorage.setItem('gao_db_vehicles', JSON.stringify(next));
+      return next;
+    });
+    try {
+      await fetch('/api/data/vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+      });
+    } catch {}
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  const deleteVehicle = useCallback(async (id: string) => {
+    setVehicles(prev => {
+      const next = prev.filter(v => v.id !== id);
+      localStorage.setItem('gao_db_vehicles', JSON.stringify(next));
+      return next;
+    });
+    try {
+      await fetch(`/api/data/vehicles/${id}`, { method: 'DELETE' });
+    } catch {}
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  // Camera CRUD
+  const saveCamera = useCallback(async (item: CCTVCameraItem) => {
+    setCameras(prev => {
+      const idx = prev.findIndex(c => c.id === item.id);
+      const next = idx >= 0 ? [...prev] : [item, ...prev];
+      if (idx >= 0) next[idx] = item;
+      localStorage.setItem('gao_db_cameras', JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  const deleteCamera = useCallback(async (id: string) => {
+    setCameras(prev => {
+      const next = prev.filter(c => c.id !== id);
+      localStorage.setItem('gao_db_cameras', JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  // Sensor CRUD
+  const saveEnvSensor = useCallback(async (item: EnvironmentalSensorItem) => {
+    setEnvSensors(prev => {
+      const idx = prev.findIndex(s => s.id === item.id);
+      const next = idx >= 0 ? [...prev] : [item, ...prev];
+      if (idx >= 0) next[idx] = item;
+      localStorage.setItem('gao_db_sensors', JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  const deleteEnvSensor = useCallback(async (id: string) => {
+    setEnvSensors(prev => {
+      const next = prev.filter(s => s.id !== id);
+      localStorage.setItem('gao_db_sensors', JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  // Infrastructure CRUD
+  const saveInfrastructure = useCallback(async (item: InfrastructureItem) => {
+    setInfrastructure(prev => {
+      const idx = prev.findIndex(i => i.id === item.id);
+      const next = idx >= 0 ? [...prev] : [item, ...prev];
+      if (idx >= 0) next[idx] = item;
+      localStorage.setItem('gao_db_infrastructure', JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
+  const deleteInfrastructure = useCallback(async (id: string) => {
+    setInfrastructure(prev => {
+      const next = prev.filter(i => i.id !== id);
+      localStorage.setItem('gao_db_infrastructure', JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
+  }, []);
+
   // Fetch initial database entities
   const loadDatabaseConfig = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [zonesRes, mapRes, readersRes] = await Promise.allSettled([
+      const [zonesRes, mapRes, readersRes, assetsRes, vehiclesRes] = await Promise.allSettled([
         fetch('/api/data/zones').then(r => r.ok ? r.json() : []),
         fetch(`/api/data/map_configurations/${activeProject}`).then(r => r.ok ? r.json() : null),
-        fetch('/api/data/reader_zone_mappings').then(r => r.ok ? r.json() : [])
+        fetch('/api/data/reader_zone_mappings').then(r => r.ok ? r.json() : []),
+        fetch('/api/data/assets').then(r => r.ok ? r.json() : []),
+        fetch('/api/data/vehicles').then(r => r.ok ? r.json() : [])
       ]);
 
       if (zonesRes.status === 'fulfilled' && Array.isArray(zonesRes.value) && zonesRes.value.length > 0) {
         setZones(zonesRes.value);
+        localStorage.setItem('gao_db_zones', JSON.stringify(zonesRes.value));
       }
 
       if (mapRes.status === 'fulfilled' && mapRes.value) {
@@ -342,6 +595,16 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
 
       if (readersRes.status === 'fulfilled' && Array.isArray(readersRes.value)) {
         setReaderMappings(readersRes.value);
+      }
+
+      if (assetsRes.status === 'fulfilled' && Array.isArray(assetsRes.value) && assetsRes.value.length > 0) {
+        setAssets(assetsRes.value);
+        localStorage.setItem('gao_db_assets', JSON.stringify(assetsRes.value));
+      }
+
+      if (vehiclesRes.status === 'fulfilled' && Array.isArray(vehiclesRes.value) && vehiclesRes.value.length > 0) {
+        setVehicles(vehiclesRes.value);
+        localStorage.setItem('gao_db_vehicles', JSON.stringify(vehiclesRes.value));
       }
     } catch (err) {
       console.warn('[TrackingContext] Initial config load error:', err);
@@ -365,6 +628,7 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(payload)
       });
       setMapConfig(payload);
+      window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
     } catch (err) {
       console.error('[TrackingContext] Failed to save map config to DB:', err);
       throw err;
@@ -387,6 +651,8 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
         y: zoneData.y ?? 50,
         width: zoneData.width ?? 20,
         height: zoneData.height ?? 20,
+        polygonPoints: zoneData.polygonPoints,
+        proximityAlertEnabled: zoneData.proximityAlertEnabled,
         aliasNames: zoneData.aliasNames || [zoneData.name || 'Unnamed Zone'],
         readerIds: zoneData.readerIds || [],
         antennaIds: zoneData.antennaIds || [1]
@@ -400,13 +666,12 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
 
       setZones(prev => {
         const idx = prev.findIndex(z => z.zoneId === zoneId || z.id === zoneId);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = payload;
-          return next;
-        }
-        return [...prev, payload];
+        const next = idx >= 0 ? [...prev] : [...prev, payload];
+        if (idx >= 0) next[idx] = payload;
+        localStorage.setItem('gao_db_zones', JSON.stringify(next));
+        return next;
       });
+      window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
     } catch (err) {
       console.error('[TrackingContext] Failed to save zone to DB:', err);
       throw err;
@@ -417,7 +682,12 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
   const deleteZone = useCallback(async (zoneId: string) => {
     try {
       await fetch(`/api/data/zones/${zoneId}`, { method: 'DELETE' });
-      setZones(prev => prev.filter(z => z.zoneId !== zoneId && z.id !== zoneId));
+      setZones(prev => {
+        const next = prev.filter(z => z.zoneId !== zoneId && z.id !== zoneId);
+        localStorage.setItem('gao_db_zones', JSON.stringify(next));
+        return next;
+      });
+      window.dispatchEvent(new CustomEvent('gao_map_data_updated'));
     } catch (err) {
       console.error('[TrackingContext] Failed to delete zone from DB:', err);
       throw err;
@@ -430,7 +700,7 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
     const tagId = String(tagUpdate.TagID || tagUpdate.tagId || tagUpdate.id || '').trim();
     if (!tagId) return;
 
-    const locName = String(tagUpdate.Location || tagUpdate.LocationName || tagUpdate.zoneName || tagUpdate.zone || 'Zone1').trim();
+    const locName = String(tagUpdate.Location || tagUpdate.LocationName || tagUpdate.zoneName || tagUpdate.zone || 'Tower Core').trim();
     const timestamp = tagUpdate.Timestamp || tagUpdate.timestamp || new Date().toISOString();
     const rssi = tagUpdate.rssi !== undefined ? Number(tagUpdate.rssi) : -65;
     const readerId = tagUpdate.readerId;
@@ -461,7 +731,6 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
 
     setLastUpdateTimestamp(timestamp);
 
-    // Update liveTags list
     setLiveTags(prev => {
       const idx = prev.findIndex(t => t.TagID === tagId);
       if (idx >= 0) {
@@ -472,7 +741,6 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
       return [normalizedTag, ...prev.slice(0, 49)];
     });
 
-    // Update or add to people list
     setPeople(prev => {
       const personIdx = prev.findIndex(p => 
         p.hardhatTagId === tagId || 
@@ -574,9 +842,7 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
         wsRef.current = ws;
 
         ws.onopen = () => {
-          console.log('[TrackingContext] Connected to GAO RFID WebSocket server.');
           setWsConnected(true);
-          // Handshake mode status
           ws?.send(JSON.stringify({
             type: mode === 'demo' ? 'enable_demo_mode' : 'disable_demo_mode',
             payload: { mode }
@@ -601,9 +867,7 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
                 }
               }
             }
-          } catch (e) {
-            // Ignored parsing error
-          }
+          } catch {}
         };
 
         ws.onclose = () => {
@@ -613,12 +877,10 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
           }
         };
 
-        ws.onerror = (err) => {
-          console.warn('[TrackingContext] WebSocket error:', err);
+        ws.onerror = () => {
           ws?.close();
         };
-      } catch (err) {
-        console.warn('[TrackingContext] WebSocket connect exception:', err);
+      } catch {
         if (!isCleanedUp) {
           reconnectTimeoutRef.current = setTimeout(connectWebSocket, 4000);
         }
@@ -635,7 +897,7 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadDatabaseConfig, handleNormalizedTagUpdate, mode]);
 
-  // Periodic fallback polling in real mode to keep live_tags completely updated
+  // Periodic fallback polling in real mode
   useEffect(() => {
     const pollInterval = setInterval(() => {
       refreshLiveState();
@@ -643,6 +905,42 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
 
     return () => clearInterval(pollInterval);
   }, [refreshLiveState]);
+
+  // Listen to cross-tab/cross-component map updates
+  useEffect(() => {
+    const handleStorageOrDataUpdate = () => {
+      try {
+        const savedAssets = localStorage.getItem('gao_db_assets');
+        if (savedAssets) setAssets(JSON.parse(savedAssets));
+
+        const savedVehicles = localStorage.getItem('gao_db_vehicles');
+        if (savedVehicles) setVehicles(JSON.parse(savedVehicles));
+
+        const savedCameras = localStorage.getItem('gao_db_cameras');
+        if (savedCameras) setCameras(JSON.parse(savedCameras));
+
+        const savedSensors = localStorage.getItem('gao_db_sensors');
+        if (savedSensors) setEnvSensors(JSON.parse(savedSensors));
+
+        const savedZones = localStorage.getItem('gao_db_zones');
+        if (savedZones) setZones(JSON.parse(savedZones));
+
+        const savedFloorplan = localStorage.getItem('gao_custom_floorplan');
+        if (savedFloorplan !== null) setCustomFloorplanState(savedFloorplan);
+
+        const savedSvg = localStorage.getItem('gao_custom_svg_source');
+        if (savedSvg !== null) setCustomSvgSourceState(savedSvg);
+      } catch {}
+    };
+
+    window.addEventListener('gao_map_data_updated', handleStorageOrDataUpdate);
+    window.addEventListener('storage', handleStorageOrDataUpdate);
+
+    return () => {
+      window.removeEventListener('gao_map_data_updated', handleStorageOrDataUpdate);
+      window.removeEventListener('storage', handleStorageOrDataUpdate);
+    };
+  }, []);
 
   return (
     <TrackingContext.Provider
@@ -656,15 +954,33 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
         people,
         assets,
         vehicles,
+        cameras,
+        envSensors,
+        infrastructure,
         zones,
         zonesDict,
         readerMappings,
         mapConfig,
+        customFloorplan,
+        customSvgSource,
         isLoading,
         lastUpdateTimestamp,
         saveMapConfig,
         saveZone,
         deleteZone,
+        saveCustomZones,
+        saveAsset,
+        deleteAsset,
+        saveVehicle,
+        deleteVehicle,
+        saveCamera,
+        deleteCamera,
+        saveEnvSensor,
+        deleteEnvSensor,
+        saveInfrastructure,
+        deleteInfrastructure,
+        setCustomFloorplan,
+        setCustomSvgSource,
         getZoneByNameOrId,
         refreshLiveState,
         reportManualScan
@@ -682,3 +998,4 @@ export function useTracking() {
   }
   return context;
 }
+

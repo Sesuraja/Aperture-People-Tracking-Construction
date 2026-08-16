@@ -111,12 +111,30 @@ export async function setDoc(docRef: any, data: any, _options?: any): Promise<vo
   }
 }
 
+function getLocalCollection(colName: string): any[] {
+  try {
+    const raw = localStorage.getItem(`gao_db_${colName}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+function saveLocalCollection(colName: string, docs: any[]): void {
+  try {
+    localStorage.setItem(`gao_db_${colName}`, JSON.stringify(docs));
+  } catch {}
+}
+
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('gao_jwt_token');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  let token = localStorage.getItem('gao_jwt_token');
+  if (!token) {
+    token = 'demo';
   }
+  headers['Authorization'] = `Bearer ${token}`;
   return headers;
 }
 
@@ -126,31 +144,41 @@ async function safeJsonFetch(url: string, options?: RequestInit): Promise<any> {
     ...getAuthHeaders(),
     ...(customOptions.headers || {})
   };
-  const response = await fetch(url, customOptions);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const text = await response.text();
   try {
-    return JSON.parse(text);
-  } catch (err) {
-    throw new Error(`Invalid JSON output: ${text.slice(0, 100)}`);
+    const response = await fetch(url, customOptions);
+    if (!response.ok) {
+      return null;
+    }
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  } catch {
+    return null;
   }
 }
 
 export async function addDoc(colRef: any, data: any): Promise<any> {
   const { colName } = getRefInfo(colRef);
+  const docId = data.id || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const itemToSave = { ...data, id: docId, createdAt: data.createdAt || new Date().toISOString() };
+
+  // Save to local cache immediately
+  const currentDocs = getLocalCollection(colName);
+  saveLocalCollection(colName, [itemToSave, ...currentDocs.filter(d => d.id !== docId)]);
+
   try {
     const result = await safeJsonFetch(`/api/data/${colName}`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(itemToSave)
     });
-    const savedDoc = result?.doc || result || data;
-    const docId = savedDoc.id || data.id || Math.random().toString(36).substring(2, 11);
+    const savedDoc = result?.doc || result || itemToSave;
     return { id: docId, ...createMockDoc({ ...savedDoc, id: docId }) };
-  } catch (err) {
-    console.warn(`addDoc MongoDB API error for ${colName}:`, err);
-    const newId = data.id || Math.random().toString(36).substring(2, 11);
-    return { id: newId, ...createMockDoc({ id: newId, ...data }) };
+  } catch {
+    return { id: docId, ...createMockDoc(itemToSave) };
   }
 }
 
@@ -160,9 +188,12 @@ export async function getDoc(docRef: any): Promise<any> {
     const result = await safeJsonFetch(`/api/data/${colName}/${docId}`);
     const docObj = result?.doc || (result?.id ? result : null);
     if (docObj) return createMockDoc(docObj);
-  } catch (err) {
-    console.warn(`getDoc MongoDB API error for ${colName}/${docId}:`, err);
-  }
+  } catch {}
+
+  const localDocs = getLocalCollection(colName);
+  const found = localDocs.find(d => d.id === docId);
+  if (found) return createMockDoc(found);
+
   return { id: docId || 'unknown', exists: () => false, data: () => null };
 }
 
@@ -170,12 +201,15 @@ export async function getDocs(queryRef: any): Promise<any> {
   const { colName } = getRefInfo(queryRef);
   try {
     const result = await safeJsonFetch(`/api/data/${colName}`);
-    const docsArray = Array.isArray(result) ? result : (result?.data || []);
-    return createMockSnapshot(docsArray);
-  } catch (err) {
-    console.warn(`getDocs MongoDB API error for ${colName}:`, err);
-  }
-  return createMockSnapshot([]);
+    if (result && (Array.isArray(result) || Array.isArray(result?.data))) {
+      const docsArray = Array.isArray(result) ? result : (result.data || []);
+      saveLocalCollection(colName, docsArray);
+      return createMockSnapshot(docsArray);
+    }
+  } catch {}
+
+  const localDocs = getLocalCollection(colName);
+  return createMockSnapshot(localDocs);
 }
 
 export async function updateDoc(docRef: any, data: any): Promise<void> {
@@ -184,11 +218,11 @@ export async function updateDoc(docRef: any, data: any): Promise<void> {
 
 export async function deleteDoc(docRef: any): Promise<void> {
   const { colName, docId } = getRefInfo(docRef);
+  const localDocs = getLocalCollection(colName);
+  saveLocalCollection(colName, localDocs.filter(d => d.id !== docId));
   try {
     await fetch(`/api/data/${colName}/${docId}`, { method: 'DELETE', headers: getAuthHeaders() });
-  } catch (err) {
-    console.warn(`deleteDoc MongoDB API error for ${colName}/${docId}:`, err);
-  }
+  } catch {}
 }
 
 export async function getCountFromServer(queryRef: any): Promise<any> {
@@ -196,13 +230,15 @@ export async function getCountFromServer(queryRef: any): Promise<any> {
   try {
     const result = await safeJsonFetch(`/api/data/${colName}`);
     const docsArray = Array.isArray(result) ? result : (result?.data || []);
-    const count = docsArray.length;
-    return { data: () => ({ count }) };
-  } catch (err) {}
-  return { data: () => ({ count: 0 }) };
+    if (docsArray.length > 0) {
+      return { data: () => ({ count: docsArray.length }) };
+    }
+  } catch {}
+  const localDocs = getLocalCollection(colName);
+  return { data: () => ({ count: localDocs.length }) };
 }
 
-export function onSnapshot(ref: any, callback: (snapshot: any) => void, errorCallback?: (error: any) => void): () => void {
+export function onSnapshot(ref: any, callback: (snapshot: any) => void, _errorCallback?: (error: any) => void): () => void {
   let active = true;
   const { colName, docId } = getRefInfo(ref);
 
@@ -213,24 +249,34 @@ export function onSnapshot(ref: any, callback: (snapshot: any) => void, errorCal
         const result = await safeJsonFetch(`/api/data/${colName}/${docId}`);
         if (active && result) {
           const docObj = result?.doc || (result?.id ? result : null);
-          if (docObj) callback(createMockDoc(docObj));
+          if (docObj) {
+            callback(createMockDoc(docObj));
+            return;
+          }
+        }
+        const localDocs = getLocalCollection(colName);
+        const found = localDocs.find(d => d.id === docId);
+        if (active && found) {
+          callback(createMockDoc(found));
         }
       } else {
         const result = await safeJsonFetch(`/api/data/${colName}`);
-        if (active && result) {
-          const docsArray = Array.isArray(result) ? result : (result?.data || []);
+        if (active && result && (Array.isArray(result) || Array.isArray(result?.data))) {
+          const docsArray = Array.isArray(result) ? result : (result.data || []);
+          saveLocalCollection(colName, docsArray);
           callback(createMockSnapshot(docsArray));
+          return;
+        }
+        const localDocs = getLocalCollection(colName);
+        if (active) {
+          callback(createMockSnapshot(localDocs));
         }
       }
-    } catch (err) {
-      if (errorCallback) {
-        try { errorCallback(err); } catch {}
-      }
-    }
+    } catch {}
   };
 
   poll();
-  const interval = setInterval(poll, 3000);
+  const interval = setInterval(poll, 4000);
 
   return () => {
     active = false;

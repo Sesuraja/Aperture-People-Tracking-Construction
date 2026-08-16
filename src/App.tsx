@@ -328,14 +328,15 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         {/* Sidebar Collapse Toggle */}
         <button
           onClick={() => setIsSidebarCollapsed(prev => !prev)}
-          className="absolute -right-3 top-7 w-6 h-6 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-[#007BC4] flex items-center justify-center shadow-md z-20 hover:scale-110 transition cursor-pointer"
+          className="absolute -right-3 top-5 w-6 h-6 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-[#007BC4] flex items-center justify-center shadow-md z-20 hover:scale-105 transition cursor-pointer"
           title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          aria-label={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
         >
-          {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          {isSidebarCollapsed ? <ChevronRight size={13} className="shrink-0" /> : <ChevronLeft size={13} className="shrink-0" />}
         </button>
 
         {/* LOGO */}
-        <div className={`mb-6 flex flex-col ${isSidebarCollapsed ? 'items-center px-2' : 'px-5'}`}>
+        <div className={`mb-5 flex flex-col ${isSidebarCollapsed ? 'items-center px-2' : 'px-4'}`}>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-[#007BC4] flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm">
               A
@@ -345,9 +346,10 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
             )}
           </div>
           {!isSidebarCollapsed && (
-            <div className="flex flex-col mt-1">
-              <span className="text-[10px] tracking-widest text-slate-500 dark:text-slate-400 font-semibold">People Tracking</span>
-              <span className="text-[9px] text-slate-400 font-medium">Construction SaaS Platform</span>
+            <div className="flex flex-col mt-1.5">
+              <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 tracking-tight leading-tight">
+                People Tracking in Construction
+              </span>
             </div>
           )}
         </div>
@@ -357,21 +359,21 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
           {isSidebarCollapsed ? (
             <button
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="w-full h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-[#007BC4] flex items-center justify-center transition cursor-pointer"
+              className="w-full h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-[#007BC4] flex items-center justify-center transition cursor-pointer"
               title="Quick Search (Cmd + K)"
             >
-              <Search className="w-4 h-4" />
+              <Search className="w-4 h-4 shrink-0" />
             </button>
           ) : (
             <button
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-[#007BC4] dark:hover:border-[#007BC4] text-xs text-slate-500 dark:text-slate-400 rounded-xl px-3 py-2 flex items-center justify-between transition cursor-pointer shadow-2xs group"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-[#007BC4] dark:hover:border-[#007BC4] text-xs text-slate-500 dark:text-slate-400 rounded-xl px-2.5 py-1.5 flex items-center justify-between transition cursor-pointer shadow-2xs group"
             >
-              <div className="flex items-center gap-2">
-                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#007BC4] transition" />
-                <span className="truncate">Search workers & commands...</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#007BC4] transition shrink-0" />
+                <span className="truncate text-xs font-normal">Search workers & commands...</span>
               </div>
-              <kbd className="text-[9px] font-mono font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-2xs">
+              <kbd className="text-[9px] font-mono font-semibold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded shadow-2xs shrink-0 ml-1.5 inline-flex items-center justify-center leading-none">
                 ⌘K
               </kbd>
             </button>
