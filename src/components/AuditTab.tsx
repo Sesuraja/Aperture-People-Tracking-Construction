@@ -259,86 +259,57 @@ export default function AuditTab() {
 
     // Sync Audit Logs
     const unsubLogs = onSnapshot(collection(db, 'audit_logs'), async (snapshot) => {
-      if (snapshot.empty) {
-        console.log('[AuditTab] Seeding default audit_logs to MongoDB...');
-        for (const item of DEFAULT_AUDIT_LOGS) {
-          try { await setDoc(doc(db, 'audit_logs', item.id), item); } catch (e) { console.error(e); }
-        }
-        setAuditLogs(DEFAULT_AUDIT_LOGS);
-      } else {
-        const list: AuditLogItem[] = [];
-        snapshot.forEach(d => {
-          const data = d.data();
-          list.push({
-            id: d.id || data.id,
-            timestamp: typeof data.timestamp === 'string'
-              ? data.timestamp
-              : (data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : (data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000).toISOString() : new Date().toISOString())),
-            actor: data.actor || 'System',
-            actorRole: data.actorRole || 'Administrator',
-            action: data.action || 'System Change',
-            category: data.category || 'System Config',
-            severity: data.severity || 'Info',
-            details: typeof data.details === 'object' && data.details !== null
-              ? (data.details.docId ? `Document ID: ${data.details.docId}` : JSON.stringify(data.details))
-              : String(data.details || ''),
-            ipAddress: data.ipAddress || '127.0.0.1',
-            hash: data.hash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-            status: data.status || 'Verified'
-          });
+      const list: AuditLogItem[] = [];
+      snapshot.forEach(d => {
+        const data = d.data();
+        list.push({
+          id: d.id || data.id,
+          timestamp: typeof data.timestamp === 'string'
+            ? data.timestamp
+            : (data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : (data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000).toISOString() : new Date().toISOString())),
+          actor: data.actor || 'System',
+          actorRole: data.actorRole || 'Administrator',
+          action: data.action || 'System Change',
+          category: data.category || 'System Config',
+          severity: data.severity || 'Info',
+          details: typeof data.details === 'object' && data.details !== null
+            ? (data.details.docId ? `Document ID: ${data.details.docId}` : JSON.stringify(data.details))
+            : String(data.details || ''),
+          ipAddress: data.ipAddress || '127.0.0.1',
+          hash: data.hash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          status: data.status || 'Verified'
         });
-        // Sort newest first safely
-        list.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
-        setAuditLogs(list);
-      }
+      });
+      // Sort newest first safely
+      list.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+      setAuditLogs(list);
       setLoading(false);
       setDbSynced(true);
     }, () => {
-      setAuditLogs(DEFAULT_AUDIT_LOGS);
+      setAuditLogs([]);
       setLoading(false);
     });
 
     // Sync Compliance Frameworks
     const unsubFrameworks = onSnapshot(collection(db, 'compliance_frameworks'), async (snapshot) => {
-      if (snapshot.empty) {
-        for (const f of DEFAULT_FRAMEWORKS) {
-          try { await setDoc(doc(db, 'compliance_frameworks', f.id), f); } catch (e) { console.error(e); }
-        }
-        setFrameworks(DEFAULT_FRAMEWORKS);
-      } else {
-        const list: ComplianceFramework[] = [];
-        snapshot.forEach(d => list.push(d.data() as ComplianceFramework));
-        setFrameworks(list);
-      }
-    }, () => { setFrameworks(DEFAULT_FRAMEWORKS); });
+      const list: ComplianceFramework[] = [];
+      snapshot.forEach(d => list.push(d.data() as ComplianceFramework));
+      setFrameworks(list);
+    }, () => { setFrameworks([]); });
 
     // Sync Retention Policies
     const unsubRetention = onSnapshot(collection(db, 'retention_policies'), async (snapshot) => {
-      if (snapshot.empty) {
-        for (const r of DEFAULT_RETENTION_POLICIES) {
-          try { await setDoc(doc(db, 'retention_policies', r.id), r); } catch (e) { console.error(e); }
-        }
-        setRetentionPolicies(DEFAULT_RETENTION_POLICIES);
-      } else {
-        const list: RetentionPolicy[] = [];
-        snapshot.forEach(d => list.push(d.data() as RetentionPolicy));
-        setRetentionPolicies(list);
-      }
-    }, () => { setRetentionPolicies(DEFAULT_RETENTION_POLICIES); });
+      const list: RetentionPolicy[] = [];
+      snapshot.forEach(d => list.push(d.data() as RetentionPolicy));
+      setRetentionPolicies(list);
+    }, () => { setRetentionPolicies([]); });
 
     // Sync Reports
     const unsubReports = onSnapshot(collection(db, 'compliance_reports'), async (snapshot) => {
-      if (snapshot.empty) {
-        for (const rep of DEFAULT_REPORTS) {
-          try { await setDoc(doc(db, 'compliance_reports', rep.id), rep); } catch (e) { console.error(e); }
-        }
-        setReports(DEFAULT_REPORTS);
-      } else {
-        const list: ComplianceReport[] = [];
-        snapshot.forEach(d => list.push(d.data() as ComplianceReport));
-        setReports(list);
-      }
-    }, () => { setReports(DEFAULT_REPORTS); });
+      const list: ComplianceReport[] = [];
+      snapshot.forEach(d => list.push(d.data() as ComplianceReport));
+      setReports(list);
+    }, () => { setReports([]); });
 
     return () => {
       unsubLogs();

@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { 
-  Radio, User, AlertTriangle, ShieldCheck, Truck, HardHat, Camera, Thermometer,
+  Radio, User, Users, AlertTriangle, ShieldCheck, Truck, HardHat, Camera, Thermometer,
   Layers, Navigation, Maximize2, ZoomIn, ZoomOut, RotateCcw, Ruler, Box, BarChart3, Flame,
   PenTool, Check, X, ShieldAlert, BellRing, Eye, EyeOff, Filter, Sliders, ChevronUp, ChevronDown, Info
 } from 'lucide-react';
@@ -81,10 +81,9 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
       <g>
         <rect x="24" y="80" width="96" height="96" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2.5" />
         <rect x="28" y="84" width="88" height="88" rx="8" fill="none" stroke="rgba(16,185,129,0.15)" stroke-width="6" stroke-dasharray="4,8" />
-        <!-- Green cross muster symbol -->
+        <!-- Green muster point symbol -->
         <circle cx="72" cy="120" r="18" fill="#10b981" />
-        <rect x="68" y="108" width="8" height="24" fill="#ffffff" rx="1" />
-        <rect x="60" y="116" width="24" height="8" fill="#ffffff" rx="1" />
+        <circle cx="72" cy="120" r="8" fill="#ffffff" />
         <text x="72" y="162" text-anchor="middle" font-family="sans-serif" font-size="9" font-weight="900" fill="#065f46" letter-spacing="0.5">MUSTER POINT A</text>
         <text x="72" y="98" text-anchor="middle" font-family="sans-serif" font-size="7.5" font-weight="bold" fill="#059669">SAFE ZONE</text>
       </g>
@@ -103,17 +102,6 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
         <rect x="180" y="180" width="288" height="376" rx="8" fill="#fffbeb" stroke="rgba(217,119,6,0.3)" stroke-width="2" />
         <rect x="210" y="210" width="228" height="316" rx="6" fill="#ffffff" stroke="rgba(217,119,6,0.25)" stroke-width="1.5" />
         
-        <!-- Structural cross braces (shoring struts) -->
-        <line x1="120" y1="120" x2="210" y2="210" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
-        <line x1="528" y1="120" x2="438" y2="210" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
-        <line x1="120" y1="616" x2="210" y2="526" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
-        <line x1="528" y1="616" x2="438" y2="526" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
-        
-        <line x1="324" y1="120" x2="324" y2="210" stroke="#94a3b8" stroke-width="2.5" />
-        <line x1="324" y1="616" x2="324" y2="526" stroke="#94a3b8" stroke-width="2.5" />
-        <line x1="120" y1="368" x2="210" y2="368" stroke="#94a3b8" stroke-width="2.5" />
-        <line x1="528" y1="368" x2="438" y2="368" stroke="#94a3b8" stroke-width="2.5" />
-
         <!-- Labels -->
         <rect x="230" y="340" width="188" height="56" rx="8" fill="#ffffff" stroke="#d97706" stroke-width="1.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.06))" />
         <text x="324" y="358" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="900" fill="#92400e">EXCAVATION PIT</text>
@@ -161,8 +149,6 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
 
         <!-- Elevator core shaft wells -->
         <rect x="764" y="250" width="80" height="40" rx="4" fill="#e0f2fe" stroke="#0284c7" stroke-width="2" />
-        <line x1="764" y1="250" x2="844" y2="290" stroke="#0284c7" stroke-width="1" opacity="0.6" />
-        <line x1="844" y1="250" x2="764" y2="290" stroke="#0284c7" stroke-width="1" opacity="0.6" />
         
         <text x="804" y="232" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="900" fill="#0369a1">BUILDING A (CORE TOWER)</text>
         <text x="804" y="415" text-anchor="middle" font-family="sans-serif" font-size="8" font-weight="bold" fill="#0284c7">LEVEL 7 - REINFORCING ACTIVE</text>
@@ -182,8 +168,6 @@ export function getBlueprintSvg(projectId: string, title: string, contractor: st
         
         <!-- Structural Yellow Lattice Crane Base -->
         <rect x="1025" y="175" width="30" height="30" rx="4" fill="#fbbf24" stroke="#d97706" stroke-width="2" />
-        <line x1="1025" y1="175" x2="1055" y2="205" stroke="#78350f" stroke-width="1.5" opacity="0.5" />
-        <line x1="1055" y1="175" x2="1025" y2="205" stroke="#78350f" stroke-width="1.5" opacity="0.5" />
         
         <!-- Crane Jib Slewing Ring Assembly & Long Slewing Arm Jib Line -->
         <circle cx="1040" cy="190" r="6" fill="#ffffff" stroke="#d97706" stroke-width="2.5" />
@@ -377,8 +361,7 @@ export function InteractiveSiteMap({
         <rect x="24" y="80" width="96" height="96" rx="12" fill="#ecfdf5" stroke="#10b981" strokeWidth="2.5" />
         <rect x="28" y="84" width="88" height="88" rx="8" fill="none" stroke="rgba(16,185,129,0.15)" strokeWidth="6" strokeDasharray="4,8" />
         <circle cx="72" cy="120" r="18" fill="#10b981" />
-        <rect x="68" y="108" width="8" height="24" fill="#ffffff" rx="1" />
-        <rect x="60" y="116" width="24" height="8" fill="#ffffff" rx="1" />
+        <circle cx="72" cy="120" r="8" fill="#ffffff" />
         <text x="72" y="162" textAnchor="middle" fontFamily="sans-serif" fontSize="9" fontWeight="900" fill="#065f46" letterSpacing="0.5">MUSTER POINT A</text>
         <text x="72" y="98" textAnchor="middle" fontFamily="sans-serif" fontSize="7.5" fontWeight="bold" fill="#059669">SAFE ZONE</text>
       </g>
@@ -407,10 +390,6 @@ export function InteractiveSiteMap({
         <rect x="180" y="180" width="288" height="376" rx="8" fill="#fffbeb" stroke="rgba(217,119,6,0.3)" strokeWidth="2" />
         <rect x="210" y="210" width="228" height="316" rx="6" fill="#ffffff" stroke="rgba(217,119,6,0.25)" strokeWidth="1.5" />
         
-        <line x1="120" y1="120" x2="210" y2="210" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
-        <line x1="528" y1="120" x2="438" y2="210" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
-        <line x1="120" y1="616" x2="210" y2="526" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
-        <line x1="528" y1="616" x2="438" y2="526" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
         <line x1="324" y1="120" x2="324" y2="210" stroke="#94a3b8" strokeWidth="2.5" />
         <line x1="324" y1="616" x2="324" y2="526" stroke="#94a3b8" strokeWidth="2.5" />
         <line x1="120" y1="368" x2="210" y2="368" stroke="#94a3b8" strokeWidth="2.5" />
@@ -474,8 +453,6 @@ export function InteractiveSiteMap({
         </g>
 
         <rect x="764" y="250" width="80" height="40" rx="4" fill="#e0f2fe" stroke="#0284c7" strokeWidth="2" />
-        <line x1="764" y1="250" x2="844" y2="290" stroke="#0284c7" strokeWidth="1" opacity="0.6" />
-        <line x1="844" y1="250" x2="764" y2="290" stroke="#0284c7" strokeWidth="1" opacity="0.6" />
         
         <text x="804" y="232" textAnchor="middle" fontFamily="sans-serif" fontSize="11" fontWeight="900" fill="#0369a1">BUILDING A (CORE TOWER)</text>
         <text x="804" y="415" textAnchor="middle" fontFamily="sans-serif" fontSize="8" fontWeight="bold" fill="#0284c7">LEVEL 7 - REINFORCING ACTIVE</text>
@@ -509,8 +486,6 @@ export function InteractiveSiteMap({
         )}
         
         <rect x="1025" y="175" width="30" height="30" rx="4" fill="#fbbf24" stroke="#d97706" strokeWidth="2" />
-        <line x1="1025" y1="175" x2="1055" y2="205" stroke="#78350f" strokeWidth="1.5" opacity="0.5" />
-        <line x1="1055" y1="175" x2="1025" y2="205" stroke="#78350f" strokeWidth="1.5" opacity="0.5" />
         
         <circle cx="1040" cy="190" r="6" fill="#ffffff" stroke="#d97706" strokeWidth="2.5" />
         <line x1="1040" y1="190" x2="940" y2="100" stroke="#f59e0b" strokeWidth="3.5" strokeLinecap="round" />
@@ -771,6 +746,74 @@ export default function LiveFloorMap({
   // Interactive Legend State & Category Marker Filter
   const [isLegendOpen, setIsLegendOpen] = useState(true);
   const [activeLegendFilter, setActiveLegendFilter] = useState<string | null>(null);
+
+  // Marker Density & Clustering Control State
+  const [markerDensityMode, setMarkerDensityMode] = useState<'auto' | 'compact' | 'full'>('auto');
+
+  // Determine if compact marker pins should be used
+  const useCompactMarkers = useMemo(() => {
+    if (markerDensityMode === 'compact') return true;
+    if (markerDensityMode === 'full') return false;
+    // 'auto': use compact if worker count > 8 or zoom level < 1.15
+    return (people.length > 8 || zoom < 1.15);
+  }, [markerDensityMode, people.length, zoom]);
+
+  // Dispersal algorithm: Fan out overlapping or clustered workers so every worker marker is distinct and visible
+  const dispersedPeople = useMemo(() => {
+    if (!people || people.length === 0) return [];
+    
+    const visited = new Set<string>();
+    const clusters: Person[][] = [];
+
+    people.forEach((p, idx) => {
+      if (!p || visited.has(p.id)) return;
+      const cluster: Person[] = [p];
+      visited.add(p.id);
+
+      people.forEach((otherP, otherIdx) => {
+        if (otherP && idx !== otherIdx && !visited.has(otherP.id)) {
+          const dist = Math.hypot(p.x - otherP.x, p.y - otherP.y);
+          if (dist < 3.8) {
+            cluster.push(otherP);
+            visited.add(otherP.id);
+          }
+        }
+      });
+
+      clusters.push(cluster);
+    });
+
+    const result: (Person & { displayX: number; displayY: number; clusterSize: number })[] = [];
+
+    clusters.forEach((cluster) => {
+      if (cluster.length === 1) {
+        result.push({
+          ...cluster[0],
+          displayX: cluster[0].x,
+          displayY: cluster[0].y,
+          clusterSize: 1
+        });
+      } else {
+        const centerX = cluster.reduce((sum, item) => sum + item.x, 0) / cluster.length;
+        const centerY = cluster.reduce((sum, item) => sum + item.y, 0) / cluster.length;
+        const radius = Math.min(8.5, 2.8 + cluster.length * 0.45);
+
+        cluster.forEach((item, posIdx) => {
+          const angle = posIdx * (2 * Math.PI / cluster.length);
+          const dx = Math.cos(angle) * radius;
+          const dy = Math.sin(angle) * radius;
+          result.push({
+            ...item,
+            displayX: Math.max(3, Math.min(97, Math.round((centerX + dx) * 10) / 10)),
+            displayY: Math.max(3, Math.min(97, Math.round((centerY + dy) * 10) / 10)),
+            clusterSize: cluster.length
+          });
+        });
+      }
+    });
+
+    return result;
+  }, [people]);
 
   const activeZones = customZones || zones;
   const totalZoneCount = Object.keys(activeZones).length;
@@ -1374,7 +1417,7 @@ export default function LiveFloorMap({
         {/* People Pins */}
         {(visibleLayers?.workers ?? true) && (
           <AnimatePresence>
-            {people.map((person) => {
+            {dispersedPeople.map((person) => {
               const isHighlighted = highlightedPersonId === person.id;
               const isMuster = mode === 'evacuation' && person.currentZone === 'Muster Point A';
               const speedMps = person.speed ?? (person.presenceState === 'MOVING' ? 1.4 : 0.0);
@@ -1395,7 +1438,7 @@ export default function LiveFloorMap({
               const isIdle = (person.presenceState === 'IDLE' || speedMps < 0.1) && !isSos && !isAlert && !isOffline;
 
               // Choose dynamic color schemes & status rings
-              let statusRingColor = 'border-emerald-500 bg-emerald-950/60 text-emerald-300 ring-emerald-500/20';
+              let statusRingColor = 'border-emerald-500 bg-emerald-950/80 text-emerald-300 ring-emerald-500/20';
               let badgeBgColor = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
               let statusText = 'Safe';
               let avatarEmoji = '👷';
@@ -1411,7 +1454,7 @@ export default function LiveFloorMap({
                 statusText = 'No PPE';
                 avatarEmoji = '⚠️';
               } else if (isSupervisor) {
-                statusRingColor = 'border-indigo-400 bg-indigo-950/80 text-indigo-300 ring-indigo-500/20';
+                statusRingColor = 'border-indigo-400 bg-indigo-950/90 text-indigo-300 ring-indigo-500/20';
                 badgeBgColor = 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20';
                 statusText = 'Supervisor';
                 avatarEmoji = '🛡️';
@@ -1421,13 +1464,13 @@ export default function LiveFloorMap({
                 statusText = 'Offline';
                 avatarEmoji = '💤';
               } else if (isIdle) {
-                statusRingColor = 'border-yellow-500 bg-yellow-950/40 text-yellow-300 ring-yellow-500/20';
+                statusRingColor = 'border-yellow-500 bg-yellow-950/60 text-yellow-300 ring-yellow-500/20';
                 badgeBgColor = 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20';
                 statusText = 'Idle';
                 avatarEmoji = '⏳';
               }
 
-              // Determine cute specific trade emoji if generic worker
+              // Determine specific trade emoji
               if (avatarEmoji === '👷') {
                 const roleLower = person.role.toLowerCase();
                 if (roleLower.includes('electric')) avatarEmoji = '⚡';
@@ -1440,36 +1483,28 @@ export default function LiveFloorMap({
                 else if (roleLower.includes('safety') || roleLower.includes('ehs')) avatarEmoji = '🦺';
               }
 
-              // Comprehensive Role-Based Styling for Instant Operational Identification
+              // Role borders
               let roleBorderColor = 'border-slate-800';
               let roleGlowShadow = 'shadow-slate-500/10';
-              let roleLabel = 'General Labor';
-
               const roleLowerVal = person.role.toLowerCase();
               if (roleLowerVal.includes('superintendent') || roleLowerVal.includes('manager') || roleLowerVal.includes('director')) {
                 roleBorderColor = 'border-amber-500/80 hover:border-amber-400';
                 roleGlowShadow = 'shadow-amber-500/20';
-                roleLabel = 'Leadership';
               } else if (roleLowerVal.includes('safety') || roleLowerVal.includes('ehs') || roleLowerVal.includes('inspector') || roleLowerVal.includes('officer')) {
                 roleBorderColor = 'border-emerald-500/80 hover:border-emerald-400';
                 roleGlowShadow = 'shadow-emerald-500/20';
-                roleLabel = 'Safety/EHS';
               } else if (roleLowerVal.includes('operator') || roleLowerVal.includes('crane') || roleLowerVal.includes('driver')) {
                 roleBorderColor = 'border-sky-500/80 hover:border-sky-400';
                 roleGlowShadow = 'shadow-sky-500/20';
-                roleLabel = 'Operator';
               } else if (roleLowerVal.includes('engineer') || roleLowerVal.includes('surveyor') || roleLowerVal.includes('foreman')) {
                 roleBorderColor = 'border-indigo-500/80 hover:border-indigo-400';
                 roleGlowShadow = 'shadow-indigo-500/20';
-                roleLabel = 'Engineer';
               } else if (roleLowerVal.includes('weld') || roleLowerVal.includes('electric') || roleLowerVal.includes('plumb') || roleLowerVal.includes('carpenter') || roleLowerVal.includes('mason') || roleLowerVal.includes('scaffold')) {
                 roleBorderColor = 'border-purple-500/80 hover:border-purple-400';
                 roleGlowShadow = 'shadow-purple-500/20';
-                roleLabel = 'Specialist';
               } else {
                 roleBorderColor = 'border-slate-700 hover:border-slate-500';
                 roleGlowShadow = 'shadow-slate-500/5';
-                roleLabel = 'Labor';
               }
               
               return (
@@ -1484,10 +1519,10 @@ export default function LiveFloorMap({
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                   className={`absolute z-40 cursor-pointer transition-opacity duration-300 ${isHighlighted ? 'z-50' : ''} ${isWorkerDimmed ? 'pointer-events-none' : ''}`}
                   style={{ 
-                    left: `${person.x}%`, 
-                    top: `${person.y}%`, 
+                    left: `${person.displayX}%`, 
+                    top: `${person.displayY}%`, 
                     transform: 'translate(-50%, -50%)',
-                    transition: 'left 0.9s cubic-bezier(0.25, 1, 0.5, 1), top 0.9s cubic-bezier(0.25, 1, 0.5, 1)'
+                    transition: 'left 0.8s cubic-bezier(0.25, 1, 0.5, 1), top 0.8s cubic-bezier(0.25, 1, 0.5, 1)'
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1503,49 +1538,72 @@ export default function LiveFloorMap({
                       <span className="absolute -inset-2.5 rounded-full border-2 border-sky-400 opacity-60 animate-ping pointer-events-none" />
                     )}
 
-                    {/* Premium Horizontal Worker Card Container */}
-                    <div className={`flex items-center gap-2 p-1.5 pl-2 pr-3 rounded-xl bg-slate-950/90 backdrop-blur-md border shadow-2xl transition-all duration-200 group-hover:scale-105 ${
-                      isHighlighted 
-                        ? 'ring-2 ring-sky-400 border-sky-400 bg-slate-900 shadow-sky-500/30' 
-                        : isSos 
-                          ? 'ring-2 ring-rose-500 border-rose-500 bg-rose-950/90 shadow-rose-500/40 animate-pulse' 
-                          : isAlert 
-                            ? 'ring-2 ring-amber-500 border-amber-500 bg-slate-950/90 shadow-amber-500/30 animate-pulse' 
-                            : `${roleBorderColor} ${roleGlowShadow}`
-                    }`}>
-                      {/* Avatar container with Trade Emoji and dynamic status ring */}
-                      <div className="relative shrink-0">
-                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm shadow-md transition-all ${statusRingColor}`}>
-                          <span className="leading-none">{avatarEmoji}</span>
+                    {/* Compact Mode vs Full Card Mode */}
+                    {useCompactMarkers && !isHighlighted ? (
+                      /* Sleek Compact Pin Badge */
+                      <div className="flex flex-col items-center gap-0.5 group-hover:scale-110 transition-transform duration-200">
+                        <div className={`relative w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm shadow-xl bg-slate-950/90 backdrop-blur-md transition-all ${
+                          isSos 
+                            ? 'ring-2 ring-rose-500 border-rose-500 bg-rose-950 shadow-rose-500/50' 
+                            : isAlert 
+                              ? 'ring-2 ring-amber-500 border-amber-500 bg-slate-950' 
+                              : statusRingColor
+                        }`}>
+                          <span className="leading-none text-xs">{avatarEmoji}</span>
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-950 ${
+                            isSos ? 'bg-rose-500 animate-pulse' :
+                            isAlert ? 'bg-rose-500' :
+                            isOffline ? 'bg-slate-500' :
+                            isIdle ? 'bg-yellow-500' :
+                            'bg-emerald-500'
+                          }`} />
                         </div>
-                        {/* Little absolute status bubble dot */}
-                        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-950 shadow-sm ${
-                          isSos ? 'bg-rose-500 animate-pulse' :
-                          isAlert ? 'bg-rose-500' :
-                          isOffline ? 'bg-slate-500' :
-                          isIdle ? 'bg-yellow-500' :
-                          isSupervisor ? 'bg-indigo-400' :
-                          'bg-emerald-500'
-                        }`} />
+                        <span className="text-[9px] font-black text-slate-100 bg-slate-950/90 px-1.5 py-0.5 rounded-md border border-slate-800 shadow-md truncate max-w-[65px] leading-tight text-center">
+                          {person.name.split(' ')[0]}
+                        </span>
                       </div>
-
-                      {/* Info Text Grid */}
-                      <div className="flex flex-col text-left min-w-[70px]">
-                        <div className="text-[10px] font-black text-white leading-tight tracking-wide truncate max-w-[90px]">
-                          {person.name}
+                    ) : (
+                      /* Premium Horizontal Worker Card Container */
+                      <div className={`flex items-center gap-2 p-1.5 pl-2 pr-3 rounded-xl bg-slate-950/90 backdrop-blur-md border shadow-2xl transition-all duration-200 group-hover:scale-105 ${
+                        isHighlighted 
+                          ? 'ring-2 ring-sky-400 border-sky-400 bg-slate-900 shadow-sky-500/30' 
+                          : isSos 
+                            ? 'ring-2 ring-rose-500 border-rose-500 bg-rose-950/90 shadow-rose-500/40 animate-pulse' 
+                            : isAlert 
+                              ? 'ring-2 ring-amber-500 border-amber-500 bg-slate-950/90 shadow-amber-500/30 animate-pulse' 
+                              : `${roleBorderColor} ${roleGlowShadow}`
+                      }`}>
+                        <div className="relative shrink-0">
+                          <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm shadow-md transition-all ${statusRingColor}`}>
+                            <span className="leading-none">{avatarEmoji}</span>
+                          </div>
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-950 shadow-sm ${
+                            isSos ? 'bg-rose-500 animate-pulse' :
+                            isAlert ? 'bg-rose-500' :
+                            isOffline ? 'bg-slate-500' :
+                            isIdle ? 'bg-yellow-500' :
+                            isSupervisor ? 'bg-indigo-400' :
+                            'bg-emerald-500'
+                          }`} />
                         </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[8px] font-bold text-slate-400 leading-none truncate max-w-[55px]">
-                            {person.role}
-                          </span>
-                          <span className={`text-[7px] font-extrabold px-1 py-0.5 rounded-sm uppercase tracking-wider leading-none border ${badgeBgColor}`}>
-                            {statusText}
-                          </span>
+
+                        <div className="flex flex-col text-left min-w-[70px]">
+                          <div className="text-[10px] font-black text-white leading-tight tracking-wide truncate max-w-[90px]">
+                            {person.name}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[8px] font-bold text-slate-400 leading-none truncate max-w-[55px]">
+                              {person.role}
+                            </span>
+                            <span className={`text-[7px] font-extrabold px-1 py-0.5 rounded-sm uppercase tracking-wider leading-none border ${badgeBgColor}`}>
+                              {statusText}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Dynamic Heading directional pointer */}
+                    {/* Heading pointer */}
                     {person.heading !== undefined && speedMps > 0.1 && (
                       <div 
                         className="absolute w-3 h-3 text-sky-400 -top-2" 
@@ -1556,20 +1614,17 @@ export default function LiveFloorMap({
                     )}
 
                     {/* Detailed Tooltip on Hover */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none z-50 border border-slate-700">
-                      <div className="flex items-center gap-1.5 mb-0.5">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-950 text-white text-[10px] font-bold p-2.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none z-50 border border-slate-700/80 min-w-[150px]">
+                      <div className="flex items-center justify-between gap-2 mb-1 border-b border-slate-800 pb-1">
                         <span className="text-sky-400 font-mono tracking-tight font-black">{person.id}</span>
-                        {person.hardhatTagId && <span className="text-amber-400 font-mono text-[9px]">[{person.hardhatTagId}]</span>}
-                        {isSos && <span className="text-rose-400 font-extrabold">🚨 EMERGENCY ACTIVE</span>}
-                        {isAlert && <span className="text-rose-400 font-extrabold">⚠️ PPE ALERT</span>}
+                        <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase border ${badgeBgColor}`}>{statusText}</span>
                       </div>
-                      <div className="text-xs font-black">{person.name}</div>
-                      <div className="text-slate-300 text-[9px] flex items-center gap-2">
-                        <span>{person.role}</span>
-                        <span className="text-emerald-400">Zone: {person.currentZone}</span>
-                      </div>
-                      <div className="text-sky-300 font-mono text-[9px] mt-0.5">
-                        Speed: {speedMps} m/s | RSSI: {person.rssi ?? -55} dBm | Batt: {person.battery ?? 95}%
+                      <div className="text-xs font-black text-white">{person.name}</div>
+                      <div className="text-slate-300 text-[9px] mt-0.5">{person.role} | {person.tradeCompany || 'Contractor'}</div>
+                      <div className="text-emerald-400 text-[9px] font-bold mt-0.5">📍 Zone: {person.currentZone}</div>
+                      <div className="text-sky-300 font-mono text-[9px] mt-1 pt-1 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                        <span>Speed: {speedMps}m/s</span>
+                        <span>Batt: {person.battery ?? 90}%</span>
                       </div>
                     </div>
                   </div>
@@ -1617,6 +1672,20 @@ export default function LiveFloorMap({
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span>{Math.round(zoom * 100)}%</span>
+        </button>
+
+        <div className="h-4 w-px bg-slate-700 mx-0.5" />
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMarkerDensityMode(prev => prev === 'auto' ? 'compact' : prev === 'compact' ? 'full' : 'auto');
+          }}
+          className="h-8 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 active:bg-slate-600 text-slate-200 hover:text-white text-[10px] font-black uppercase tracking-wider transition shadow-xs"
+          title="Toggle Marker Density (Auto / Compact Pins / Full Cards)"
+        >
+          <Users className="w-3.5 h-3.5 text-sky-400" />
+          <span>Density: {markerDensityMode}</span>
         </button>
       </div>
 

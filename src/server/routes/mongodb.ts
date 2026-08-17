@@ -4,10 +4,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 
 export const mongodbRouter = Router();
 
-// Require admin authentication for all /api/mongodb/* management routes
-mongodbRouter.use(requireAuth, requireRole('admin'));
-
-// GET /api/mongodb/status
+// GET /api/mongodb/status (open for health monitors, settings sync, and live tracking UI)
 mongodbRouter.get('/status', async (req: Request, res: Response) => {
   try {
     const stats = await getMongoStats();
@@ -24,8 +21,8 @@ mongodbRouter.get('/status', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/mongodb/test-connection
-mongodbRouter.post('/test-connection', async (req: Request, res: Response) => {
+// POST /api/mongodb/test-connection (requires admin authentication)
+mongodbRouter.post('/test-connection', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   const { mongodbUri } = req.body || {};
   if (!mongodbUri || typeof mongodbUri !== 'string') {
     return res.status(400).json({ success: false, error: 'mongodbUri string is required' });
@@ -35,8 +32,8 @@ mongodbRouter.post('/test-connection', async (req: Request, res: Response) => {
   return res.json(result);
 });
 
-// POST /api/mongodb/config
-mongodbRouter.post('/config', async (req: Request, res: Response) => {
+// POST /api/mongodb/config (requires admin authentication)
+mongodbRouter.post('/config', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   const { mongodbUri } = req.body || {};
   if (!mongodbUri || typeof mongodbUri !== 'string') {
     return res.status(400).json({ success: false, error: 'mongodbUri string is required' });

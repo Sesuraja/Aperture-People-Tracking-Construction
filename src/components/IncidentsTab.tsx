@@ -50,190 +50,6 @@ function formatIncidentTimestamp(ts: any): string {
   }
 }
 
-const INITIAL_MOCK_INCIDENTS: EnterpriseIncident[] = [
-  {
-    id: 'INC-2026-101',
-    title: 'Near-Miss Heavy Crane Load Swing Exceedance',
-    category: 'Near Miss',
-    severity: 'High',
-    workflowStatus: 'Investigation',
-    locationZone: 'Heavy Crane & Exclusion Area',
-    reportedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    reportedBy: 'Carlos Mendez (Rigging Supervisor)',
-    assignedOfficer: 'Marcus Vance',
-    assignedRole: 'EHS Lead Officer',
-    description: 'During 12-ton steel truss lift on Crane TC-01, wind shear caused load to swing into secondary scaffold zone. No injuries, scaffold mesh grazed.',
-    equipmentInvolved: 'Tower Crane TC-01 & 12T Steel Truss',
-    aiAnalysis: {
-      severityScore: 78,
-      aiSummary: 'High-risk near-miss incident triggered by localized wind shear coupled with unannounced tag line operator repositioning.',
-      probableRootCause: 'Tag-line riggers failed to maintain dual 45-degree guide control during wind gust transition above 35 km/h.',
-      contributingFactors: [
-        'Anemometer wind alarm acknowledged but lift was not immediately aborted.',
-        'Secondary rigger stood in blind spot of crane operator camera CAM-TC01-BOOM.'
-      ],
-      capaRecommendations: [
-        'Mandate dual-tagline control for loads exceeding 8 tons in windy conditions.',
-        'Install direct automated wind speed cutoff circuit on Crane TC-01 hoist controls.'
-      ],
-      regulatoryImpact: 'OSHA 1926.1412 / ISO 45001 High Potential (HIPO) Event - Mandatory internal safety audit required.'
-    },
-    witnessStatements: [
-      {
-        id: 'ws-1',
-        witnessName: 'Carlos Mendez',
-        witnessRole: 'Rigger Lead',
-        company: 'Apex Rigging Co.',
-        interviewedBy: 'Marcus Vance',
-        timestamp: '10:15 AM',
-        statement: 'A sudden wind gust caught the truss right as we cleared the 3rd scaffold tier. I signaled to hold, but momentum pulled the tagline.'
-      }
-    ],
-    attachments: [
-      {
-        id: 'att-1',
-        fileName: 'cctv_crane_swing_frame.jpg',
-        fileType: 'CCTV Clip',
-        fileUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?w=600&auto=format&fit=crop&q=80',
-        fileSize: '2.4 MB',
-        uploadedBy: 'AI Vision System',
-        uploadedAt: '10:02 AM'
-      },
-      {
-        id: 'att-2',
-        fileName: 'telematics_tc01_wind_log.csv',
-        fileType: 'Telemetry Log',
-        fileUrl: '/telematics_wind.csv',
-        fileSize: '410 KB',
-        uploadedBy: 'TC-01 Telematics',
-        uploadedAt: '10:05 AM'
-      }
-    ],
-    timeline: [
-      { id: 't1', timestamp: '10:00 AM', title: 'Incident Occurred', description: 'Truss swing grazed scaffold tier 3.', actor: 'Site Sensors', statusChange: 'Open' },
-      { id: 't2', timestamp: '10:08 AM', title: 'Assigned to EHS Lead', description: 'Assigned to Marcus Vance for site investigation.', actor: 'EHS System', statusChange: 'Assigned' },
-      { id: 't3', timestamp: '10:15 AM', title: 'Investigation Started', description: 'CCTV footage reviewed & witness statement recorded.', actor: 'Marcus Vance', statusChange: 'Investigation' }
-    ],
-    correctiveActions: [
-      { id: 'ca-1', actionItem: 'Inspect scaffold tier 3 structural integrity for minor scrapes', assignedTo: 'Civil Engineering Lead', dueDate: '2026-08-07', isCompleted: true },
-      { id: 'ca-2', actionItem: 'Conduct mandatory crane rigging safety toolbox talk', assignedTo: 'Marcus Vance', dueDate: '2026-08-08', isCompleted: false }
-    ]
-  },
-  {
-    id: 'INC-2026-102',
-    title: 'Tunnel Shaft Chemical Hydraulic Hose Burst',
-    category: 'Chemical',
-    severity: 'Critical',
-    workflowStatus: 'Root Cause',
-    locationZone: 'Confined Shaft & Tunneling',
-    reportedAt: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
-    reportedBy: 'Frank Reynolds (Equipment Lead)',
-    assignedOfficer: 'Elena Rostova',
-    assignedRole: 'Environmental EHS Inspector',
-    description: 'Hydraulic high-pressure hose on Excavator EX-04 ruptured in Shaft L2, spilling 45 liters of bio-degradable hydraulic fluid.',
-    equipmentInvolved: 'Excavator EX-04 (CAT 336)',
-    hazardClass: 'Class 9 Environmental Hazard',
-    aiAnalysis: {
-      severityScore: 88,
-      aiSummary: 'Critical hydraulic line burst resulting in fluid spill inside confined shaft enclave.',
-      probableRootCause: 'Abrasion wear on hydraulic outer sleeve against boom pivot casting due to missing rubber guard bushing.',
-      contributingFactors: [
-        'Preventive maintenance inspection missed missing guard bushing during 250-hour check.',
-        'High ambient thermal stress inside Shaft L2 accelerated rubber hose degradation.'
-      ],
-      capaRecommendations: [
-        'Deploy chemical spill absorbents and sump pump containment.',
-        'Replace all excavator boom hydraulic hoses with dual-braided steel sleeves.'
-      ],
-      regulatoryImpact: 'EPA Spill Reporting Protocol - Bio-degradable oil contained, local spill kit deployed.'
-    },
-    witnessStatements: [
-      {
-        id: 'ws-2',
-        witnessName: 'Frank Reynolds',
-        witnessRole: 'Heavy Equipment Operator',
-        company: 'Titan Machinery',
-        interviewedBy: 'Elena Rostova',
-        timestamp: '08:45 AM',
-        statement: 'I heard a sharp pop on the boom hydraulic circuit and immediately saw hydraulic mist spraying out. Aborted engine in 4 seconds.'
-      }
-    ],
-    attachments: [
-      {
-        id: 'att-3',
-        fileName: 'spill_containment_photo.jpg',
-        fileType: 'Photo',
-        fileUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80',
-        fileSize: '3.1 MB',
-        uploadedBy: 'Elena Rostova',
-        uploadedAt: '09:00 AM'
-      }
-    ],
-    timeline: [
-      { id: 't1', timestamp: '08:40 AM', title: 'Hose Rupture', description: 'Excavator EX-04 hose burst in Shaft L2.', actor: 'Frank Reynolds', statusChange: 'Open' },
-      { id: 't2', timestamp: '08:50 AM', title: 'Spill Kit Deployed', description: 'Absorbent pads and booms deployed.', actor: 'EHS Crew', statusChange: 'Investigation' },
-      { id: 't3', timestamp: '09:20 AM', title: 'Root Cause Review', description: 'Hose failure analyzed by mechanical team.', actor: 'Elena Rostova', statusChange: 'Root Cause' }
-    ],
-    rootCauseDetails: {
-      causeType: 'Mechanical Fatigue & Omitted Guard Bushing',
-      description: 'Absence of protective sleeve led to friction rubbing against excavator frame.',
-      verifiedBy: 'Frank Reynolds (Equipment Lead)'
-    },
-    correctiveActions: [
-      { id: 'ca-3', actionItem: 'Clean fluid spill and dispose of absorbent materials per EHS guidelines', assignedTo: 'Hazmat Crew', dueDate: '2026-08-06', isCompleted: true },
-      { id: 'ca-4', actionItem: 'Inspect all excavators for missing hydraulic guard bushings', assignedTo: 'Titan Mechanics', dueDate: '2026-08-07', isCompleted: false }
-    ]
-  },
-  {
-    id: 'INC-2026-103',
-    title: 'Scaffold Tower Handrail Laceration Injury',
-    category: 'Injury',
-    severity: 'Medium',
-    workflowStatus: 'Corrective Action',
-    locationZone: 'Structure & Scaffolding (L1-L4)',
-    reportedAt: new Date(Date.now() - 240 * 60 * 1000).toISOString(),
-    reportedBy: 'Sarah Lin (First Responder)',
-    assignedOfficer: 'Sarah Lin',
-    assignedRole: 'Site First Aid Officer',
-    description: 'Worker sustained minor hand laceration from sharp burr on galvanized scaffold tube while ascending Level 2 ladder bay.',
-    injuredPersonnelCount: 1,
-    aiAnalysis: {
-      severityScore: 45,
-      aiSummary: 'First aid recordable incident involving hand laceration. Level 1 PPE gloves prevented deep tissue injury.',
-      probableRootCause: 'Raw burr left on newly cut scaffold tubing during Level 2 expansion.',
-      contributingFactors: [
-        'Scaffold installation team omitted edge de-burring step before handrail clamping.'
-      ],
-      capaRecommendations: [
-        'Require mandatory de-burring quality sign-off before scaffolding release.',
-        'Upgrade glove specification to Level 4 cut-resistance for scaffold erectors.'
-      ],
-      regulatoryImpact: 'OSHA First Aid Recordable - No lost time, worker returned to light duty.'
-    },
-    witnessStatements: [
-      {
-        id: 'ws-3',
-        witnessName: 'David Chen',
-        witnessRole: 'Scaffolder',
-        company: 'BuildCorp Partner',
-        interviewedBy: 'Sarah Lin',
-        timestamp: '07:15 AM',
-        statement: 'I grabbed the handrail while climbing up and felt a sharp metallic burr cut through my glove seam.'
-      }
-    ],
-    attachments: [],
-    timeline: [
-      { id: 't1', timestamp: '07:00 AM', title: 'Injury Reported', description: 'Hand laceration treated at Gatehouse First Aid station.', actor: 'Sarah Lin', statusChange: 'Open' },
-      { id: 't2', timestamp: '07:30 AM', title: 'Medical Triage Completed', description: 'Wound cleaned and bandaged. Triage report logged.', actor: 'Sarah Lin', statusChange: 'Investigation' },
-      { id: 't3', timestamp: '08:15 AM', title: 'Corrective Actions Initiated', description: 'Scaffold handrails inspected for metallic burrs.', actor: 'BuildCorp Safety', statusChange: 'Corrective Action' }
-    ],
-    correctiveActions: [
-      { id: 'ca-5', actionItem: 'Sand and file down all burrs on Scaffold Tier 2 handrails', assignedTo: 'Scaffold Maintenance', dueDate: '2026-08-06', isCompleted: true },
-      { id: 'ca-6', actionItem: 'Issue Level 4 cut-resistant gloves to all scaffolding crews', assignedTo: 'PPE Procurement', dueDate: '2026-08-07', isCompleted: true }
-    ]
-  }
-];
-
 export default function IncidentsTab() {
   const [incidents, setIncidents] = useState<EnterpriseIncident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<EnterpriseIncident | null>(null);
@@ -329,46 +145,46 @@ export default function IncidentsTab() {
     contributingFactorText: ''
   });
 
+  const normalizeIncident = (d: any, id: string): EnterpriseIncident => ({
+    ...d,
+    id,
+    title: d.title || 'Untitled Incident',
+    category: d.category || 'Near Miss',
+    severity: d.severity || 'Medium',
+    workflowStatus: d.workflowStatus || 'Open',
+    locationZone: d.locationZone || 'Excavation Pit',
+    reportedBy: d.reportedBy || 'Safety Officer',
+    assignedOfficer: d.assignedOfficer || 'Marcus Vance (EHS Director)',
+    reportedAt: d.reportedAt || new Date().toISOString(),
+    description: d.description || '',
+    correctiveActions: Array.isArray(d.correctiveActions) ? d.correctiveActions : [],
+    witnessStatements: Array.isArray(d.witnessStatements) ? d.witnessStatements : [],
+    attachments: Array.isArray(d.attachments) ? d.attachments : [],
+    timeline: Array.isArray(d.timeline) ? d.timeline : [],
+    aiAnalysis: d.aiAnalysis ? {
+      aiSummary: d.aiAnalysis.aiSummary || 'Automated AI Root Cause Assessment completed.',
+      probableRootCause: d.aiAnalysis.probableRootCause || 'Under review',
+      contributingFactors: Array.isArray(d.aiAnalysis.contributingFactors) ? d.aiAnalysis.contributingFactors : [],
+      capaRecommendations: Array.isArray(d.aiAnalysis.capaRecommendations) ? d.aiAnalysis.capaRecommendations : [],
+      severityScore: d.aiAnalysis.severityScore || 65,
+      regulatoryImpact: d.aiAnalysis.regulatoryImpact || 'OSHA 1926 Standard Review Recommended'
+    } : undefined
+  });
+
   // Sync with MongoDB / Firestore
   useEffect(() => {
-    let unsub: () => void = () => {};
+    const unsub = onSnapshot(collection(db, 'incidents_enterprise'), (snapshot) => {
+      const data = snapshot.docs.map(docSnap => normalizeIncident(docSnap.data(), docSnap.id));
 
-    const seedAndSubscribe = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'incidents_enterprise'));
-        if (snap.empty) {
-          for (const inc of INITIAL_MOCK_INCIDENTS) {
-            await setDoc(doc(db, 'incidents_enterprise', inc.id), {
-              ...inc,
-              reportedAt: typeof inc.reportedAt === 'string' ? inc.reportedAt : new Date(inc.reportedAt).toISOString()
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Error seeding initial incidents to MongoDB/db:', err);
-      }
-
-      unsub = onSnapshot(collection(db, 'incidents_enterprise'), (snapshot) => {
-        const data = snapshot.docs.map(docSnap => {
-          const d = docSnap.data();
-          return {
-            ...d,
-            id: docSnap.id
-          } as EnterpriseIncident;
+      setIncidents(data);
+      if (data.length > 0) {
+        setSelectedIncident(prev => {
+          if (!prev) return data[0];
+          const updated = data.find(i => i.id === prev.id);
+          return updated || data[0];
         });
-
-        setIncidents(data);
-        if (data.length > 0) {
-          setSelectedIncident(prev => {
-            if (!prev) return data[0];
-            const updated = data.find(i => i.id === prev.id);
-            return updated || data[0];
-          });
-        }
-      });
-    };
-
-    seedAndSubscribe();
+      }
+    });
 
     return () => {
       if (unsub) unsub();
@@ -379,7 +195,7 @@ export default function IncidentsTab() {
     setIsRefreshing(true);
     try {
       const snap = await getDocs(collection(db, 'incidents_enterprise'));
-      const data = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as EnterpriseIncident));
+      const data = snap.docs.map(docSnap => normalizeIncident(docSnap.data(), docSnap.id));
       setIncidents(data);
       if (data.length > 0) {
         if (!selectedIncident) setSelectedIncident(data[0]);
@@ -713,9 +529,10 @@ export default function IncidentsTab() {
 
   // 7. CAPA Items CRUD
   const handleToggleCapa = async (actionId: string) => {
-    if (!selectedIncident || !selectedIncident.correctiveActions) return;
+    if (!selectedIncident) return;
+    const currentCapas = selectedIncident.correctiveActions || [];
 
-    const updatedCapas = selectedIncident.correctiveActions.map(ca => 
+    const updatedCapas = currentCapas.map(ca => 
       ca.id === actionId ? { ...ca, isCompleted: !ca.isCompleted } : ca
     );
 
@@ -1487,7 +1304,7 @@ export default function IncidentsTab() {
                       <div className="space-y-1 pt-1">
                         <span className="font-bold text-slate-500 text-[10px] uppercase block">Contributing Factors</span>
                         <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 font-medium">
-                          {selectedIncident.aiAnalysis?.contributingFactors.map((cf, idx) => (
+                          {(selectedIncident.aiAnalysis?.contributingFactors || []).map((cf, idx) => (
                             <li key={idx}>{cf}</li>
                           ))}
                         </ul>
@@ -1496,7 +1313,7 @@ export default function IncidentsTab() {
                       <div className="space-y-1 pt-1">
                         <span className="font-bold text-slate-500 text-[10px] uppercase block">AI CAPA Recommendations</span>
                         <div className="space-y-1.5">
-                          {selectedIncident.aiAnalysis?.capaRecommendations.map((rec, idx) => (
+                          {(selectedIncident.aiAnalysis?.capaRecommendations || []).map((rec, idx) => (
                             <div key={idx} className="p-2 bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded-lg font-bold text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-2">
                               <span className="flex items-center gap-2">
                                 <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
@@ -1588,8 +1405,8 @@ export default function IncidentsTab() {
                     </div>
 
                     <div className="space-y-2 text-xs">
-                      {selectedIncident.correctiveActions && selectedIncident.correctiveActions.length > 0 ? (
-                        selectedIncident.correctiveActions.map(ca => (
+                      {(selectedIncident.correctiveActions || []).length > 0 ? (
+                        (selectedIncident.correctiveActions || []).map(ca => (
                           <div key={ca.id} className="p-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
                               <input
@@ -1649,8 +1466,8 @@ export default function IncidentsTab() {
                     </div>
 
                     <div className="space-y-3 text-xs">
-                      {selectedIncident.witnessStatements && selectedIncident.witnessStatements.length > 0 ? (
-                        selectedIncident.witnessStatements.map(ws => (
+                      {(selectedIncident.witnessStatements || []).length > 0 ? (
+                        (selectedIncident.witnessStatements || []).map(ws => (
                           <div key={ws.id} className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2 relative">
                             <div className="flex justify-between items-center font-bold text-slate-900 dark:text-white">
                               <span className="flex items-center gap-2">
@@ -1696,8 +1513,8 @@ export default function IncidentsTab() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      {selectedIncident.attachments && selectedIncident.attachments.length > 0 ? (
-                        selectedIncident.attachments.map(att => (
+                      {(selectedIncident.attachments || []).length > 0 ? (
+                        (selectedIncident.attachments || []).map(att => (
                           <div key={att.id} className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
                             <div className="flex items-center gap-2.5 overflow-hidden">
                               <div className="p-2 bg-[#007BC4]/10 text-[#007BC4] rounded-lg font-bold text-xs shrink-0">
@@ -1752,7 +1569,7 @@ export default function IncidentsTab() {
                     </div>
 
                     <div className="space-y-3 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700 pl-8">
-                      {selectedIncident.timeline?.map((evt, idx) => (
+                      {(selectedIncident.timeline || []).map((evt, idx) => (
                         <div key={evt.id || idx} className="relative space-y-0.5">
                           <div className="absolute -left-[27px] top-0.5 w-4 h-4 rounded-full bg-[#007BC4] text-white flex items-center justify-center text-[8px] font-black">
                             ✓

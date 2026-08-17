@@ -395,227 +395,85 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
        interval = setInterval(syncRealtime, 2000);
     } else if (mode === 'demo') {
        setIsLoading(false);
-       
-       const zones = getZonesForProject(activeProjectId);
-       const initialPeople: Person[] = [
-          { id: '1', name: 'Marcus Vance', role: 'Site Superintendent', tradeCompany: 'BuildCorp General', ppeStatus: 'COMPLIANT', certifications: ['OSHA 30', 'Site Safety Manager'], hardhatTagId: 'HH-9021', currentZone: zones[0] || 'People Tracking in Construction', presenceState: 'IDLE', dwellTime: 120, x: 20, y: 30, lastSeen: new Date(), trail: [] },
-          { id: '2', name: 'Elena Rostova', role: 'Safety Officer (EHS)', tradeCompany: 'BuildCorp Safety', ppeStatus: 'COMPLIANT', certifications: ['EHS Lead', 'First Aid / CPR'], hardhatTagId: 'HH-1044', currentZone: zones[1] || zones[0] || 'People Tracking in Construction', presenceState: 'MOVING', dwellTime: 45, x: 50, y: 40, lastSeen: new Date(), trail: [] },
-          { id: '3', name: 'Jake Miller', role: 'Heavy Equipment Operator', tradeCompany: 'Titan Heavy Machinery', ppeStatus: 'COMPLIANT', certifications: ['Crane Operator L3', 'Excavator cert'], hardhatTagId: 'HH-3392', currentZone: zones[2] || zones[0] || 'People Tracking in Construction', presenceState: 'IDLE', dwellTime: 300, x: 75, y: 25, lastSeen: new Date(), trail: [] },
-          { id: '4', name: 'David Chen', role: 'Scaffolder / Rigger', tradeCompany: 'Apex Scaffold Solutions', ppeStatus: 'WARNING', certifications: ['Working at Heights', 'Scaffold Erector'], hardhatTagId: 'HH-7721', currentZone: zones[0] || 'People Tracking in Construction', presenceState: 'MOVING', dwellTime: 90, x: 45, y: 60, lastSeen: new Date(), trail: [] },
-          { id: '5', name: 'Carlos Mendez', role: 'Electrician (Subcontractor)', tradeCompany: 'VoltCraft Electrical', ppeStatus: 'COMPLIANT', certifications: ['Master Electrician', 'LOTO Certified'], hardhatTagId: 'HH-4011', currentZone: zones[1] || zones[0] || 'People Tracking in Construction', presenceState: 'IDLE', dwellTime: 180, x: 60, y: 70, lastSeen: new Date(), trail: [] },
-          { id: '6', name: 'Robert Jackson', role: 'Structural Steelworker', tradeCompany: 'IronClad Steel Corp', ppeStatus: 'NON_COMPLIANT', certifications: ['Welding CWI', 'Fall Protection'], hardhatTagId: 'HH-5509', currentZone: zones[2] || zones[0] || 'People Tracking in Construction', presenceState: 'MOVING', dwellTime: 60, x: 30, y: 80, lastSeen: new Date(), trail: [] },
-          { id: '7', name: 'Sven Lindqvist', role: 'Site Inspector / Visitor', tradeCompany: 'City Structural Audit Dept', ppeStatus: 'COMPLIANT', certifications: ['Building Code Inspector'], hardhatTagId: 'HH-8812', currentZone: zones[0] || 'People Tracking in Construction', presenceState: 'MOVING', dwellTime: 10, x: 15, y: 75, lastSeen: new Date(), trail: [] }
-       ];
-       
-       initialPeople.forEach(p => {
-          const rect = getZoneRect(p.currentZone, activeProjectId, dynamicZones);
-          p.x = rect.x + Math.random() * rect.width;
-          p.y = rect.y + Math.random() * rect.height;
-       });
-       
-       setPeople(initialPeople);
 
-       const initialAssets: Asset[] = [
-          { id: 'A1', name: 'Welding Machine #04', type: 'Tool', x: 40, y: 40, status: 'Active' },
-          { id: 'A2', name: 'Compressor Unit B', type: 'Tool', x: 25, y: 60, status: 'Idle' },
-          { id: 'A3', name: 'Scaffold Bundle C', type: 'Material', x: 70, y: 80, status: 'Stored' }
+       // Initial demo workforce
+       const DEMO_WORKERS: Person[] = [
+         { id: 'HH-1092', name: 'Marcus Vance', role: 'EHS Safety Director', currentZone: 'Tower Core Structure', presenceState: 'MOVING', dwellTime: 420, x: 55, y: 35, lastSeen: new Date(), trail: [] },
+         { id: 'HH-2041', name: 'Elena Rostova', role: 'Structural Engineer', currentZone: 'Tower Core Structure', presenceState: 'IDLE', dwellTime: 650, x: 62, y: 48, lastSeen: new Date(), trail: [] },
+         { id: 'HH-3309', name: 'David Kim', role: 'Formwork Lead', currentZone: 'Deep Excavation Shaft', presenceState: 'MOVING', dwellTime: 210, x: 22, y: 38, lastSeen: new Date(), trail: [] },
+         { id: 'HH-5112', name: 'Carlos Mendez', role: 'Tower Crane Operator', currentZone: 'Heavy Crane & Exclusion Area', presenceState: 'IDLE', dwellTime: 1200, x: 86, y: 18, lastSeen: new Date(), trail: [] },
+         { id: 'HH-6221', name: 'Aisha Patel', role: 'Lead Electrician', currentZone: 'High Voltage Area', presenceState: 'MOVING', dwellTime: 180, x: 50, y: 10, lastSeen: new Date(), trail: [] },
+         { id: 'HH-7405', name: 'Lucas Sterling', role: 'Heavy Rigging Tech', currentZone: 'Heavy Crane & Exclusion Area', presenceState: 'MOVING', dwellTime: 340, x: 88, y: 32, lastSeen: new Date(), trail: [] },
+         { id: 'HH-8991', name: 'Wei Zhang', role: 'Excavator Operator', currentZone: 'Deep Excavation Shaft', presenceState: 'IDLE', dwellTime: 890, x: 18, y: 55, lastSeen: new Date(), trail: [] },
+         { id: 'HH-9023', name: 'Sarah Jenkins', role: 'QA Inspector', currentZone: 'Tower Core Structure', presenceState: 'MOVING', dwellTime: 150, x: 68, y: 30, lastSeen: new Date(), trail: [] },
+         { id: 'HH-4412', name: 'Tariq Al-Mansoor', role: 'Scaffold Crew Lead', currentZone: 'Tower Core Structure', presenceState: 'MOVING', dwellTime: 510, x: 58, y: 60, lastSeen: new Date(), trail: [] },
+         { id: 'HH-1188', name: 'Priya Sharma', role: 'Structural Welder', currentZone: 'Tower Core Structure', presenceState: 'IDLE', dwellTime: 720, x: 74, y: 42, lastSeen: new Date(), trail: [] },
+         { id: 'HH-2290', name: 'James Wilson', role: 'Concrete Finisher', currentZone: 'Deep Excavation Shaft', presenceState: 'MOVING', dwellTime: 310, x: 30, y: 25, lastSeen: new Date(), trail: [] },
+         { id: 'HH-3381', name: 'Liam O\'Connor', role: 'Site Surveyor', currentZone: 'Tower Core Structure', presenceState: 'MOVING', dwellTime: 190, x: 52, y: 65, lastSeen: new Date(), trail: [] }
        ];
-       setAssets(initialAssets);
 
-       const initialVehicles: Vehicle[] = [
-          { id: 'V1', name: 'Tower Crane #01', type: 'Crane', x: 85, y: 25, status: 'Active' },
-          { id: 'V2', name: 'Excavator J-80', type: 'Excavator', x: 20, y: 45, status: 'Moving' }
+       const DEMO_ASSETS: Asset[] = [
+         { id: 'AST-01', name: 'CAT 336 Excavator', type: 'Heavy Machinery', x: 25, y: 40, status: 'In Use', battery: 94 },
+         { id: 'AST-02', name: 'Potain MDT 389 Tower Crane', type: 'Lifting Equipment', x: 86, y: 20, status: 'Operating', battery: 100 },
+         { id: 'AST-03', name: 'Cummins 250kVA Generator', type: 'Power Equipment', x: 55, y: 45, status: 'Active', battery: 82 },
+         { id: 'AST-04', name: 'Miller Big Blue Welder', type: 'Welding Unit', x: 70, y: 50, status: 'Idle', battery: 88 }
        ];
-       setVehicles(initialVehicles);
 
-       const demoTick = () => {
+       const DEMO_VEHICLES: Vehicle[] = [
+         { id: 'VEH-01', name: 'Mack Concrete Mixer #4', type: 'Concrete Mixer', x: 28, y: 35, speed: 4, status: 'Unloading' },
+         { id: 'VEH-02', name: 'CAT 950M Wheel Loader', type: 'Earthmover', x: 20, y: 50, speed: 8, status: 'Moving' },
+         { id: 'VEH-03', name: 'Ford F-250 Safety Unit', type: 'Emergency Response', x: 60, y: 35, speed: 0, status: 'Standby' }
+       ];
+
+       setPeople(DEMO_WORKERS);
+       setAssets(DEMO_ASSETS);
+       setVehicles(DEMO_VEHICLES);
+
+       // Active Simulation Loop in Demo Mode
+       const demoSimulationTick = () => {
          if (!isMounted) return;
 
-         setPeople((prev) => {
-           const nextPeople = [...prev];
-           nextPeople.forEach(p => {
-             const oldX = p.x;
-             const oldY = p.y;
-             
-             p.dwellTime += 1; 
-             p.trail = p.trail || [];
-             p.trail.push({ x: p.x, y: p.y });
-             if (p.trail.length > 60) p.trail.shift();
+         setPeople(prevPeople => {
+           const zonesList = getZonesForProject(activeProjectId);
+           return prevPeople.map(person => {
+             const updated = { ...person };
+             updated.dwellTime = (updated.dwellTime || 0) + 2;
+             updated.lastSeen = new Date();
 
-             const zoneRect = getZoneRect(p.currentZone, activeProjectId, dynamicZones);
-
-             // Initialize target coordinates if not present
-             if (p.targetX === undefined || p.targetY === undefined) {
-               p.targetX = Math.max(2, Math.min(98, zoneRect.x + 2 + Math.random() * (zoneRect.width - 4)));
-               p.targetY = Math.max(2, Math.min(98, zoneRect.y + 2 + Math.random() * (zoneRect.height - 4)));
-               p.idleRemaining = 0;
+             // Chance of zone transition
+             if (Math.random() < 0.04 && zonesList.length > 1) {
+               const otherZones = zonesList.filter(z => z !== updated.currentZone);
+               const newZone = otherZones[Math.floor(Math.random() * otherZones.length)];
+               updated.currentZone = newZone;
+               updated.dwellTime = 0;
+               updated.presenceState = 'MOVING';
              }
 
-             // Handle idling phase vs walking phase
-             if (p.idleRemaining !== undefined && p.idleRemaining > 0) {
-               p.idleRemaining -= 1;
-               p.presenceState = 'IDLE';
-               // Subtle human sway micro-motions
-               p.x += (Math.random() - 0.5) * 0.01;
-               p.y += (Math.random() - 0.5) * 0.01;
-             } else {
-               const dx = p.targetX - p.x;
-               const dy = p.targetY - p.y;
-               const distance = Math.sqrt(dx * dx + dy * dy);
+             // Smooth Brownian motion inside zone rect
+             const zoneRect = getZoneRect(updated.currentZone, activeProjectId, dynamicZones);
+             const targetX = zoneRect.x + 2 + Math.random() * (zoneRect.width - 4);
+             const targetY = zoneRect.y + 2 + Math.random() * (zoneRect.height - 4);
 
-               if (distance < 1.0) {
-                 p.x = p.targetX;
-                 p.y = p.targetY;
-                 p.presenceState = 'IDLE';
-                 p.idleRemaining = Math.floor(Math.random() * 8) + 4; // dwell for 4 to 12 seconds
-               } else {
-                 const stepSize = 0.6 + Math.random() * 0.5; // realistic walking velocity
-                 p.x += (dx / distance) * Math.min(distance, stepSize);
-                 p.y += (dy / distance) * Math.min(distance, stepSize);
-                 p.presenceState = 'MOVING';
-               }
-             }
+             updated.x = updated.x + (targetX - updated.x) * 0.12;
+             updated.y = updated.y + (targetY - updated.y) * 0.12;
 
-             // Calculate actual physical movement speed (m/s) & direction heading
-             const dx2 = p.x - oldX;
-             const dy2 = p.y - oldY;
-             const distMeters = Math.sqrt(dx2 * dx2 + dy2 * dy2); // 1% map ~ 1 meter on a 100m site
-             p.speed = Number((distMeters * 1.2).toFixed(1)); // speed in m/s
-             if (distMeters > 0.05) {
-                p.heading = Math.round((Math.atan2(dy2, dx2) * 180 / Math.PI + 360) % 360);
-             } else {
-                p.speed = 0;
-             }
+             // Keep within zone boundaries
+             updated.x = Math.max(zoneRect.x + 1, Math.min(zoneRect.x + zoneRect.width - 1, updated.x));
+             updated.y = Math.max(zoneRect.y + 1, Math.min(zoneRect.y + zoneRect.height - 1, updated.y));
 
-             // Calculate RSSI based on distance to center of zone (-35 to -85 dBm)
-             const centerX = zoneRect.x + zoneRect.width / 2;
-             const centerY = zoneRect.y + zoneRect.height / 2;
-             const distToCenter = Math.sqrt(Math.pow(p.x - centerX, 2) + Math.pow(p.y - centerY, 2));
-             p.rssi = Math.max(-88, Math.min(-35, Math.round(-40 - distToCenter * 1.5)));
-             p.battery = p.battery ?? (90 + Math.floor(Math.random() * 9));
+             updated.presenceState = Math.random() > 0.3 ? 'MOVING' : 'IDLE';
 
-             // Occasional natural zone transition (smoothly walk across the map to a new zone)
-             if (Math.random() < 0.015 && (!p.idleRemaining || p.idleRemaining === 0)) {
-                const projZones = getZonesForProject(activeProjectId);
-                const randomZone = projZones[Math.floor(Math.random() * projZones.length)];
-                if (randomZone !== p.currentZone) {
-                   p.currentZone = randomZone;
-                   const nextRect = getZoneRect(randomZone, activeProjectId, dynamicZones);
-                   p.targetX = Math.max(2, Math.min(98, nextRect.x + 2 + Math.random() * (nextRect.width - 4)));
-                   p.targetY = Math.max(2, Math.min(98, nextRect.y + 2 + Math.random() * (nextRect.height - 4)));
-                   p.dwellTime = 0;
-                }
-             }
+             // Update trail
+             updated.trail = updated.trail ? [...updated.trail] : [];
+             updated.trail.push({ x: updated.x, y: updated.y });
+             if (updated.trail.length > 30) updated.trail.shift();
+
+             return updated;
            });
-           return nextPeople;
-         });
-
-         setAssets((prev) => {
-            return prev.map(a => {
-               const oldX = a.x;
-               const oldY = a.y;
-               const newX = Math.max(5, Math.min(95, a.x + (Math.random() - 0.5) * 0.6));
-               const newY = Math.max(5, Math.min(95, a.y + (Math.random() - 0.5) * 0.6));
-               const dx = newX - oldX;
-               const dy = newY - oldY;
-               const distMeters = Math.sqrt(dx * dx + dy * dy);
-               const speed = Number((distMeters * 0.8).toFixed(1));
-               const heading = distMeters > 0.05 ? Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360) : a.heading;
-               
-               return {
-                  ...a,
-                  x: newX,
-                  y: newY,
-                  speed,
-                  heading,
-                  rssi: Math.max(-85, Math.min(-38, Math.round(-45 - (newX % 15) * 2))),
-                  battery: a.battery || 94
-               };
-            });
-         });
-
-         setVehicles((prev) => {
-            return prev.map(v => {
-               const oldX = v.x;
-               const oldY = v.y;
-               const isCrane = v.type.toLowerCase().includes('crane');
-
-               if (isCrane) {
-                  // Cranes rotate jib smoothly and stay stationary
-                  const rotationSpeed = (Math.random() - 0.5) * 8; // degrees
-                  const nextHeading = Math.round(((v.heading || 0) + rotationSpeed + 360) % 360);
-                  return {
-                     ...v,
-                     heading: nextHeading,
-                     speed: 0,
-                     status: 'Active (Lifting)',
-                     rssi: -42 + Math.round((Math.random() - 0.5) * 3)
-                  };
-               }
-
-               // Vehicles (excavators, loaders) travel towards destination targets and work
-               if (v.targetX === undefined || v.targetY === undefined) {
-                  v.targetX = Math.max(10, Math.min(90, v.x + (Math.random() - 0.5) * 30));
-                  v.targetY = Math.max(10, Math.min(90, v.y + (Math.random() - 0.5) * 30));
-                  v.idleRemaining = 0;
-               }
-
-               let nextX = v.x;
-               let nextY = v.y;
-               let isMoving = false;
-
-               if (v.idleRemaining !== undefined && v.idleRemaining > 0) {
-                  v.idleRemaining -= 1;
-                  v.status = v.type === 'Excavator' ? 'Active (Excavating)' : 'Idle';
-               } else {
-                  const dx = v.targetX - v.x;
-                  const dy = v.targetY - v.y;
-                  const distance = Math.sqrt(dx * dx + dy * dy);
-
-                  if (distance < 2.0) {
-                     nextX = v.targetX;
-                     nextY = v.targetY;
-                     v.idleRemaining = Math.floor(Math.random() * 15) + 8; // Dwell for 8 to 23 seconds
-                     v.status = v.type === 'Excavator' ? 'Active (Excavating)' : 'Idle';
-                  } else {
-                     const speedPercent = 0.8 + Math.random() * 0.6;
-                     nextX += (dx / distance) * speedPercent;
-                     nextY += (dy / distance) * speedPercent;
-                     v.status = 'Moving';
-                     isMoving = true;
-                  }
-               }
-
-               const dx = nextX - oldX;
-               const dy = nextY - oldY;
-               const distMeters = Math.sqrt(dx * dx + dy * dy);
-               const speedKmh = isMoving ? Number((distMeters * 3.6 * 1.5).toFixed(1)) : 0;
-               const nextHeading = distMeters > 0.1 ? Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360) : v.heading;
-
-               // Occasional destination route changes
-               if (Math.random() < 0.02 && (!v.idleRemaining || v.idleRemaining === 0)) {
-                  v.targetX = Math.max(10, Math.min(90, Math.random() * 100));
-                  v.targetY = Math.max(10, Math.min(90, Math.random() * 100));
-               }
-
-               const updatedTrail = v.trail ? [...v.trail] : [];
-               updatedTrail.push({ x: nextX, y: nextY });
-               if (updatedTrail.length > 60) updatedTrail.shift();
-
-               return {
-                  ...v,
-                  x: nextX,
-                  y: nextY,
-                  speed: speedKmh,
-                  heading: nextHeading,
-                  trail: updatedTrail,
-                  rssi: Math.max(-80, Math.min(-32, Math.round(-38 - (nextX % 20)))),
-                  fuel: Math.max(10, (v.fuel || 85) - 0.02)
-               };
-            });
          });
        };
-       interval = setInterval(demoTick, 1000);
+
+       interval = setInterval(demoSimulationTick, 1800);
     }
 
     return () => {
@@ -626,4 +484,5 @@ const [dynamicZones, setDynamicZones] = useState<Record<string, { x: number; y: 
 
   return { people, assets, vehicles, alerts, ZONES: dynamicZones, isLoading };
 }
+
 

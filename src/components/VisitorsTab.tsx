@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   UserPlus, ClipboardCheck, Clock, Search, X, Mail, 
   Printer, Download, ShieldAlert, ShieldCheck, CheckCircle2, 
-  XCircle, Truck, BarChart2, RefreshCw, Send, UserCheck, QrCode, Scan
+  XCircle, Truck, BarChart2, Send, UserCheck, QrCode
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs, deleteDoc, db } from '../lib/db';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, db } from '../lib/db';
 import QRCode from 'react-qr-code';
 import { exportToCSV, generatePDFReport } from '../lib/exportUtils';
 import VisitorCheckInForm from './VisitorCheckInForm';
@@ -49,208 +49,7 @@ export interface SecurityListItem {
   riskLevel?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
-const INITIAL_MOCK_VISITORS: VisitorRecord[] = [
-  { 
-    id: 'VIS-881', 
-    name: 'Sven Lindqvist', 
-    company: 'City Structural Audit Dept', 
-    host: 'marcus.vance@buildcorp.com', 
-    email: 'sven.l@citygov.org',
-    phone: '+1 (555) 234-5678',
-    status: 'Approved', 
-    time: '10:00 AM Today', 
-    tag: 'TAG-TEMP-901', 
-    location: 'Gate 1 Gatehouse', 
-    duration: 'Scheduled', 
-    path: ['Gate 1'],
-    vehiclePlate: 'CITY-AUDIT-01',
-    vehicleType: 'Government SUV',
-    parkingBay: 'Bay P-02',
-    purpose: 'Annual Structural Safety Audit',
-    idVerificationStatus: 'VERIFIED',
-    idDocType: 'Government ID',
-    idDocNumber: 'GOV-882190',
-    qrCodeRef: 'QR-SVEN-AUDIT-881'
-  },
-  { 
-    id: 'VIS-880', 
-    name: 'David Chen', 
-    company: 'Apex Scaffold Solutions', 
-    host: 'elena.r@buildcorp.com', 
-    email: 'david.chen@apexscaffold.com',
-    phone: '+1 (555) 345-6789',
-    status: 'Active', 
-    time: 'Arrived 09:12 AM', 
-    tag: 'HH-7721 (Temp Hardhat Tag)', 
-    location: 'Structure & Scaffolding (L1-L4)', 
-    duration: '2h 15m', 
-    path: ['Gate 1', 'Site Office', 'Structure & Scaffolding'],
-    vehiclePlate: 'VAN-4022',
-    vehicleType: 'Utility Work Van',
-    parkingBay: 'Bay D-01',
-    purpose: 'Scaffold Tower Inspection',
-    idVerificationStatus: 'VERIFIED',
-    idDocType: 'Driver License',
-    idDocNumber: 'DL-CA-99210',
-    qrCodeRef: 'QR-DAVID-7721'
-  },
-  { 
-    id: 'VIS-879', 
-    name: 'Carlos Mendez', 
-    company: 'VoltCraft Electrical', 
-    host: 'site.super@buildcorp.com', 
-    email: 'carlos@voltcraft.com',
-    phone: '+1 (555) 456-7890',
-    status: 'Active', 
-    time: 'Arrived 09:30 AM', 
-    tag: 'HH-4011 (Subcontractor Tag)', 
-    location: 'Confined Shaft & Tunneling', 
-    duration: '1h 50m', 
-    path: ['Gate 1', 'Confined Shaft & Tunneling'],
-    vehiclePlate: 'TRK-9011',
-    vehicleType: 'Flatbed Truck',
-    parkingBay: 'Loading Dock B',
-    purpose: 'High-Voltage Cable Splicing',
-    idVerificationStatus: 'VERIFIED',
-    idDocType: 'State ID',
-    idDocNumber: 'ST-90112',
-    qrCodeRef: 'QR-CARLOS-4011'
-  },
-  { 
-    id: 'VIS-878', 
-    name: 'Frank Reynolds', 
-    company: 'Titan Heavy Machinery', 
-    host: 'jake.m@buildcorp.com', 
-    email: 'frank.r@titanmachinery.com',
-    phone: '+1 (555) 567-8901',
-    status: 'Overstayed', 
-    time: 'Arrived 06:15 AM', 
-    tag: 'HH-9921 (Crane Tech Tag)', 
-    location: 'Heavy Crane & Exclusion Area', 
-    duration: '5h 10m', 
-    path: ['Gate 1', 'Laydown Yard', 'Heavy Crane Area'], 
-    isOverstayed: true, 
-    arrivalTime: Date.now() - 5.5 * 3600 * 1000,
-    vehiclePlate: 'TITAN-01',
-    vehicleType: 'Crane Transporter',
-    parkingBay: 'Heavy Yard 1',
-    purpose: 'Main Crane Hydraulic Overhaul',
-    idVerificationStatus: 'VERIFIED',
-    idDocType: 'Passport',
-    idDocNumber: 'PASS-US-77812',
-    qrCodeRef: 'QR-FRANK-9921'
-  },
-  { 
-    id: 'VIS-877', 
-    name: 'Dr. Sarah Lin', 
-    company: 'Geotechnical Soil Testing', 
-    host: 'marcus.vance@buildcorp.com', 
-    email: 'slin@geotech.io',
-    phone: '+1 (555) 678-9012',
-    status: 'Pending Approval', 
-    time: '02:00 PM Today', 
-    tag: 'Not Assigned', 
-    location: 'Gate 1 Gatehouse', 
-    duration: 'Pending', 
-    path: [],
-    vehiclePlate: 'GEO-102',
-    vehicleType: 'SUV',
-    parkingBay: 'Bay P-05',
-    purpose: 'Foundation Pit Soil Core Sampling',
-    idVerificationStatus: 'PENDING',
-    idDocType: 'Driver License',
-    idDocNumber: 'DL-NY-33219',
-    qrCodeRef: 'QR-SARAH-LIN'
-  },
-  { 
-    id: 'VIS-876', 
-    name: 'Jose Rodriguez', 
-    company: 'ReadyMix Concrete Delivery', 
-    host: 'dispatch@buildcorp.com', 
-    email: 'jose@readymix.com',
-    phone: '+1 (555) 789-0123',
-    status: 'Pre-Registered', 
-    time: '03:30 PM Today', 
-    tag: 'Not Assigned', 
-    location: 'Pending Arrival', 
-    duration: 'Scheduled', 
-    path: [],
-    vehiclePlate: 'MIX-889',
-    vehicleType: 'Concrete Mixer Truck',
-    parkingBay: 'Pour Bay 3',
-    purpose: 'High-Density Slab Pour Delivery',
-    idVerificationStatus: 'PENDING',
-    idDocType: 'Commercial Driver License',
-    idDocNumber: 'CDL-TX-8821',
-    qrCodeRef: 'QR-JOSE-MIX'
-  },
-  { 
-    id: 'VIS-875', 
-    name: 'Victor Vance', 
-    company: 'Unaffiliated Vendor', 
-    host: 'unknown@buildcorp.com', 
-    email: 'victor@unknown.com',
-    phone: '+1 (555) 000-1111',
-    status: 'Denied', 
-    time: '08:00 AM Today', 
-    tag: 'None', 
-    location: 'Turned Away at Gate 1', 
-    duration: 'Refused', 
-    path: [],
-    vehiclePlate: 'UNKN-00',
-    vehicleType: 'Sedan',
-    parkingBay: 'None',
-    purpose: 'Unsolicited Sales Visit',
-    idVerificationStatus: 'FAILED',
-    idDocType: 'None',
-    idDocNumber: 'N/A',
-    approvalRemarks: 'Security Red Flag: Banned Vendor / No Host Match',
-    qrCodeRef: 'QR-DENIED-VICTOR'
-  }
-];
 
-const INITIAL_SECURITY_LIST: SecurityListItem[] = [
-  {
-    id: 'BLK-001',
-    name: 'Victor Vance',
-    company: 'Rogue Contracting Group',
-    type: 'BLACKLIST',
-    reason: 'Unauthorized entry into Crane Exclusion Zone & aggressive conduct towards EHS Officers.',
-    addedBy: 'Marcus Vance (EHS Director)',
-    addedDate: '2026-07-20',
-    riskLevel: 'CRITICAL'
-  },
-  {
-    id: 'BLK-002',
-    name: 'Alex Mercer',
-    company: 'Titan Concrete Services',
-    type: 'BLACKLIST',
-    reason: 'Speeding on site haul road & refusal to wear mandatory safety harness on L3 scaffold.',
-    addedBy: 'Elena Rostova (Safety Lead)',
-    addedDate: '2026-06-12',
-    riskLevel: 'HIGH'
-  },
-  {
-    id: 'WHT-001',
-    name: 'Dr. Sarah Lin',
-    company: 'Geotechnical Soil Testing',
-    type: 'WHITELIST',
-    reason: 'Pre-vetted Lead Soil Inspector - Fast-track gate clearance authorized by City Municipal Board.',
-    addedBy: 'Site Management',
-    addedDate: '2026-01-10',
-    riskLevel: 'LOW'
-  },
-  {
-    id: 'WHT-002',
-    name: 'Sven Lindqvist',
-    company: 'City Structural Audit Dept',
-    type: 'WHITELIST',
-    reason: 'Chief Municipal Structural Inspector - Master Access Clearance Level 5.',
-    addedBy: 'EHS Director',
-    addedDate: '2026-01-01',
-    riskLevel: 'LOW'
-  }
-];
 
 export default function VisitorsTab() {
   const [activeTab, setActiveTab] = useState<'roster' | 'checkin' | 'qr_generator' | 'approval' | 'vehicles' | 'security_list' | 'analytics'>('roster');
@@ -266,11 +65,7 @@ export default function VisitorsTab() {
   const [invitationVisitor, setInvitationVisitor] = useState<VisitorRecord | null>(null);
   const [isAddSecurityModalOpen, setIsAddSecurityModalOpen] = useState(false);
   const [securityListType, setSecurityListType] = useState<'BLACKLIST' | 'WHITELIST'>('BLACKLIST');
-
   const [notificationMsg, setNotificationMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-  const [isFeeding, setIsFeeding] = useState(false);
-
-  // Form States
   const [newVisitor, setNewVisitor] = useState({
     name: '',
     company: '',
@@ -295,29 +90,8 @@ export default function VisitorsTab() {
     riskLevel: 'HIGH' as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
   });
 
-  // Seed & Firestore Subscription
+  // Firestore Subscription
   useEffect(() => {
-    const seedAndSubscribe = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, 'visitors'));
-        if (snapshot.empty) {
-          for (const visitor of INITIAL_MOCK_VISITORS) {
-            await setDoc(doc(db, 'visitors', visitor.id), visitor);
-          }
-        }
-        
-        const secSnapshot = await getDocs(collection(db, 'visitor_security_list'));
-        if (secSnapshot.empty) {
-          for (const item of INITIAL_SECURITY_LIST) {
-            await setDoc(doc(db, 'visitor_security_list', item.id), item);
-          }
-        }
-      } catch (err) {
-        console.error('Error seeding visitors:', err);
-      }
-    };
-
-    seedAndSubscribe();
 
     const unsubVisitors = onSnapshot(collection(db, 'visitors'), (snap) => {
       const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as VisitorRecord));
@@ -338,11 +112,17 @@ export default function VisitorsTab() {
   // Filtered Visitors
   const filteredVisitors = useMemo(() => {
     return visitors.filter(v => {
-      const matchesSearch = v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.host.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (v.vehiclePlate && v.vehiclePlate.toLowerCase().includes(searchTerm.toLowerCase()));
+      const vName = v.name || '';
+      const vCompany = v.company || '';
+      const vId = v.id || '';
+      const vHost = v.host || '';
+      const sTerm = searchTerm.toLowerCase();
+
+      const matchesSearch = vName.toLowerCase().includes(sTerm) ||
+        vCompany.toLowerCase().includes(sTerm) ||
+        vId.toLowerCase().includes(sTerm) ||
+        vHost.toLowerCase().includes(sTerm) ||
+        (v.vehiclePlate && v.vehiclePlate.toLowerCase().includes(sTerm));
 
       if (!matchesSearch) return false;
 
@@ -378,10 +158,13 @@ export default function VisitorsTab() {
     if (!newVisitor.name || !newVisitor.company) return;
 
     // Check Blacklist FIRST!
-    const isBlacklisted = securityList.some(s => 
-      s.type === 'BLACKLIST' && 
-      (s.name.toLowerCase() === newVisitor.name.toLowerCase() || s.company.toLowerCase() === newVisitor.company.toLowerCase())
-    );
+    const isBlacklisted = securityList.some(s => {
+      const sName = s.name || '';
+      const sCompany = s.company || '';
+      return s.type === 'BLACKLIST' && 
+        ((sName.toLowerCase() === newVisitor.name.toLowerCase()) || 
+         (sCompany.toLowerCase() === newVisitor.company.toLowerCase()));
+    });
 
     const newId = `VIS-${Math.floor(Math.random() * 800) + 900}`;
     const qrRef = `QR-${newVisitor.name.substring(0, 4).toUpperCase()}-${Math.floor(Math.random() * 8999) + 1000}`;
@@ -631,49 +414,7 @@ export default function VisitorsTab() {
     );
   };
 
-  const handleFeedSampleVisitors = async () => {
-    setIsFeeding(true);
-    try {
-      const sampleNames = [
-        { name: 'Marcus Vance', company: 'Apex Structural Audits', host: 'marcus.vance@buildcorp.com', loc: 'Structure & Scaffolding (L1-L4)', plate: 'APEX-882' },
-        { name: 'Aisha Patel', company: 'Heavy Crane Rigging Ltd', host: 'elena.r@buildcorp.com', loc: 'Heavy Crane & Exclusion Area', plate: 'RIG-991' },
-        { name: 'David Kim', company: 'Geotechnical Soil Sampling', host: 'marcus.vance@buildcorp.com', loc: 'Excavation & Foundation Pit', plate: 'GEO-404' }
-      ];
 
-      for (let i = 0; i < sampleNames.length; i++) {
-        const item = sampleNames[i];
-        const newId = `VIS-${Math.floor(Math.random() * 800) + 950}`;
-        const freshRecord: VisitorRecord = {
-          id: newId,
-          name: item.name,
-          company: item.company,
-          host: item.host,
-          email: `${item.name.toLowerCase().replace(' ', '.')}@partner.com`,
-          phone: '+1 (555) 991-2233',
-          status: 'Active',
-          time: `Arrived ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-          tag: `HH-TEMP-${Math.floor(Math.random() * 8000) + 1000}`,
-          location: item.loc,
-          duration: '45m',
-          path: ['Gate 1', 'Site Office', item.loc],
-          vehiclePlate: item.plate,
-          vehicleType: 'Utility SUV',
-          parkingBay: `Bay P-0${i + 1}`,
-          purpose: 'Scheduled Site Inspection',
-          idVerificationStatus: 'VERIFIED',
-          idDocType: 'Driver License',
-          idDocNumber: `DL-STATE-${Math.floor(Math.random() * 89900) + 10000}`,
-          qrCodeRef: `QR-GEN-${newId}`
-        };
-        await setDoc(doc(db, 'visitors', newId), freshRecord);
-      }
-      setNotificationMsg({ type: 'success', text: 'Seeded 3 real-time active visitors!' });
-    } catch (err) {
-      console.error('Error feeding visitors:', err);
-    } finally {
-      setIsFeeding(false);
-    }
-  };
 
   return (
     <div className="w-full flex flex-col p-4 md:p-6 max-w-7xl mx-auto space-y-6">

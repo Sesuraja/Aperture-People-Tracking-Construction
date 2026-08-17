@@ -10,11 +10,16 @@ interface LoginProps {
 export default function Login({ onLoginSuccess }: LoginProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('sigmund.t.d@gaostaff.com');
+  const [password, setPassword] = useState('password123');
   const [role, setRole] = useState<'admin' | 'manager' | 'operator'>('admin');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleDemoAccess = () => {
+    localStorage.setItem('gao_app_mode', 'demo');
+    onLoginSuccess('demo');
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,48 +71,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     } catch (err: any) {
       console.error('Backend Auth Error:', err);
       setError(err.message || 'Authentication failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleQuickAdminSignIn = async () => {
-    setError('');
-    setIsLoading(true);
-    try {
-      const apiRes = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'sigmund.t.d@gaostaff.com',
-          password: 'AdminPassword123!',
-          name: 'Sigmund Administrator',
-          role: 'admin'
-        })
-      });
-      const apiData = await apiRes.json();
-      if (apiData.token) {
-        localStorage.setItem('gao_jwt_token', apiData.token);
-      } else {
-        // Fallback login
-        const loginRes = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: 'sigmund.t.d@gaostaff.com',
-            password: 'AdminPassword123!'
-          })
-        });
-        const loginData = await loginRes.json();
-        if (loginData.token) {
-          localStorage.setItem('gao_jwt_token', loginData.token);
-        }
-      }
-
-      onLoginSuccess('real');
-    } catch (err: any) {
-      console.warn('Quick admin login error:', err);
-      onLoginSuccess('real');
     } finally {
       setIsLoading(false);
     }
@@ -258,7 +221,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             <button 
               type="submit" 
               disabled={isLoading}
-              className="w-full bg-[#007BC4] text-white rounded-lg px-4 py-2.5 font-semibold hover:bg-[#0064A0] transition disabled:opacity-70 flex justify-center items-center gap-2 shadow-sm"
+              className="w-full bg-[#007BC4] text-white rounded-lg px-4 py-2.5 font-semibold hover:bg-[#0064A0] transition disabled:opacity-70 flex justify-center items-center gap-2 shadow-sm cursor-pointer"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -274,50 +237,25 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 </>
               )}
             </button>
+
+            {!isSignUp && (
+              <button
+                type="button"
+                onClick={handleDemoAccess}
+                className="w-full mt-2 py-2 px-3 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <PlayCircle className="w-4 h-4 text-emerald-600" />
+                <span>Quick Access via Demo Sandbox Mode</span>
+              </button>
+            )}
           </form>
 
-          {/* Google Sign In Divider */}
-          <div className="mt-6 relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="px-2 bg-white text-slate-400 font-medium">Or continue with</span>
-            </div>
-          </div>
-
-          <div className="mt-6 space-y-3">
-            <button
-              type="button"
-              onClick={handleQuickAdminSignIn}
-              disabled={isLoading}
-              className="w-full bg-slate-900 text-white rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-slate-800 transition flex items-center justify-between shadow-xs group"
-            >
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-sky-400 shrink-0" />
-                <span>Quick Admin Sign In</span>
-              </div>
-              <span className="text-[10px] font-semibold bg-sky-950 text-sky-300 border border-sky-800/60 px-2 py-0.5 rounded-md">
-                Backend JWT & DB
-              </span>
-            </button>
-
-            <button 
-              type="button"
-              onClick={() => {
-                localStorage.setItem('gao_jwt_token', 'demo');
-                onLoginSuccess('demo');
-              }}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-slate-100 transition flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <PlayCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Start Interactive Demo Mode</span>
-              </div>
-              <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md">
-                Offline Sandbox
-              </span>
-            </button>
+          {/* MongoDB Authentication Footnote */}
+          <div className="mt-6 text-center">
+            <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1.5 font-medium">
+              <Shield className="w-3.5 h-3.5 text-sky-600" />
+              <span>Secured via Enterprise MongoDB Database & JWT Session</span>
+            </p>
           </div>
 
         </div>

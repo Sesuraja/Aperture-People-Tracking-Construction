@@ -17,6 +17,7 @@ import IncidentsTab from './components/IncidentsTab';
 import AIInsightsTab from './components/AIInsightsTab';
 import MaintenanceTab from './components/MaintenanceTab';
 import TopBar from './components/TopBar';
+import DemoControlBar from './components/DemoControlBar';
 import PeopleTab from './components/PeopleTab';
 import AlertsTab from './components/AlertsTab';
 import AnalyticsTab from './components/AnalyticsTab';
@@ -89,7 +90,14 @@ const ProtectedRoute = ({
 };
 
 export default function App() {
-  const [mode, setMode] = useState<AppMode>(() => (localStorage.getItem('gao_app_mode') as AppMode) || null);
+  const [mode, setMode] = useState<AppMode>(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('gao_jwt_token') : null;
+    const savedMode = typeof window !== 'undefined' ? localStorage.getItem('gao_app_mode') : null;
+    if (token) return 'real';
+    if (savedMode === 'real' || savedMode === 'demo') return savedMode as AppMode;
+    // Default to 'demo' to ensure instant preview and prevent blank/white screen on initial load
+    return 'demo';
+  });
 
   const changeMode = (newMode: AppMode) => {
     setMode(newMode);
@@ -97,12 +105,24 @@ export default function App() {
       localStorage.setItem('gao_app_mode', newMode);
     } else {
       localStorage.removeItem('gao_app_mode');
+      localStorage.removeItem('gao_jwt_token');
     }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore network errors during logout
+    }
+    localStorage.removeItem('gao_jwt_token');
+    localStorage.removeItem('gao_app_mode');
+    setMode(null);
   };
 
   useEffect(() => {
     const token = localStorage.getItem('gao_jwt_token');
-    if (token && !mode) {
+    if (token && mode !== 'real') {
       changeMode('real');
     }
   }, []);
@@ -135,20 +155,17 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <AppModeContext.Provider value={{ mode }}>
-        {!mode ? (
-          <Login onLoginSuccess={changeMode} />
-        ) : (
-          <BrowserRouter>
+      <BrowserRouter>
+        <AppModeContext.Provider value={{ mode }}>
+          {!mode ? (
+            <Login onLoginSuccess={changeMode} />
+          ) : (
             <TrackingProvider>
-              <AppContent onLogout={() => {
-                  localStorage.removeItem('gao_jwt_token');
-                  changeMode(null);
-              }} />
+              <AppContent onLogout={handleLogout} />
             </TrackingProvider>
-          </BrowserRouter>
-        )}
-      </AppModeContext.Provider>
+          )}
+        </AppModeContext.Provider>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }
@@ -168,6 +185,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedPersonId, setHighlightedPersonId] = useState<string | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; email?: string; name?: string; role?: string } | null>(null);
   
   // Custom Claims Role-based visibility and access controls
   const [userRole, setUserRole] = useState<string>('operator');
@@ -177,6 +195,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
   const loadClaimsAndPermissions = async () => {
     if (mode === 'demo') {
       setUserRole('admin');
+      setCurrentUser({ email: 'sigmund.t.d@gaostaff.com', name: 'Sigmund D.', role: 'admin' });
       setPermissions({
         admin: {
           dashboard: true, live: true, customMap: true, playback: true, people: true, visitors: true,
@@ -234,6 +253,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         if (res.ok) {
           const data = await res.json();
           if (data.user) {
+            setCurrentUser(data.user);
             resolvedRole = data.user.role || 'admin';
             currentUid = data.user.id || '';
           }
@@ -318,7 +338,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
   const navigate = useNavigate();
 
   const filteredPeople = searchQuery 
-    ? people.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase()))
+    ? (people || []).filter(p => p && p.name && (p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.id && p.id.toLowerCase().includes(searchQuery.toLowerCase()))))
     : [];
 
   return (
@@ -417,7 +437,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
                 Safety & Compliance
               </span>
             )}
-            {isPageAllowed('alerts') && <NavItem to="/alerts" icon={<Bell size={18}/>} label="Alerts & Triggers" hasNotification={alerts.some(a => a.type === 'security')} isCollapsed={isSidebarCollapsed} />}
+            {isPageAllowed('alerts') && <NavItem to="/alerts" icon={<Bell size={18}/>} label="Alerts & Triggers" hasNotification={(alerts || []).some(a => a && a.type === 'security')} isCollapsed={isSidebarCollapsed} />}
             {isPageAllowed('incidents') && <NavItem to="/incidents" icon={<ShieldAlert size={18}/>} label="Incidents" isCollapsed={isSidebarCollapsed} />}
             {isPageAllowed('analytics') && <NavItem to="/analytics" icon={<BarChart3 size={18}/>} label="Analytics" isCollapsed={isSidebarCollapsed} />}
             {isPageAllowed('aiInsights') && <NavItem to="/ai-insights" icon={<Sparkles size={18}/>} label="AI Insights" isCollapsed={isSidebarCollapsed} />}
@@ -443,23 +463,23 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
               className="w-10 h-10 rounded-xl bg-[#007BC4] text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs mx-auto"
               title="User Profile & Settings"
             >
-              S
+              {(currentUser?.name || currentUser?.email || 'A').charAt(0).toUpperCase()}
             </button>
           ) : (
             <>
               <div 
                 onClick={() => setIsProfileModalOpen(true)}
-                className="bg-slate-50 dark:bg-slate-800/80 p-2.5 flex-1 rounded-xl flex items-center justify-between cursor-pointer border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-700 transition shadow-2xs"
+                className="bg-slate-50 dark:bg-slate-800/80 p-2.5 flex-1 rounded-xl flex items-center justify-between cursor-pointer border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-700 transition shadow-2xs min-w-0"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-7 h-7 rounded-lg bg-[#007BC4] flex items-center justify-center text-xs font-bold text-white shrink-0 uppercase shadow-2xs">
-                   S
+                    {(currentUser?.name || currentUser?.email || 'A').charAt(0).toUpperCase()}
                   </div>
                   <div className="flex flex-col min-w-0 pr-1">
                     <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                     sigmund.t.d
+                      {currentUser?.name || currentUser?.email?.split('@')[0] || 'User Profile'}
                     </span>
-                    <span className="text-[9px] text-[#007BC4] font-bold uppercase tracking-wider">{userRole}</span>
+                    <span className="text-[9px] text-[#007BC4] font-bold uppercase tracking-wider truncate">{userRole}</span>
                   </div>
                 </div>
               </div>
@@ -467,7 +487,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
               <button 
                 onClick={onLogout}
                 className="p-2.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-500 rounded-xl border border-slate-200 dark:border-slate-700 transition shadow-2xs bg-slate-50 dark:bg-slate-800 shrink-0" 
-                title="Logout"
+                title="Log Out"
               >
                  <LogOut size={15} />
               </button>
@@ -478,6 +498,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
 
       {/* Main Content Workspace Area */}
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900 transition-colors">
+        {mode === 'demo' && <DemoControlBar />}
         <TopBar onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
         
         <div className="flex-1 overflow-y-auto relative min-h-0 w-full flex flex-col">

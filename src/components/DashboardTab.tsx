@@ -107,37 +107,41 @@ export interface PanelConfig {
   accentColor?: string;
 }
 
-const DEFAULT_KPIS: KPIConfig[] = [
-  { id: 'total_workers', title: 'Total Workers on Site', visible: true, order: 1, sub: 'Active registered roster on site', iconName: 'Users', iconColor: 'bg-[#007BC4]' },
-  { id: 'active_workers', title: 'Active Workers', visible: true, order: 2, sub: 'Active in motion / on-shift trades', iconName: 'UserCheck', iconColor: 'bg-emerald-600' },
-  { id: 'visitors_count', title: 'Visitors', visible: true, order: 3, sub: 'Pre-registered & checked-in visitors', iconName: 'UserX', iconColor: 'bg-amber-500' },
-  { id: 'contractors_count', title: 'Contractors', visible: true, order: 4, sub: 'Subcontractor trades on site', iconName: 'HardHat', iconColor: 'bg-indigo-600' },
-  { id: 'active_tags', title: 'Active RFID Tags', visible: true, order: 5, sub: 'Transmitting hardhat & asset tags', iconName: 'Radio', iconColor: 'bg-sky-600' },
-  { id: 'online_readers', title: 'Online Readers', visible: true, order: 6, sub: 'Gate portals online & scanning', iconName: 'Wifi', iconColor: 'bg-emerald-600' },
-  { id: 'offline_readers', title: 'Offline Readers', visible: true, order: 7, sub: 'Disconnected or warning state', iconName: 'WifiOff', iconColor: 'bg-rose-600' },
-  { id: 'active_equipment', title: 'Active Equipment', visible: true, order: 8, sub: 'Cranes, excavators & lifts tracked', iconName: 'Truck', iconColor: 'bg-purple-600' },
-  { id: 'safety_alerts', title: 'Safety Alerts', visible: true, order: 9, sub: 'PPE & hazard proximity warnings', iconName: 'ShieldAlert', iconColor: 'bg-amber-500' },
-  { id: 'emergency_alerts', title: 'Emergency Alerts', visible: true, order: 10, sub: 'Critical panic & crane radius breaches', iconName: 'Siren', iconColor: 'bg-rose-600' },
-  { id: 'attendance_today', title: 'Attendance Today', visible: true, order: 11, sub: '48/50 scheduled workers checked in', iconName: 'Clock', iconColor: 'bg-blue-600' },
-  { id: 'ppe_compliance', title: 'PPE Compliance', visible: true, order: 12, sub: 'Hardhat tag & vest scan rate', iconName: 'ShieldCheck', iconColor: 'bg-teal-600' },
-  { id: 'productivity_score', title: 'Productivity Score', visible: true, order: 13, sub: 'Active work vs idle dwell rating', iconName: 'TrendingUp', iconColor: 'bg-emerald-600' },
-  { id: 'site_utilization', title: 'Site Utilization', visible: true, order: 14, sub: 'Active sectors vs max capacity', iconName: 'Gauge', iconColor: 'bg-violet-600' },
-];
+export function getDefaultKPIs(): KPIConfig[] {
+  return [
+    { id: 'total_workers', title: 'Total Workers on Site', visible: true, order: 1, sub: 'Active registered roster on site', iconName: 'Users', iconColor: 'bg-[#007BC4]' },
+    { id: 'active_workers', title: 'Active Workers', visible: true, order: 2, sub: 'Active in motion / on-shift trades', iconName: 'UserCheck', iconColor: 'bg-emerald-600' },
+    { id: 'visitors_count', title: 'Visitors', visible: true, order: 3, sub: 'Pre-registered & checked-in visitors', iconName: 'UserX', iconColor: 'bg-amber-500' },
+    { id: 'contractors_count', title: 'Contractors', visible: true, order: 4, sub: 'Subcontractor trades on site', iconName: 'HardHat', iconColor: 'bg-indigo-600' },
+    { id: 'active_tags', title: 'Active RFID Tags', visible: true, order: 5, sub: 'Transmitting hardhat & asset tags', iconName: 'Radio', iconColor: 'bg-sky-600' },
+    { id: 'online_readers', title: 'Online Readers', visible: true, order: 6, sub: 'Gate portals online & scanning', iconName: 'Wifi', iconColor: 'bg-emerald-600' },
+    { id: 'offline_readers', title: 'Offline Readers', visible: true, order: 7, sub: 'Disconnected or warning state', iconName: 'WifiOff', iconColor: 'bg-rose-600' },
+    { id: 'active_equipment', title: 'Active Equipment', visible: true, order: 8, sub: 'Cranes, excavators & lifts tracked', iconName: 'Truck', iconColor: 'bg-purple-600' },
+    { id: 'safety_alerts', title: 'Safety Alerts', visible: true, order: 9, sub: 'PPE & hazard proximity warnings', iconName: 'ShieldAlert', iconColor: 'bg-amber-500' },
+    { id: 'emergency_alerts', title: 'Emergency Alerts', visible: true, order: 10, sub: 'Critical panic & crane radius breaches', iconName: 'Siren', iconColor: 'bg-rose-600' },
+    { id: 'attendance_today', title: 'Attendance Today', visible: true, order: 11, sub: 'Workers scheduled vs checked in', iconName: 'Clock', iconColor: 'bg-blue-600' },
+    { id: 'ppe_compliance', title: 'PPE Compliance', visible: true, order: 12, sub: 'Hardhat tag & vest scan rate', iconName: 'ShieldCheck', iconColor: 'bg-teal-600' },
+    { id: 'productivity_score', title: 'Productivity Score', visible: true, order: 13, sub: 'Active work vs idle dwell rating', iconName: 'TrendingUp', iconColor: 'bg-emerald-600' },
+    { id: 'site_utilization', title: 'Site Utilization', visible: true, order: 14, sub: 'Active sectors vs max capacity', iconName: 'Gauge', iconColor: 'bg-violet-600' },
+  ];
+}
 
-const DEFAULT_PANELS: PanelConfig[] = [
-  { id: 'site_monitoring_view', title: 'Site Monitoring View', description: 'Interactive site monitoring view with Active Workers, Vehicles, High-Risk Alerts filter chips and Supervisor Quick Notes.', visible: true, order: 0, width: 'full' },
-  { id: 'site_status', title: 'Site Status', description: 'Live operational status, active shift, site capacity indicator, and safety clearance.', visible: true, order: 1, width: '1/2' },
-  { id: 'weather_widget', title: 'Weather & Site Conditions', description: 'Ambient temperature, wind speed for crane lifts, humidity, UV index, and EHS risk level.', visible: true, order: 2, width: '1/2' },
-  { id: 'shift_progress', title: 'Shift Progress', description: 'Active shift timeline, completion percentage, remaining hours, and workforce on shift.', visible: true, order: 2, width: '1/3' },
-  { id: 'reader_health', title: 'Reader Health', description: 'UHF RFID gate portals, antenna RSSI, packet rates, and online/offline status.', visible: true, order: 3, width: '1/3' },
-  { id: 'equipment_health', title: 'Equipment Health', description: 'Heavy machinery telemetry, cranes, excavators, engine/fuel levels, and zone location.', visible: true, order: 4, width: '1/3' },
-  { id: 'ai_recommendations', title: 'AI Recommendations', description: 'Predictive safety advisories, overcrowding warnings, PPE enforcement, and fatigue alerts.', visible: true, order: 5, width: '1/2' },
-  { id: 'daily_summary', title: 'Daily Summary', description: 'Total gate throughput, RFID scans, peak activity hours, and incident-free streak.', visible: true, order: 6, width: '1/2' },
-  { id: 'active_incidents', title: 'Active Incidents', description: 'Real-time safety incident feed, severity ratings, assigned responders, and SLA timers.', visible: true, order: 7, width: 'full' },
-  { id: 'occupancy_panel', title: 'Sector Occupancy & Movement Logs', description: 'Live zone occupancy distribution and recent worker movement telemetry.', visible: true, order: 8, width: '2/3' },
-  { id: 'system_health', title: 'Database & System Telemetry', description: 'Real-time connection state and latency for Cloud Firestore and MongoDB.', visible: true, order: 9, width: '1/3' },
-  { id: 'tech_footer', title: 'Construction RFID Features', description: 'Core system specs overview of active RFID frequency bands, IP67 readers & safety protocols.', visible: true, order: 10, width: 'full' }
-];
+export function getDefaultPanels(): PanelConfig[] {
+  return [
+    { id: 'site_monitoring_view', title: 'Site Monitoring View', description: 'Interactive site monitoring view with Active Workers, Vehicles, High-Risk Alerts filter chips and Supervisor Quick Notes.', visible: true, order: 0, width: 'full' },
+    { id: 'site_status', title: 'Site Status', description: 'Live operational status, active shift, site capacity indicator, and safety clearance.', visible: true, order: 1, width: '1/2' },
+    { id: 'weather_widget', title: 'Weather & Site Conditions', description: 'Ambient temperature, wind speed for crane lifts, humidity, UV index, and EHS risk level.', visible: true, order: 2, width: '1/2' },
+    { id: 'shift_progress', title: 'Shift Progress', description: 'Active shift timeline, completion percentage, remaining hours, and workforce on shift.', visible: true, order: 2, width: '1/3' },
+    { id: 'reader_health', title: 'Reader Health', description: 'UHF RFID gate portals, antenna RSSI, packet rates, and online/offline status.', visible: true, order: 3, width: '1/3' },
+    { id: 'equipment_health', title: 'Equipment Health', description: 'Heavy machinery telemetry, cranes, excavators, engine/fuel levels, and zone location.', visible: true, order: 4, width: '1/3' },
+    { id: 'ai_recommendations', title: 'AI Recommendations', description: 'Predictive safety advisories, overcrowding warnings, PPE enforcement, and fatigue alerts.', visible: true, order: 5, width: '1/2' },
+    { id: 'daily_summary', title: 'Daily Summary', description: 'Total gate throughput, RFID scans, peak activity hours, and incident-free streak.', visible: true, order: 6, width: '1/2' },
+    { id: 'active_incidents', title: 'Active Incidents', description: 'Real-time safety incident feed, severity ratings, assigned responders, and SLA timers.', visible: true, order: 7, width: 'full' },
+    { id: 'occupancy_panel', title: 'Sector Occupancy & Movement Logs', description: 'Live zone occupancy distribution and recent worker movement telemetry.', visible: true, order: 8, width: '2/3' },
+    { id: 'system_health', title: 'Database & System Telemetry', description: 'Real-time connection state and latency for Cloud Firestore and MongoDB.', visible: true, order: 9, width: '1/3' },
+    { id: 'tech_footer', title: 'Construction RFID Features', description: 'Core system specs overview of active RFID frequency bands, IP67 readers & safety protocols.', visible: true, order: 10, width: 'full' }
+  ];
+}
 
 export default function DashboardTab({ 
   people, 
@@ -178,6 +182,14 @@ export default function DashboardTab({
 
   const [deviceStats, setDeviceStats] = useState({ online: 0, offline: 0, warning: 0 });
   const [deviceList, setDeviceList] = useState<any[]>([]);
+
+  // Database-driven dynamic state variables
+  const [visitorsCount, setVisitorsCount] = useState<number>(0);
+  const [contractorsCount, setContractorsCount] = useState<number>(0);
+  const [attendanceCount, setAttendanceCount] = useState<number>(0);
+  const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+  const [shiftSchedules, setShiftSchedules] = useState<any[]>([]);
+  const [aiRecs, setAiRecs] = useState<any[]>([]);
 
   // Monitoring View Filter states
   const [showWorkersFilter, setShowWorkersFilter] = useState(true);
@@ -311,8 +323,8 @@ export default function DashboardTab({
   };
 
   // Layout states
-  const [kpis, setKpis] = useState<KPIConfig[]>(DEFAULT_KPIS);
-  const [panels, setPanels] = useState<PanelConfig[]>(DEFAULT_PANELS);
+  const [kpis, setKpis] = useState<KPIConfig[]>([]);
+  const [panels, setPanels] = useState<PanelConfig[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'metrics' | 'grids' | 'trash' | 'settings'>('metrics');
@@ -440,6 +452,22 @@ export default function DashboardTab({
 
     unsubs.push(onSnapshot(collection(db, 'registered_people'), (snapshot) => {
        setRegisteredCount(snapshot.size);
+       let contractors = 0;
+       snapshot.forEach(doc => {
+          const role = doc.data().role || '';
+          const company = doc.data().tradeCompany || '';
+          if (
+            role.toLowerCase().includes('contractor') || 
+            role.toLowerCase().includes('sub') || 
+            company.toLowerCase().includes('apex') || 
+            company.toLowerCase().includes('concrete') || 
+            company.toLowerCase().includes('heavy') ||
+            company.toLowerCase().includes('volt')
+          ) {
+            contractors++;
+          }
+       });
+       setContractorsCount(contractors);
     }));
 
     unsubs.push(onSnapshot(
@@ -537,36 +565,48 @@ export default function DashboardTab({
         const docRef = doc(db, 'settings', `dashboard_${userId}`);
         const docSnap = await getDoc(docRef);
         
+        let loadedKpis: KPIConfig[] = [];
+        let loadedPanels: PanelConfig[] = [];
+        
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.kpis && Array.isArray(data.kpis)) {
-             // Merge missing properties if defaults changed
-             const mergedKpis = DEFAULT_KPIS.map(def => {
+             const mergedKpis = getDefaultKPIs().map(def => {
                const saved = data.kpis.find((k: any) => k.id === def.id);
                return saved ? { ...def, visible: saved.visible, order: saved.order, deleted: saved.deleted } : def;
              });
-             setKpis(mergedKpis.sort((a,b) => a.order - b.order));
+             loadedKpis = mergedKpis.sort((a,b) => a.order - b.order);
+          } else {
+             loadedKpis = getDefaultKPIs();
           }
           if (data.panels && Array.isArray(data.panels)) {
-             const mergedPanels = DEFAULT_PANELS.map(def => {
+             const mergedPanels = getDefaultPanels().map(def => {
                const saved = data.panels.find((p: any) => p.id === def.id);
                return saved ? { ...def, visible: saved.visible, order: saved.order, width: saved.width || def.width, deleted: saved.deleted } : def;
              });
-             setPanels(mergedPanels.sort((a,b) => a.order - b.order));
+             loadedPanels = mergedPanels.sort((a,b) => a.order - b.order);
+          } else {
+             loadedPanels = getDefaultPanels();
           }
+          setKpis(loadedKpis);
+          setPanels(loadedPanels);
         } else {
-          // Fallback to localStorage
-          const storedKpis = localStorage.getItem(`dashboard_kpis_${userId}`);
-          const storedPanels = localStorage.getItem(`dashboard_panels_${userId}`);
-          if (storedKpis) {
-             setKpis(JSON.parse(storedKpis));
+          // If the Firestore document doesn't exist, initialize it in the database!
+          const kpisInit = getDefaultKPIs();
+          const panelsInit = getDefaultPanels();
+          try {
+            await setDoc(docRef, { kpis: kpisInit, panels: panelsInit });
+          } catch (e) {
+            console.warn("Failed to write initial dashboard layout to DB:", e);
           }
-          if (storedPanels) {
-             setPanels(JSON.parse(storedPanels));
-          }
+          setKpis(kpisInit);
+          setPanels(panelsInit);
         }
       } catch (err) {
         console.warn("Failed to load dashboard layout preference:", err);
+        // Fallback to local default layouts
+        setKpis(getDefaultKPIs());
+        setPanels(getDefaultPanels());
       }
     };
     fetchLayout();
@@ -662,8 +702,8 @@ export default function DashboardTab({
   };
 
   const handleResetLayout = () => {
-    setTempKpis(JSON.parse(JSON.stringify(DEFAULT_KPIS)));
-    setTempPanels(JSON.parse(JSON.stringify(DEFAULT_PANELS)));
+    setTempKpis(getDefaultKPIs());
+    setTempPanels(getDefaultPanels());
   };
 
   // Commits newly customized layout configs back to Firestore & LocalStorage
@@ -1864,7 +1904,7 @@ export default function DashboardTab({
           />
         );
       case 'visitors_count': {
-        const vCount = people.filter(p => p.role?.toLowerCase().includes('visitor')).length || 6;
+        const vCount = visitorsCount || people.filter(p => p.role?.toLowerCase().includes('visitor')).length || 0;
         return (
           <KpiCard 
             key={id} 
@@ -1878,7 +1918,7 @@ export default function DashboardTab({
         );
       }
       case 'contractors_count': {
-        const cCount = people.filter(p => p.role?.toLowerCase().includes('contractor') || p.role?.toLowerCase().includes('sub')).length || 28;
+        const cCount = contractorsCount || people.filter(p => p.role?.toLowerCase().includes('contractor') || p.role?.toLowerCase().includes('sub')).length || 0;
         return (
           <KpiCard 
             key={id} 
@@ -1892,7 +1932,7 @@ export default function DashboardTab({
         );
       }
       case 'active_tags': {
-        const tagCount = isReal ? registeredCount + 18 : people.length + 24;
+        const tagCount = registeredCount + visitorsCount + (deviceStats.online || 0);
         return (
           <KpiCard 
             key={id} 
@@ -1910,7 +1950,7 @@ export default function DashboardTab({
           <KpiCard 
             key={id} 
             title={title || "Online Readers"} 
-            value={(deviceStats.online || 18).toString()} 
+            value={(deviceStats.online || 0).toString()} 
             sub={subOverride || "Gate portals online & scanning"} 
             icon={renderKpiIcon(kpi?.iconName || 'Wifi')} 
             iconColor={iconColorOverride || "bg-emerald-600"} 
@@ -1922,7 +1962,7 @@ export default function DashboardTab({
           <KpiCard 
             key={id} 
             title={title || "Offline Readers"} 
-            value={(deviceStats.offline || 2).toString()} 
+            value={(deviceStats.offline || 0).toString()} 
             sub={subOverride || "Disconnected or warning state"} 
             icon={renderKpiIcon(kpi?.iconName || 'WifiOff')} 
             iconColor={iconColorOverride || "bg-rose-600"} 
@@ -1934,7 +1974,7 @@ export default function DashboardTab({
           <KpiCard 
             key={id} 
             title={title || "Active Equipment"} 
-            value="12" 
+            value={(vehicles?.length || 0).toString()} 
             sub={subOverride || "Cranes, excavators & lifts tracked"} 
             icon={renderKpiIcon(kpi?.iconName || 'Truck')} 
             iconColor={iconColorOverride || "bg-purple-600"} 
@@ -1947,7 +1987,7 @@ export default function DashboardTab({
           <KpiCard 
             key={id} 
             title={title || "Safety Alerts"} 
-            value={(alerts.filter(a => a.type === 'warning' || a.type === 'info').length || 4).toString()} 
+            value={(alerts.filter(a => a.type === 'warning' || a.type === 'info').length || 0).toString()} 
             sub={subOverride || "PPE & hazard proximity warnings"} 
             icon={renderKpiIcon(kpi?.iconName || 'ShieldAlert')} 
             iconColor={iconColorOverride || "bg-amber-500"} 
@@ -1959,61 +1999,72 @@ export default function DashboardTab({
           <KpiCard 
             key={id} 
             title={title || "Emergency Alerts"} 
-            value={(alerts.filter(a => a.type === 'security').length || 1).toString()} 
+            value={(alerts.filter(a => a.type === 'security').length || 0).toString()} 
             sub={subOverride || "Critical panic & crane radius breaches"} 
             icon={renderKpiIcon(kpi?.iconName || 'Siren')} 
             iconColor={iconColorOverride || "bg-rose-600"} 
             onClick={() => navigate('/incidents')} 
           />
         );
-      case 'attendance_today':
+      case 'attendance_today': {
+        const attRate = registeredCount > 0 ? Math.min(100, Math.round((attendanceCount / registeredCount) * 1000) / 10) : 0;
         return (
           <KpiCard 
             key={id} 
             title={title || "Attendance Today"} 
-            value="96.4%" 
-            sub={subOverride || "48/50 scheduled workers checked in"} 
+            value={attRate > 0 ? `${attRate}%` : "0%"} 
+            sub={subOverride || `${attendanceCount}/${registeredCount} scheduled workers checked in`} 
             icon={renderKpiIcon(kpi?.iconName || 'Clock')} 
             iconColor={iconColorOverride || "bg-blue-600"} 
             onClick={() => navigate('/attendance')} 
           />
         );
-      case 'ppe_compliance':
+      }
+      case 'ppe_compliance': {
+        const compliantCount = people.filter(p => p.ppeStatus === 'COMPLIANT' || !p.ppeStatus).length;
+        const complianceRate = people.length > 0 ? ((compliantCount / people.length) * 100).toFixed(1) : "0.0";
         return (
           <KpiCard 
             key={id} 
             title={title || "PPE Compliance"} 
-            value="98.2%" 
+            value={complianceRate !== "0.0" ? `${complianceRate}%` : "100%"} 
             sub={subOverride || "Hardhat tag & vest scan rate"} 
             icon={renderKpiIcon(kpi?.iconName || 'ShieldCheck')} 
             iconColor={iconColorOverride || "bg-teal-600"} 
             onClick={() => navigate('/ai-insights')} 
           />
         );
-      case 'productivity_score':
+      }
+      case 'productivity_score': {
+        const activeWorkersCount = people.filter(p => p.presenceState === 'MOVING').length;
+        const prodScore = people.length > 0 ? ((activeWorkersCount / people.length) * 40 + 60).toFixed(1) : "100.0";
         return (
           <KpiCard 
             key={id} 
             title={title || "Productivity Score"} 
-            value="94.5%" 
+            value={`${prodScore}%`} 
             sub={subOverride || "Active work vs idle dwell rating"} 
             icon={renderKpiIcon(kpi?.iconName || 'TrendingUp')} 
             iconColor={iconColorOverride || "bg-emerald-600"} 
             onClick={() => navigate('/analytics')} 
           />
         );
-      case 'site_utilization':
+      }
+      case 'site_utilization': {
+        const totalDevsCount = deviceList.length;
+        const utilizedRate = totalDevsCount > 0 ? ((deviceStats.online / totalDevsCount) * 100).toFixed(1) : "100.0";
         return (
           <KpiCard 
             key={id} 
             title={title || "Site Utilization"} 
-            value="78.4%" 
+            value={`${utilizedRate}%`} 
             sub={subOverride || "Active sectors vs max capacity"} 
             icon={renderKpiIcon(kpi?.iconName || 'Gauge')} 
             iconColor={iconColorOverride || "bg-violet-600"} 
             onClick={() => navigate('/live')} 
           />
         );
+      }
       case 'in_motion':
         return (
           <KpiCard 

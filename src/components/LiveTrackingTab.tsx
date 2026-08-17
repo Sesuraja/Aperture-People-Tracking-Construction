@@ -159,6 +159,27 @@ export default function LiveTrackingTab({
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [sensors, setSensors] = useState<EnvSensor[]>([]);
   const [projectMeta, setProjectMeta] = useState<any>(null);
+  const [mongoDbStatus, setMongoDbStatus] = useState<{ connected: boolean; storageType?: string; error?: string | null }>({
+    connected: true,
+    storageType: 'mongodb'
+  });
+
+  useEffect(() => {
+    const checkMongoStatus = async () => {
+      try {
+        const res = await fetch('/api/mongodb/status');
+        if (res.ok) {
+          const data = await res.json();
+          setMongoDbStatus(data);
+        }
+      } catch (e) {
+        setMongoDbStatus({ connected: false, storageType: 'in-memory', error: 'Network error' });
+      }
+    };
+    checkMongoStatus();
+    const interval = setInterval(checkMongoStatus, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const trackingCtx = useTracking();
 
@@ -554,7 +575,18 @@ export default function LiveTrackingTab({
               : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
           }`}>
             {isWsConnected ? <Wifi className="w-3.5 h-3.5 text-emerald-500 animate-pulse shrink-0" /> : <WifiOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-            <span className="hidden lg:inline whitespace-nowrap">{isWsConnected ? 'WS 0ms Live' : 'WS Reconnecting...'}</span>
+            <span className="hidden lg:inline whitespace-nowrap">{isWsConnected ? 'WS 0ms Live' : 'WS Syncing...'}</span>
+          </span>
+
+          <span className={`h-10 px-3 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 border shadow-sm shrink-0 select-none ${
+            mongoDbStatus.connected && mongoDbStatus.storageType === 'mongodb'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+              : 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800'
+          }`}
+          title={mongoDbStatus.connected ? 'MongoDB Telemetry Database Connected' : 'Local In-Memory Telemetry Database Active'}
+          >
+            <Database className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+            <span className="hidden lg:inline whitespace-nowrap">{mongoDbStatus.connected && mongoDbStatus.storageType === 'mongodb' ? 'MongoDB Online' : 'DB Engine Active'}</span>
           </span>
 
           <button 

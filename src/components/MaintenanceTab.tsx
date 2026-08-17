@@ -293,104 +293,75 @@ export default function MaintenanceTab() {
 
     // 1. Sync Maintenance Nodes
     const unsubNodes = onSnapshot(collection(db, 'maintenance_nodes'), async (snapshot) => {
-      if (snapshot.empty) {
-        console.log('[MaintenanceTab] Seeding default maintenance_nodes to MongoDB...');
-        for (const n of DEFAULT_NODES) {
-          try { await setDoc(doc(db, 'maintenance_nodes', n.id), n); } catch (e) { console.error(e); }
-        }
-        setNodes(DEFAULT_NODES);
-      } else {
-        const list: MaintenanceNode[] = [];
-        snapshot.forEach(d => {
-          const data = d.data();
-          list.push({
-            id: d.id || data.id,
-            name: data.name || 'Unnamed Node',
-            type: data.type || 'Hardware Node',
-            location: data.location || 'Site Location',
-            zoneId: data.zoneId || 'zone-a',
-            signal: data.signal !== undefined ? Number(data.signal) : 80,
-            battery: data.battery !== undefined && data.battery !== null ? Number(data.battery) : null,
-            health: data.health !== undefined ? Number(data.health) : 90,
-            prediction: data.prediction || 'Nominal Operation',
-            status: data.status || 'Healthy',
-            lastServiceDate: data.lastServiceDate || '2026-07-01',
-            nextServiceDue: data.nextServiceDue || '2026-09-01',
-            temperatureC: data.temperatureC !== undefined ? Number(data.temperatureC) : 36.5,
-            vibrationMmS: data.vibrationMmS !== undefined ? Number(data.vibrationMmS) : 0.8,
-            technicianAssigned: data.technicianAssigned || '',
-            notes: data.notes || ''
-          });
+      const list: MaintenanceNode[] = [];
+      snapshot.forEach(d => {
+        const data = d.data();
+        list.push({
+          id: d.id || data.id,
+          name: data.name || 'Unnamed Node',
+          type: data.type || 'Hardware Node',
+          location: data.location || 'Site Location',
+          zoneId: data.zoneId || 'zone-a',
+          signal: data.signal !== undefined ? Number(data.signal) : 80,
+          battery: data.battery !== undefined && data.battery !== null ? Number(data.battery) : null,
+          health: data.health !== undefined ? Number(data.health) : 90,
+          prediction: data.prediction || 'Nominal Operation',
+          status: data.status || 'Healthy',
+          lastServiceDate: data.lastServiceDate || '2026-07-01',
+          nextServiceDue: data.nextServiceDue || '2026-09-01',
+          temperatureC: data.temperatureC !== undefined ? Number(data.temperatureC) : 36.5,
+          vibrationMmS: data.vibrationMmS !== undefined ? Number(data.vibrationMmS) : 0.8,
+          technicianAssigned: data.technicianAssigned || '',
+          notes: data.notes || ''
         });
-        setNodes(list);
-      }
+      });
+      setNodes(list);
       setLoading(false);
       setDbSynced(true);
     }, () => {
-      setNodes(DEFAULT_NODES);
+      setNodes([]);
       setLoading(false);
     });
 
     // 2. Sync Work Orders
     const unsubWO = onSnapshot(collection(db, 'work_orders'), async (snapshot) => {
-      if (snapshot.empty) {
-        for (const wo of DEFAULT_WORK_ORDERS) {
-          try { await setDoc(doc(db, 'work_orders', wo.id), wo); } catch (e) { console.error(e); }
-        }
-        setWorkOrders(DEFAULT_WORK_ORDERS);
-      } else {
-        const list: WorkOrder[] = [];
-        snapshot.forEach(d => {
-          const data = d.data();
-          list.push({
-            id: d.id || data.id,
-            nodeId: data.nodeId || 'R-01',
-            nodeName: data.nodeName || 'Hardware Node',
-            title: data.title || 'Maintenance Task',
-            category: data.category || 'General Inspection',
-            priority: data.priority || 'P3 - Medium',
-            status: data.status || 'Open',
-            assignedTech: data.assignedTech || 'Unassigned',
-            createdDate: data.createdDate || new Date().toISOString().slice(0, 10),
-            dueDate: data.dueDate || new Date().toISOString().slice(0, 10),
-            estimatedHours: data.estimatedHours || 1.0,
-            description: data.description || '',
-            partsRequired: data.partsRequired || '',
-            resolutionNotes: data.resolutionNotes || '',
-            completedDate: data.completedDate || ''
-          });
+      const list: WorkOrder[] = [];
+      snapshot.forEach(d => {
+        const data = d.data();
+        list.push({
+          id: d.id || data.id,
+          nodeId: data.nodeId || 'R-01',
+          nodeName: data.nodeName || 'Hardware Node',
+          title: data.title || 'Maintenance Task',
+          category: data.category || 'General Inspection',
+          priority: data.priority || 'P3 - Medium',
+          status: data.status || 'Open',
+          assignedTech: data.assignedTech || 'Unassigned',
+          createdDate: data.createdDate || new Date().toISOString().slice(0, 10),
+          dueDate: data.dueDate || new Date().toISOString().slice(0, 10),
+          estimatedHours: data.estimatedHours || 1.0,
+          description: data.description || '',
+          partsRequired: data.partsRequired || '',
+          resolutionNotes: data.resolutionNotes || '',
+          completedDate: data.completedDate || ''
         });
-        setWorkOrders(list);
-      }
-    }, () => { setWorkOrders(DEFAULT_WORK_ORDERS); });
+      });
+      setWorkOrders(list);
+    }, () => { setWorkOrders([]); });
 
     // 3. Sync Technicians
     const unsubTech = onSnapshot(collection(db, 'technicians'), async (snapshot) => {
-      if (snapshot.empty) {
-        for (const t of DEFAULT_TECHNICIANS) {
-          try { await setDoc(doc(db, 'technicians', t.id), t); } catch (e) { console.error(e); }
-        }
-        setTechnicians(DEFAULT_TECHNICIANS);
-      } else {
-        const list: Technician[] = [];
-        snapshot.forEach(d => list.push(d.data() as Technician));
-        setTechnicians(list);
-      }
-    }, () => { setTechnicians(DEFAULT_TECHNICIANS); });
+      const list: Technician[] = [];
+      snapshot.forEach(d => list.push(d.data() as Technician));
+      setTechnicians(list);
+    }, () => { setTechnicians([]); });
 
     // 4. Sync Schedules
     const unsubSched = onSnapshot(collection(db, 'schedules'), async (snapshot) => {
-      if (snapshot.empty) {
-        for (const s of DEFAULT_SCHEDULES) {
-          try { await setDoc(doc(db, 'schedules', s.id), s); } catch (e) { console.error(e); }
-        }
-        setSchedules(DEFAULT_SCHEDULES);
-      } else {
-        const list: ScheduleRule[] = [];
-        snapshot.forEach(d => list.push(d.data() as ScheduleRule));
-        setSchedules(list);
-      }
-    }, () => { setSchedules(DEFAULT_SCHEDULES); });
+      const list: ScheduleRule[] = [];
+      snapshot.forEach(d => list.push(d.data() as ScheduleRule));
+      setSchedules(list);
+    }, () => { setSchedules([]); });
 
     return () => {
       unsubNodes();

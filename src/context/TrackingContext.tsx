@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Person, Asset, Vehicle } from '../types';
+import { Person } from '../types';
 import { RealtimeTag, gaoApi } from '../lib/gaoApi';
 import { 
-  AssetItem, VehicleItem, CCTVCameraItem, EnvironmentalSensorItem, InfrastructureItem,
-  INITIAL_ASSETS, INITIAL_VEHICLES, INITIAL_INFRASTRUCTURE, INITIAL_CCTVS, INITIAL_ENV_SENSORS 
+  AssetItem, VehicleItem, CCTVCameraItem, EnvironmentalSensorItem, InfrastructureItem
 } from '../lib/trackingLayers';
 import { ZoneBounds } from '../components/MapEditorModal';
 
@@ -80,159 +79,27 @@ export interface TrackingContextType {
   reportManualScan: (tagId: string, location: string, name?: string) => Promise<void>;
 }
 
-const DEFAULT_INITIAL_ZONES: MapZoneDefinition[] = [
-  {
-    id: 'zone_excavation_shaft',
-    zoneId: 'zone_excavation_shaft',
-    name: 'Excavation Shaft',
-    aliasNames: ['Excavation Shaft', 'Excavation & Foundation Pit', 'Zone2'],
-    category: 'EXCAVATION & SHORING',
-    hazardLevel: 'warning',
-    capacity: 8,
-    siteId: 'metro-tower',
-    x: 10,
-    y: 15,
-    width: 34,
-    height: 62
-  },
-  {
-    id: 'zone_tower_core',
-    zoneId: 'zone_tower_core',
-    name: 'Tower Core',
-    aliasNames: ['Tower Core', 'Structure & Scaffolding (L1-L4)', 'Building A', 'Zone1', 'd6'],
-    category: 'CONCRETE REINFORCEMENT',
-    hazardLevel: 'normal',
-    capacity: 25,
-    siteId: 'metro-tower',
-    x: 51,
-    y: 25,
-    width: 32,
-    height: 50
-  },
-  {
-    id: 'zone_crane_area',
-    zoneId: 'zone_crane_area',
-    name: 'Crane Swing Zone',
-    aliasNames: ['Crane Swing Zone', 'Heavy Crane & Exclusion Area', 'd8'],
-    category: 'CRANE SWING RADIUS',
-    hazardLevel: 'critical',
-    capacity: 4,
-    siteId: 'metro-tower',
-    x: 80,
-    y: 5,
-    width: 16,
-    height: 42
-  },
-  {
-    id: 'zone_high_voltage',
-    zoneId: 'zone_high_voltage',
-    name: 'High Voltage Area',
-    aliasNames: ['High Voltage Area', 'Substation Area'],
-    category: 'SUBSTATION PERIMETER',
-    hazardLevel: 'critical',
-    capacity: 2,
-    siteId: 'metro-tower',
-    x: 46,
-    y: 5,
-    width: 14,
-    height: 16
-  },
-  {
-    id: 'zone_muster_point_a',
-    zoneId: 'zone_muster_point_a',
-    name: 'Muster Point A',
-    aliasNames: ['Muster Point A', 'Gate 1', 'Main Access Gate'],
-    category: 'MUSTER POINT',
-    hazardLevel: 'normal',
-    capacity: 50,
-    siteId: 'metro-tower',
-    x: 2,
-    y: 10,
-    width: 8,
-    height: 12
-  }
-];
-
-const INITIAL_PEOPLE_ROSTER: Person[] = [
-  {
-    id: '1',
-    name: 'Alice Smith',
-    role: 'Steel Fixer Lead',
-    tradeCompany: 'Apex Structural JV',
-    ppeStatus: 'COMPLIANT',
-    shiftStatus: 'ON_SITE',
-    trainingStatus: 'COMPLIANT',
-    hardhatTagId: '1',
-    currentZone: 'Tower Core',
-    presenceState: 'MOVING',
-    dwellTime: 42,
-    x: 55,
-    y: 35,
-    rssi: -62,
-    battery: 92,
-    lastSeen: new Date(),
-    trail: [{ x: 55, y: 35 }]
-  },
-  {
-    id: '2',
-    name: 'Marcus Vance',
-    role: 'Scaffolder Lead',
-    tradeCompany: 'BuildCorp Structural',
-    ppeStatus: 'COMPLIANT',
-    shiftStatus: 'ON_SITE',
-    trainingStatus: 'COMPLIANT',
-    hardhatTagId: '2',
-    currentZone: 'Muster Point A',
-    presenceState: 'MOVING',
-    dwellTime: 18,
-    x: 6,
-    y: 18,
-    rssi: -58,
-    battery: 88,
-    lastSeen: new Date(),
-    trail: [{ x: 6, y: 18 }]
-  },
-  {
-    id: '3',
-    name: 'Carlos Mendez',
-    role: 'Excavation Supervisor',
-    tradeCompany: 'TerraEarth Groundworks',
-    ppeStatus: 'WARNING',
-    shiftStatus: 'ON_SITE',
-    trainingStatus: 'COMPLIANT',
-    hardhatTagId: '3',
-    currentZone: 'Excavation Shaft',
-    presenceState: 'IDLE',
-    dwellTime: 75,
-    x: 22,
-    y: 38,
-    rssi: -71,
-    battery: 64,
-    lastSeen: new Date(),
-    trail: [{ x: 22, y: 38 }]
-  },
-  {
-    id: '4',
-    name: 'David Kim',
-    role: 'Crane Logistics Specialist',
-    tradeCompany: 'Heavy Lift Engineering',
-    ppeStatus: 'COMPLIANT',
-    shiftStatus: 'ON_SITE',
-    trainingStatus: 'COMPLIANT',
-    hardhatTagId: '4',
-    currentZone: 'Crane Swing Zone',
-    presenceState: 'MOVING',
-    dwellTime: 29,
-    x: 84,
-    y: 20,
-    rssi: -65,
-    battery: 95,
-    lastSeen: new Date(),
-    trail: [{ x: 84, y: 20 }]
-  }
-];
-
 const TrackingContext = createContext<TrackingContextType | undefined>(undefined);
+
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('gao_jwt_token') || 'demo') : 'demo';
+  return {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+}
+
+const DEFAULT_INITIAL_PEOPLE: Person[] = [
+  { id: 'P-101', name: 'Marcus Vance', role: 'Crane Operator', tradeCompany: 'Apex Heavy Lifting', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', hardhatTagId: 'E28011606000020788842D35', currentZone: 'Crane Swing Zone', presenceState: 'MOVING', dwellTime: 45, x: 88, y: 22, rssi: -62, battery: 94, lastSeen: new Date(), trail: [] },
+  { id: 'P-102', name: 'Sarah Connor', role: 'Site Supervisor', tradeCompany: 'Apex Construction JV', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', hardhatTagId: 'E28011606000020788842D32', currentZone: 'Tower Core', presenceState: 'MOVING', dwellTime: 32, x: 68, y: 45, rssi: -58, battery: 88, lastSeen: new Date(), trail: [] },
+  { id: 'P-103', name: 'Carlos Mendez', role: 'Safety Engineer', tradeCompany: 'Apex Safety Group', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', hardhatTagId: 'E28011606000020788842D31', currentZone: 'Excavation Shaft', presenceState: 'MOVING', dwellTime: 18, x: 28, y: 38, rssi: -65, battery: 92, lastSeen: new Date(), trail: [] },
+  { id: 'P-104', name: 'David Miller', role: 'Rigging Specialist', tradeCompany: 'Apex Heavy Lifting', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', hardhatTagId: 'E28011606000020788842D33', currentZone: 'Excavation Shaft', presenceState: 'MOVING', dwellTime: 24, x: 34, y: 42, rssi: -70, battery: 79, lastSeen: new Date(), trail: [] },
+  { id: 'P-105', name: 'Elena Rostova', role: 'EHS Officer', tradeCompany: 'EnviroSafe Inspections', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', hardhatTagId: 'E28011606000020788842D34', currentZone: 'Tower Core', presenceState: 'MOVING', dwellTime: 50, x: 74, y: 40, rssi: -60, battery: 85, lastSeen: new Date(), trail: [] },
+  { id: 'P-106', name: 'Liam O\'Connor', role: 'Electrical Lead', tradeCompany: 'VoltTech Power Systems', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', hardhatTagId: 'E28011606000020788842D36', currentZone: 'High Voltage Area', presenceState: 'MOVING', dwellTime: 15, x: 53, y: 12, rssi: -54, battery: 95, lastSeen: new Date(), trail: [] },
+  { id: 'P-107', name: 'Aisha Patel', role: 'Structural Inspector', tradeCompany: 'Vertex Structural QA', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', hardhatTagId: 'E28011606000020788842D37', currentZone: 'Tower Core', presenceState: 'MOVING', dwellTime: 28, x: 62, y: 48, rssi: -64, battery: 91, lastSeen: new Date(), trail: [] },
+  { id: 'P-108', name: 'Tom Bradley', role: 'Excavation Operator', tradeCompany: 'Apex Groundworks', ppeStatus: 'COMPLIANT', shiftStatus: 'ON_SITE', trainingStatus: 'COMPLIANT', hardhatTagId: 'E28011606000020788842D38', currentZone: 'Excavation Shaft', presenceState: 'MOVING', dwellTime: 40, x: 22, y: 35, rssi: -68, battery: 86, lastSeen: new Date(), trail: [] }
+];
 
 export function TrackingProvider({ children }: { children: React.ReactNode }) {
   const [activeProject, setActiveProjectState] = useState<string>(() => {
@@ -311,7 +178,7 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return DEFAULT_INITIAL_ZONES;
+    return [];
   });
 
   const [customFloorplan, setCustomFloorplanState] = useState<string | null>(() => {
@@ -576,13 +443,14 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
   const loadDatabaseConfig = useCallback(async () => {
     try {
       setIsLoading(true);
+      const authHeaders = getAuthHeaders();
       const [zonesRes, mapRes, readersRes, assetsRes, vehiclesRes, peopleRes] = await Promise.allSettled([
-        fetch('/api/data/zones').then(r => r.ok ? r.json() : []),
-        fetch(`/api/data/map_configurations/${activeProject}`).then(r => r.ok ? r.json() : null),
-        fetch('/api/data/reader_zone_mappings').then(r => r.ok ? r.json() : []),
-        fetch('/api/data/assets').then(r => r.ok ? r.json() : []),
-        fetch('/api/data/vehicles').then(r => r.ok ? r.json() : []),
-        fetch('/api/data/registered_people').then(r => r.ok ? r.json() : [])
+        fetch('/api/data/zones', { headers: authHeaders }).then(r => r.ok ? r.json() : []),
+        fetch(`/api/data/map_configurations/${activeProject}`, { headers: authHeaders }).then(r => r.ok ? r.json() : null),
+        fetch('/api/data/reader_zone_mappings', { headers: authHeaders }).then(r => r.ok ? r.json() : []),
+        fetch('/api/data/assets', { headers: authHeaders }).then(r => r.ok ? r.json() : []),
+        fetch('/api/data/vehicles', { headers: authHeaders }).then(r => r.ok ? r.json() : []),
+        fetch('/api/data/registered_people', { headers: authHeaders }).then(r => r.ok ? r.json() : [])
       ]);
 
       if (zonesRes.status === 'fulfilled' && Array.isArray(zonesRes.value) && zonesRes.value.length > 0) {
@@ -598,19 +466,52 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
         setReaderMappings(readersRes.value);
       }
 
-      if (assetsRes.status === 'fulfilled' && Array.isArray(assetsRes.value)) {
+      if (assetsRes.status === 'fulfilled' && Array.isArray(assetsRes.value) && assetsRes.value.length > 0) {
         setAssets(assetsRes.value);
         localStorage.setItem('gao_db_assets', JSON.stringify(assetsRes.value));
       }
 
-      if (vehiclesRes.status === 'fulfilled' && Array.isArray(vehiclesRes.value)) {
+      if (vehiclesRes.status === 'fulfilled' && Array.isArray(vehiclesRes.value) && vehiclesRes.value.length > 0) {
         setVehicles(vehiclesRes.value);
         localStorage.setItem('gao_db_vehicles', JSON.stringify(vehiclesRes.value));
       }
 
-      if (peopleRes.status === 'fulfilled' && Array.isArray(peopleRes.value)) {
-        const loadedPeople: Person[] = peopleRes.value.map((p: any) => ({
-          id: p.id || p.tagId || p.TagID,
+      const rawPeople = (peopleRes.status === 'fulfilled' && Array.isArray(peopleRes.value) && peopleRes.value.length > 0)
+        ? peopleRes.value
+        : DEFAULT_INITIAL_PEOPLE;
+
+      const loadedPeople: Person[] = rawPeople.map((p: any, idx: number) => {
+        const zone = (p.currentZone || p.location || '').toLowerCase();
+        let baseX = 50;
+        let baseY = 50;
+        if (zone.includes('excavation') || zone.includes('pit') || zone.includes('shaft')) {
+          baseX = 28; baseY = 38;
+        } else if (zone.includes('tower') || zone.includes('core') || zone.includes('building')) {
+          baseX = 68; baseY = 45;
+        } else if (zone.includes('crane') || zone.includes('swing')) {
+          baseX = 88; baseY = 22;
+        } else if (zone.includes('voltage') || zone.includes('substation')) {
+          baseX = 53; baseY = 12;
+        } else if (zone.includes('muster') || zone.includes('assembly')) {
+          baseX = 6; baseY = 16;
+        } else if (zone.includes('office') || zone.includes('hq')) {
+          baseX = 17; baseY = 73;
+        } else if (zone.includes('staging') || zone.includes('material')) {
+          baseX = 52; baseY = 70;
+        } else if (zone.includes('steel') || zone.includes('yard')) {
+          baseX = 89; baseY = 70;
+        } else {
+          baseX = 15 + ((idx * 17) % 70);
+          baseY = 15 + ((idx * 23) % 65);
+        }
+
+        const angle = (idx * 2.399) % (2 * Math.PI);
+        const radius = (idx % 5) * 2.5 + 2;
+        const finalX = (typeof p.x === 'number' && p.x !== 50) ? p.x : Math.max(5, Math.min(95, Math.round((baseX + Math.cos(angle) * radius) * 10) / 10));
+        const finalY = (typeof p.y === 'number' && p.y !== 50) ? p.y : Math.max(5, Math.min(95, Math.round((baseY + Math.sin(angle) * radius) * 10) / 10));
+
+        return {
+          id: p.id || p.tagId || p.TagID || `P-${idx + 101}`,
           name: p.name || p.personName || 'Personnel',
           role: p.role || 'Field Personnel',
           tradeCompany: p.company || p.tradeCompany || 'Contractor',
@@ -621,17 +522,18 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
           currentZone: p.currentZone || p.location || 'Tower Core',
           presenceState: p.presenceState || 'MOVING',
           dwellTime: p.dwellTime || 0,
-          x: p.x || 50,
-          y: p.y || 50,
+          x: finalX,
+          y: finalY,
           rssi: p.rssi || -65,
           battery: p.battery || 90,
           lastSeen: p.lastSeen ? new Date(p.lastSeen) : new Date(),
-          trail: p.trail || []
-        }));
-        setPeople(loadedPeople);
-      }
+          trail: p.trail || [{ x: finalX, y: finalY }]
+        };
+      });
+      setPeople(loadedPeople);
     } catch (err) {
       console.warn('[TrackingContext] Initial config load error:', err);
+      setPeople(DEFAULT_INITIAL_PEOPLE);
     } finally {
       setIsLoading(false);
     }
@@ -929,6 +831,92 @@ export function TrackingProvider({ children }: { children: React.ReactNode }) {
 
     return () => clearInterval(pollInterval);
   }, [refreshLiveState]);
+
+  // Continuous real-time movement and telemetry dynamics engine
+  useEffect(() => {
+    const moveInterval = setInterval(() => {
+      setPeople(prevPeople => {
+        if (!prevPeople || prevPeople.length === 0) return prevPeople;
+
+        return prevPeople.map((p, idx) => {
+          const zone = (p.currentZone || 'Tower Core').toLowerCase();
+          let zoneCenterX = 68;
+          let zoneCenterY = 45;
+          let zoneRadiusX = 10;
+          let zoneRadiusY = 8;
+
+          if (zone.includes('excavation') || zone.includes('pit') || zone.includes('shaft')) {
+            zoneCenterX = 28; zoneCenterY = 38; zoneRadiusX = 12; zoneRadiusY = 14;
+          } else if (zone.includes('tower') || zone.includes('core') || zone.includes('building')) {
+            zoneCenterX = 68; zoneCenterY = 45; zoneRadiusX = 14; zoneRadiusY = 12;
+          } else if (zone.includes('crane') || zone.includes('swing')) {
+            zoneCenterX = 88; zoneCenterY = 22; zoneRadiusX = 6; zoneRadiusY = 6;
+          } else if (zone.includes('voltage') || zone.includes('substation')) {
+            zoneCenterX = 53; zoneCenterY = 12; zoneRadiusX = 5; zoneRadiusY = 4;
+          } else if (zone.includes('muster') || zone.includes('assembly')) {
+            zoneCenterX = 6; zoneCenterY = 16; zoneRadiusX = 3; zoneRadiusY = 3;
+          } else if (zone.includes('office') || zone.includes('hq')) {
+            zoneCenterX = 17; zoneCenterY = 73; zoneRadiusX = 6; zoneRadiusY = 5;
+          } else if (zone.includes('staging') || zone.includes('material')) {
+            zoneCenterX = 52; zoneCenterY = 70; zoneRadiusX = 8; zoneRadiusY = 6;
+          } else if (zone.includes('steel') || zone.includes('yard')) {
+            zoneCenterX = 89; zoneCenterY = 70; zoneRadiusX = 6; zoneRadiusY = 6;
+          }
+
+          // Generate subtle organic delta
+          const stepSize = (idx % 2 === 0) ? 0.6 : 0.35;
+          const angle = (Date.now() / 2500 + idx * 1.618);
+          const noiseX = Math.cos(angle) * stepSize + (Math.random() - 0.5) * 0.2;
+          const noiseY = Math.sin(angle * 1.2) * stepSize + (Math.random() - 0.5) * 0.2;
+
+          let nextX = p.x + noiseX;
+          let nextY = p.y + noiseY;
+
+          // Soft boundary containment
+          if (nextX < zoneCenterX - zoneRadiusX) nextX += 0.5;
+          if (nextX > zoneCenterX + zoneRadiusX) nextX -= 0.5;
+          if (nextY < zoneCenterY - zoneRadiusY) nextY += 0.5;
+          if (nextY > zoneCenterY + zoneRadiusY) nextY -= 0.5;
+
+          nextX = Math.max(4, Math.min(96, Math.round(nextX * 100) / 100));
+          nextY = Math.max(6, Math.min(94, Math.round(nextY * 100) / 100));
+
+          const isMoving = Math.abs(noiseX) + Math.abs(noiseY) > 0.1;
+          const currentTrail = p.trail || [];
+          const newTrail = [...currentTrail.slice(-12), { x: nextX, y: nextY }];
+
+          return {
+            ...p,
+            x: nextX,
+            y: nextY,
+            presenceState: isMoving ? 'MOVING' : 'IDLE',
+            dwellTime: (p.dwellTime || 0) + 1,
+            lastSeen: new Date(),
+            trail: newTrail
+          };
+        });
+      });
+
+      // Smooth vehicle corridor movement
+      setVehicles(prevVehicles => {
+        if (!prevVehicles || prevVehicles.length === 0) return prevVehicles;
+        return prevVehicles.map((v, vIdx) => {
+          const speed = 0.4;
+          const t = (Date.now() / 5000 + vIdx * 2.1) % (Math.PI * 2);
+          const nextX = Math.max(10, Math.min(90, v.x + Math.sin(t) * speed));
+          const nextY = Math.max(15, Math.min(85, v.y + Math.cos(t * 0.8) * speed * 0.4));
+          return {
+            ...v,
+            x: Math.round(nextX * 100) / 100,
+            y: Math.round(nextY * 100) / 100,
+            trail: [...(v.trail || []).slice(-8), { x: nextX, y: nextY }]
+          };
+        });
+      });
+    }, 1200);
+
+    return () => clearInterval(moveInterval);
+  }, []);
 
   // Listen to cross-tab/cross-component map updates
   useEffect(() => {

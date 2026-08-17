@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import http from 'http';
 import path from 'path';
@@ -15,6 +18,7 @@ import { eventsRouter } from './src/server/routes/events.js';
 import { mongodbRouter } from './src/server/routes/mongodb.js';
 import { apertureRouter } from './src/server/routes/aperture.js';
 import { realtimeRouter } from './src/server/routes/realtime.js';
+import { demoRouter } from './src/server/routes/demo.js';
 import { errorHandler } from './src/server/middleware/errorHandler.js';
 import { initWebSocketServer } from './src/server/services/websocket.js';
 
@@ -79,6 +83,7 @@ async function startServer() {
   app.use('/api/integrations/aperture', apertureRouter);
   app.use('/api/integrations/gao', apertureRouter);
   app.use('/api/realtime', realtimeRouter);
+  app.use('/api/demo', demoRouter);
 
   // Direct GAO RFID Root Aliases (allowing ${host}/GetHistoryTotalCount, ${host}/GetHistoryRecords/10/30, ${host}/GetTagsInRealtime)
   app.use('/GetHistoryTotalCount', rfidRouter);

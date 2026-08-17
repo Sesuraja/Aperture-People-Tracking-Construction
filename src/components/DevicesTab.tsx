@@ -40,209 +40,6 @@ export interface DeviceItem {
   notes?: string;
 }
 
-const DEFAULT_DEVICES: DeviceItem[] = [
-  {
-    id: 'RDR-FX9600-01',
-    name: 'Main Gate RFID Turnstile Portal',
-    category: 'rfid',
-    type: 'UHF RFID Fixed Reader',
-    location: 'Main Site Entrance (Zone A)',
-    zoneId: 'zone-a',
-    status: 'online',
-    ip: '192.168.10.42',
-    mac: '00:1A:2B:3C:4D:01',
-    firmware: 'v3.8.2',
-    latestFirmware: 'v3.8.2',
-    signalRssi: -48,
-    coverageRadiusMeters: 18,
-    temperatureC: 38.4,
-    cpuUsagePct: 24,
-    memoryUsagePct: 41,
-    pingMs: 12,
-    uptime: '14d 6h',
-    lastPing: '2s ago',
-    calibrationStatus: 'Calibrated',
-    otaStatus: 'Up to Date',
-    powerSource: 'PoE',
-    notes: 'Primary worker access gate reader'
-  },
-  {
-    id: 'GW-BLE53-02',
-    name: 'Tower Alpha Scaffold BLE Gateway',
-    category: 'ble',
-    type: 'BLE 5.3 Angle-of-Arrival (AoA) Gateway',
-    location: 'Tower Alpha Shaft (Zone B)',
-    zoneId: 'zone-b',
-    status: 'online',
-    ip: '192.168.10.88',
-    mac: '00:1A:2B:3C:4D:02',
-    firmware: 'v2.1.0',
-    latestFirmware: 'v2.2.1',
-    signalRssi: -56,
-    coverageRadiusMeters: 35,
-    temperatureC: 41.2,
-    cpuUsagePct: 35,
-    memoryUsagePct: 52,
-    pingMs: 18,
-    uptime: '8d 12h',
-    lastPing: '1s ago',
-    calibrationStatus: 'Calibrated',
-    otaStatus: 'Update Available',
-    powerSource: 'PoE',
-    notes: 'Monitors scaffolding workforce tags'
-  },
-  {
-    id: 'GPS-RTK-01',
-    name: 'Differential RTK GPS Base Station',
-    category: 'gps',
-    type: 'GPS/GNSS High-Precision Base Station',
-    location: 'Site Roof Mast Alpha',
-    zoneId: 'zone-a',
-    status: 'online',
-    ip: '192.168.10.15',
-    mac: '00:1A:2B:3C:4D:03',
-    firmware: 'v5.0.4',
-    latestFirmware: 'v5.0.4',
-    signalRssi: -38,
-    coverageRadiusMeters: 500,
-    temperatureC: 35.1,
-    cpuUsagePct: 15,
-    memoryUsagePct: 28,
-    pingMs: 8,
-    uptime: '30d 2h',
-    lastPing: 'Just now',
-    calibrationStatus: 'Calibrated',
-    otaStatus: 'Up to Date',
-    powerSource: 'Solar + Battery',
-    notes: 'Provides centimeter-level RTK positioning correction'
-  },
-  {
-    id: 'IOT-GAS-03',
-    name: 'Sub-Basement Gas & Dust Sensor Node',
-    category: 'iot',
-    type: 'Multi-Gas (CO2/H2S/Dust) LoRaWAN Sensor',
-    location: 'Sub-Basement B1 Trench (Zone C)',
-    zoneId: 'zone-c',
-    status: 'warning',
-    ip: '192.168.10.112',
-    mac: '00:1A:2B:3C:4D:04',
-    firmware: 'v1.4.1',
-    latestFirmware: 'v1.5.0',
-    signalRssi: -82,
-    coverageRadiusMeters: 25,
-    temperatureC: 48.9,
-    cpuUsagePct: 62,
-    memoryUsagePct: 78,
-    pingMs: 145,
-    uptime: '3d 18h',
-    lastPing: '12s ago',
-    calibrationStatus: 'Needs Calibration',
-    otaStatus: 'Update Available',
-    powerSource: 'Li-Ion Battery',
-    notes: 'Sub-basement environmental monitoring node'
-  },
-  {
-    id: 'CAM-CCTV-04',
-    name: 'Crane Laydown 4K PTZ Camera',
-    category: 'cctv',
-    type: '4K Heavy Industrial PTZ Camera',
-    location: 'Laydown Yard & Material Depot',
-    zoneId: 'zone-d',
-    status: 'online',
-    ip: '192.168.20.50',
-    mac: '00:1A:2B:3C:4D:05',
-    firmware: 'v4.1.2',
-    latestFirmware: 'v4.1.2',
-    signalRssi: -50,
-    coverageRadiusMeters: 80,
-    temperatureC: 42.0,
-    cpuUsagePct: 48,
-    memoryUsagePct: 64,
-    pingMs: 15,
-    uptime: '12d 4h',
-    lastPing: '3s ago',
-    calibrationStatus: 'Calibrated',
-    otaStatus: 'Up to Date',
-    powerSource: 'AC 220V',
-    notes: 'Perimeter and material unloading yard vision stream'
-  },
-  {
-    id: 'CAM-AI-01',
-    name: 'PPE & Restricted Zone AI Camera',
-    category: 'ai_camera',
-    type: 'Edge AI Vision Processing Camera',
-    location: 'Excavation Sector B (Zone E)',
-    zoneId: 'zone-e',
-    status: 'online',
-    ip: '192.168.20.66',
-    mac: '00:1A:2B:3C:4D:06',
-    firmware: 'v2.8.0',
-    latestFirmware: 'v2.8.0',
-    signalRssi: -54,
-    coverageRadiusMeters: 45,
-    temperatureC: 44.5,
-    cpuUsagePct: 81,
-    memoryUsagePct: 88,
-    pingMs: 22,
-    uptime: '5d 9h',
-    lastPing: 'Just now',
-    calibrationStatus: 'Calibrated',
-    otaStatus: 'Up to Date',
-    powerSource: 'PoE',
-    notes: 'Runs edge AI model for helmet and safety vest detection'
-  },
-  {
-    id: 'WX-STATION-01',
-    name: 'Crane Wind & Weather Station WXT530',
-    category: 'weather',
-    type: 'Ultrasonic Anemometer & Rain Station',
-    location: 'Tower Crane TC-01 Top Mast',
-    zoneId: 'zone-crane',
-    status: 'online',
-    ip: '192.168.10.201',
-    mac: '00:1A:2B:3C:4D:07',
-    firmware: 'v1.2.9',
-    latestFirmware: 'v1.2.9',
-    signalRssi: -42,
-    coverageRadiusMeters: 150,
-    temperatureC: 32.8,
-    cpuUsagePct: 18,
-    memoryUsagePct: 30,
-    pingMs: 10,
-    uptime: '45d 1h',
-    lastPing: '1s ago',
-    calibrationStatus: 'Calibrated',
-    otaStatus: 'Up to Date',
-    powerSource: 'Solar + Battery',
-    notes: 'Crane safety weather station'
-  },
-  {
-    id: 'GW-BLE53-03',
-    name: 'Sub-Basement Trench Gateway B2',
-    category: 'ble',
-    type: 'BLE Mesh Repeater Gateway',
-    location: 'Sub-Basement B2 Deep Pit',
-    zoneId: 'zone-pit',
-    status: 'critical',
-    ip: '192.168.10.119',
-    mac: '00:1A:2B:3C:4D:08',
-    firmware: 'v1.9.4',
-    latestFirmware: 'v2.2.1',
-    signalRssi: -94,
-    coverageRadiusMeters: 12,
-    temperatureC: 56.2,
-    cpuUsagePct: 92,
-    memoryUsagePct: 95,
-    pingMs: 420,
-    uptime: '0d 2h',
-    lastPing: '45s ago',
-    calibrationStatus: 'Needs Calibration',
-    otaStatus: 'Update Available',
-    powerSource: 'Li-Ion Battery',
-    notes: 'High attenuation deep shaft node requiring antenna boost'
-  }
-];
-
 export default function DevicesTab() {
   const navigate = useNavigate();
 
@@ -318,20 +115,8 @@ export default function DevicesTab() {
   useEffect(() => {
     setLoading(true);
     const unsubDevices = onSnapshot(collection(db, 'devices'), async (snapshot) => {
-      if (snapshot.empty) {
-        // Auto-seed MongoDB with default devices if empty
-        console.log('[DevicesTab] Seeding default devices to MongoDB...');
-        for (const dev of DEFAULT_DEVICES) {
-          try {
-            await setDoc(doc(db, 'devices', dev.id), dev);
-          } catch (e) {
-            console.error('Failed seeding device:', e);
-          }
-        }
-        setDevices(DEFAULT_DEVICES);
-      } else {
-        const fetchedDevices: DeviceItem[] = [];
-        snapshot.forEach(d => {
+      const fetchedDevices: DeviceItem[] = [];
+      snapshot.forEach(d => {
           const data = d.data();
           fetchedDevices.push({
             id: d.id || data.id,
@@ -360,12 +145,11 @@ export default function DevicesTab() {
           });
         });
         setDevices(fetchedDevices);
-      }
       setLoading(false);
       setDbSynced(true);
     }, (err) => {
-      console.warn('MongoDB listener failed, falling back to defaults:', err);
-      setDevices(DEFAULT_DEVICES);
+      console.warn('MongoDB listener error:', err);
+      setDevices([]);
       setLoading(false);
     });
 

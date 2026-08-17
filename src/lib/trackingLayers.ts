@@ -11,6 +11,7 @@ export interface AssetItem {
   speed?: number;
   heading?: number;
   rssi?: number;
+  trail?: { x: number; y: number }[];
   x: number;
   y: number;
 }
@@ -25,6 +26,7 @@ export interface VehicleItem {
   direction?: number; // degrees 0-360
   heading?: number;
   rssi?: number;
+  trail?: { x: number; y: number }[];
   status: 'Active' | 'Idling' | 'Maintenance' | 'Parked';
   fuel: number;
   x: number;

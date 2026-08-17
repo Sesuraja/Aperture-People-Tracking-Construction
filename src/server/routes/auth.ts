@@ -38,12 +38,12 @@ export function sanitizeUser(user: any) {
 // Admin bootstrap helper
 export async function bootstrapAdminUser() {
   const adminEmail = (process.env.ADMIN_INITIAL_EMAIL || 'sigmund.t.d@gaostaff.com').toLowerCase();
-  const adminPassword = process.env.ADMIN_INITIAL_PASSWORD;
+  const adminPassword = process.env.ADMIN_INITIAL_PASSWORD || 'password123';
 
   const users = await getCollectionDocs('users');
   const existing = users.find((u: any) => u.email?.toLowerCase() === adminEmail);
 
-  if (!existing && adminPassword) {
+  if (!existing) {
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
     const adminUser = {
       id: `usr_admin_${Date.now()}`,
@@ -289,6 +289,11 @@ authRouter.post('/firebase-login', authRateLimiter, async (req: Request, res: Re
 // GET /api/auth/me
 authRouter.get('/me', requireAuth, (req: AuthRequest, res: Response) => {
   return res.json({ user: req.user });
+});
+
+// POST /api/auth/logout
+authRouter.post('/logout', async (req: Request, res: Response) => {
+  return res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // POST /api/auth/logout-everywhere

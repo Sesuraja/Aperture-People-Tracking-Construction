@@ -73,17 +73,8 @@ const SHIFT_OPTIONS: Array<'Day Shift (07:00-15:30)' | 'Night Shift (19:00-03:30
   'Swing OT (15:00-23:30)'
 ];
 
-const MOCK_LEAVE_DEFAULTS: LeaveRecord[] = [
-  { id: 'LV-101', name: 'David Chen', department: 'Structure & Scaffolding', type: 'Medical Leave', startDate: '2026-08-06', endDate: '2026-08-08', reason: 'High-elevation ankle sprain medical clearance', status: 'APPROVED', approvedBy: 'Marcus Vance' },
-  { id: 'LV-102', name: 'Sarah Lin', department: 'Safety & EHS', type: 'Annual Leave', startDate: '2026-08-10', endDate: '2026-08-15', reason: 'Scheduled annual vacation', status: 'PENDING', approvedBy: 'Site HR' },
-  { id: 'LV-103', name: 'Frank Reynolds', department: 'Heavy Equipment Ops', type: 'Safety Training', startDate: '2026-08-06', endDate: '2026-08-06', reason: 'Heavy Rigging Certification Renewal', status: 'APPROVED', approvedBy: 'Elena Rostova' }
-];
-
-const MOCK_HOLIDAYS = [
-  { date: '2026-09-07', name: 'Labor Day (Site Off-Day)', type: 'National Holiday' },
-  { date: '2026-10-12', name: 'EHS Safety Inspection Day', type: 'Mandatory Site Stand-Down' },
-  { date: '2026-11-26', name: 'Thanksgiving Holiday', type: 'National Holiday' }
-];
+const MOCK_LEAVE_DEFAULTS: LeaveRecord[] = [];
+const MOCK_HOLIDAYS: Array<{ name: string; date: string; type: string }> = [];
 
 export default function AttendanceTab({ people }: { people: Person[] }) {
   const [activeSubTab, setActiveSubTab] = useState<'roster' | 'live_feed' | 'calendar' | 'shifts' | 'heatmap' | 'departments' | 'payroll'>('roster');
@@ -146,42 +137,29 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
       try {
         // Listen to attendance_logs
         unsubscribeAttendance = onSnapshot(collection(db, 'attendance_logs'), (snapshot) => {
-          if (!snapshot.empty) {
-            const logs: AttendanceRecord[] = [];
-            snapshot.forEach(docSnap => {
-              logs.push({ id: docSnap.id, ...docSnap.data() } as AttendanceRecord);
-            });
-            setAttendanceLogs(logs);
-          } else if (people.length > 0) {
-            // Seed initial attendance data
-            seedInitialAttendanceLogs();
-          }
+          const logs: AttendanceRecord[] = [];
+          snapshot.forEach(docSnap => {
+            logs.push({ id: docSnap.id, ...docSnap.data() } as AttendanceRecord);
+          });
+          setAttendanceLogs(logs);
         });
 
         // Listen to leave_requests
         unsubscribeLeave = onSnapshot(collection(db, 'leave_requests'), (snapshot) => {
-          if (!snapshot.empty) {
-            const leaves: LeaveRecord[] = [];
-            snapshot.forEach(docSnap => {
-              leaves.push({ id: docSnap.id, ...docSnap.data() } as LeaveRecord);
-            });
-            setLeaveRequests(leaves);
-          } else {
-            seedInitialLeaveRequests();
-          }
+          const leaves: LeaveRecord[] = [];
+          snapshot.forEach(docSnap => {
+            leaves.push({ id: docSnap.id, ...docSnap.data() } as LeaveRecord);
+          });
+          setLeaveRequests(leaves);
         });
 
         // Listen to shift_schedules
         unsubscribeShifts = onSnapshot(collection(db, 'shift_schedules'), (snapshot) => {
-          if (!snapshot.empty) {
-            const shifts: ShiftScheduleRecord[] = [];
-            snapshot.forEach(docSnap => {
-              shifts.push({ id: docSnap.id, ...docSnap.data() } as ShiftScheduleRecord);
-            });
-            setShiftSchedules(shifts);
-          } else {
-            seedInitialShiftSchedules();
-          }
+          const shifts: ShiftScheduleRecord[] = [];
+          snapshot.forEach(docSnap => {
+            shifts.push({ id: docSnap.id, ...docSnap.data() } as ShiftScheduleRecord);
+          });
+          setShiftSchedules(shifts);
         });
 
       } catch (err) {
@@ -200,181 +178,10 @@ export default function AttendanceTab({ people }: { people: Person[] }) {
     };
   }, [people]);
 
-  // Initial Seeding Helpers
-  const seedInitialAttendanceLogs = async () => {
-    if (people.length === 0) return;
-    const initialLogs: Omit<AttendanceRecord, 'id'>[] = people.map((p, idx) => {
-      const firstInH = 7 + (idx % 3);
-      const firstInM = (idx * 13) % 60;
-      const lastOutH = 16 + (idx % 4);
-      const lastOutM = (idx * 17) % 60;
-
-      const isLate = firstInH >= 8 && firstInM > 15;
-      const isOvertime = lastOutH >= 18;
-
-      const totalMins = ((lastOutH * 60) + lastOutM) - ((firstInH * 60) + firstInM);
-      const breakMins = 45 + (idx % 2 === 0 ? 15 : 0);
-      const netWorkMins = Math.max(0, totalMins - breakMins);
-      const hoursNum = Math.floor(netWorkMins / 60);
-      const minsNum = netWorkMins % 60;
-
-      const otHours = isOvertime ? Math.round(((lastOutH - 17) + (lastOutM / 60)) * 10) / 10 : 0;
-
-      const departments = ['Civil Engineering', 'Electrical & Utilities', 'Safety & EHS', 'Heavy Equipment Ops', 'Structure & Scaffolding'];
-      const dept = departments[idx % departments.length];
-
-      const shiftChoice: 'Day Shift (07:00-15:30)' | 'Night Shift (19:00-03:30)' | 'Swing OT (15:00-23:30)' = 
-        idx % 4 === 0 ? 'Night Shift (19:00-03:30)' : idx % 5 === 0 ? 'Swing OT (15:00-23:30)' : 'Day Shift (07:00-15:30)';
-
-      const geoStatus: 'IN_GEO_FENCE' | 'OUT_OF_BOUNDS' | 'BEACON_VERIFIED' = 
-        idx % 7 === 0 ? 'OUT_OF_BOUNDS' : idx % 3 === 0 ? 'BEACON_VERIFIED' : 'IN_GEO_FENCE';
-
-      const punchType: 'RFID_AUTO' | 'MANUAL_OVERRIDE' | 'GEO_MOBILE_PUNCH' = 
-        idx % 6 === 0 ? 'MANUAL_OVERRIDE' : idx % 4 === 0 ? 'GEO_MOBILE_PUNCH' : 'RFID_AUTO';
-
-      let statusVal: 'PRESENT' | 'LATE' | 'ABSENT' | 'ON_LEAVE' | 'OVERTIME' = 'PRESENT';
-      if (idx % 9 === 0) statusVal = 'ABSENT';
-      else if (idx % 11 === 0) statusVal = 'ON_LEAVE';
-      else if (isOvertime) statusVal = 'OVERTIME';
-      else if (isLate) statusVal = 'LATE';
-
-      const gates = ['Gate 1 - North Gatehouse', 'Gate 2 - East Logistics', 'Turnstile West Shaft', 'Main South Entrance'];
-
-      return {
-        personId: p.id,
-        name: p.name,
-        role: p.role,
-        company: p.tradeCompany || 'BuildCorp Partner',
-        department: dept,
-        siteZone: p.currentZone || 'Main Gate 1',
-        shift: shiftChoice,
-        firstIn: `${firstInH.toString().padStart(2, '0')}:${firstInM.toString().padStart(2, '0')}`,
-        lastOut: `${lastOutH.toString().padStart(2, '0')}:${lastOutM.toString().padStart(2, '0')}`,
-        breakDurationMins: breakMins,
-        totalHoursStr: `${hoursNum}h ${minsNum}m`,
-        totalMins: netWorkMins,
-        overtimeHours: otHours,
-        isLate,
-        isOvertime,
-        rfidTagId: p.hardhatTagId || `HH-${p.id.substring(0, 4).toUpperCase()}`,
-        geoStatus,
-        status: statusVal,
-        hourlyRate: 38 + (idx % 5) * 6,
-        punchType,
-        gateLocation: gates[idx % gates.length],
-        date: '2026-08-07',
-        updatedAt: new Date().toISOString()
-      };
-    });
-
-    try {
-      for (const log of initialLogs) {
-        await addDoc(collection(db, 'attendance_logs'), log);
-      }
-    } catch (err) {
-      console.warn('Error seeding initial attendance logs:', err);
-    }
-  };
-
-  const seedInitialLeaveRequests = async () => {
-    try {
-      for (const l of MOCK_LEAVE_DEFAULTS) {
-        await addDoc(collection(db, 'leave_requests'), {
-          ...l,
-          createdAt: new Date().toISOString()
-        });
-      }
-    } catch (err) {
-      console.warn('Error seeding leave requests:', err);
-    }
-  };
-
-  const seedInitialShiftSchedules = async () => {
-    if (people.length === 0) return;
-    try {
-      for (let i = 0; i < Math.min(people.length, 10); i++) {
-        const p = people[i];
-        await addDoc(collection(db, 'shift_schedules'), {
-          personId: p.id,
-          name: p.name,
-          department: (p as any).department || p.role || 'Civil Engineering',
-          shift: i % 3 === 0 ? 'Night Shift (19:00-03:30)' : i % 4 === 0 ? 'Swing OT (15:00-23:30)' : 'Day Shift (07:00-15:30)',
-          overtimeAuthorized: i % 2 === 0,
-          maxOtHours: 4,
-          notes: 'Standard site shift schedule'
-        });
-      }
-    } catch (err) {
-      console.warn('Error seeding shift schedules:', err);
-    }
-  };
-
-  // Fallback to client calculations if database snapshot is loading
+  // Use real-time database logs exclusively
   const attendanceData = useMemo<AttendanceRecord[]>(() => {
-    if (attendanceLogs.length > 0) return attendanceLogs;
-
-    return people.map((p, idx) => {
-      const firstInH = 7 + (idx % 3);
-      const firstInM = (idx * 13) % 60;
-      const lastOutH = 16 + (idx % 4);
-      const lastOutM = (idx * 17) % 60;
-
-      const isLate = firstInH >= 8 && firstInM > 15;
-      const isOvertime = lastOutH >= 18;
-
-      const totalMins = ((lastOutH * 60) + lastOutM) - ((firstInH * 60) + firstInM);
-      const breakMins = 45 + (idx % 2 === 0 ? 15 : 0);
-      const netWorkMins = Math.max(0, totalMins - breakMins);
-      const hoursNum = Math.floor(netWorkMins / 60);
-      const minsNum = netWorkMins % 60;
-
-      const otHours = isOvertime ? Math.round(((lastOutH - 17) + (lastOutM / 60)) * 10) / 10 : 0;
-
-      const departments = ['Civil Engineering', 'Electrical & Utilities', 'Safety & EHS', 'Heavy Equipment Ops', 'Structure & Scaffolding'];
-      const dept = departments[idx % departments.length];
-
-      const shiftChoice: 'Day Shift (07:00-15:30)' | 'Night Shift (19:00-03:30)' | 'Swing OT (15:00-23:30)' = 
-        idx % 4 === 0 ? 'Night Shift (19:00-03:30)' : idx % 5 === 0 ? 'Swing OT (15:00-23:30)' : 'Day Shift (07:00-15:30)';
-
-      const geoStatus: 'IN_GEO_FENCE' | 'OUT_OF_BOUNDS' | 'BEACON_VERIFIED' = 
-        idx % 7 === 0 ? 'OUT_OF_BOUNDS' : idx % 3 === 0 ? 'BEACON_VERIFIED' : 'IN_GEO_FENCE';
-
-      const punchType: 'RFID_AUTO' | 'MANUAL_OVERRIDE' | 'GEO_MOBILE_PUNCH' = 
-        idx % 6 === 0 ? 'MANUAL_OVERRIDE' : idx % 4 === 0 ? 'GEO_MOBILE_PUNCH' : 'RFID_AUTO';
-
-      let statusVal: 'PRESENT' | 'LATE' | 'ABSENT' | 'ON_LEAVE' | 'OVERTIME' = 'PRESENT';
-      if (idx % 9 === 0) statusVal = 'ABSENT';
-      else if (idx % 11 === 0) statusVal = 'ON_LEAVE';
-      else if (isOvertime) statusVal = 'OVERTIME';
-      else if (isLate) statusVal = 'LATE';
-
-      return {
-        id: `mock-${p.id}`,
-        personId: p.id,
-        name: p.name,
-        role: p.role,
-        company: p.tradeCompany || 'BuildCorp Partner',
-        department: dept,
-        siteZone: p.currentZone || 'Main Gate 1',
-        shift: shiftChoice,
-        firstIn: `${firstInH.toString().padStart(2, '0')}:${firstInM.toString().padStart(2, '0')}`,
-        lastOut: `${lastOutH.toString().padStart(2, '0')}:${lastOutM.toString().padStart(2, '0')}`,
-        breakDurationMins: breakMins,
-        totalHoursStr: `${hoursNum}h ${minsNum}m`,
-        totalMins: netWorkMins,
-        overtimeHours: otHours,
-        isLate,
-        isOvertime,
-        rfidTagId: p.hardhatTagId || `HH-${p.id.substring(0, 4).toUpperCase()}`,
-        geoStatus,
-        status: statusVal,
-        hourlyRate: 38 + (idx % 5) * 6,
-        punchType,
-        gateLocation: 'Gate 1 - North Gatehouse',
-        date: '2026-08-07'
-      };
-    });
-  }, [attendanceLogs, people]);
+    return attendanceLogs;
+  }, [attendanceLogs]);
 
   // Filtered Roster
   const filteredRoster = useMemo(() => {

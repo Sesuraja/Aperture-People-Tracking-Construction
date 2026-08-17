@@ -95,8 +95,8 @@ export default function AnalyticsTab({ people, isLoading }: AnalyticsProps) {
   const [selectedSite, setSelectedSite] = useState<string>('all');
 
   // Database Persistent States (MongoDB)
-  const [scheduledReports, setScheduledReports] = useState<ScheduledReportItem[]>(DEFAULT_SCHEDULED_REPORTS);
-  const [equipmentList, setEquipmentList] = useState<EquipmentItem[]>(DEFAULT_EQUIPMENT);
+  const [scheduledReports, setScheduledReports] = useState<ScheduledReportItem[]>([]);
+  const [equipmentList, setEquipmentList] = useState<EquipmentItem[]>([]);
   const [savedAiMetrics, setSavedAiMetrics] = useState<SavedAiMetric[]>([]);
   const [isDbLoading, setIsDbLoading] = useState(false);
   const [dbSyncSuccess, setDbSyncSuccess] = useState<string | null>(null);
@@ -153,18 +153,7 @@ export default function AnalyticsTab({ people, isLoading }: AnalyticsProps) {
         }));
         setScheduledReports(loadedReports);
       } else {
-        // Seed default reports to MongoDB if empty
-        for (const rep of DEFAULT_SCHEDULED_REPORTS) {
-          await addDoc(collection(db, 'analytics_reports'), {
-            name: rep.name,
-            format: rep.format,
-            frequency: rep.frequency,
-            recipients: rep.recipients,
-            status: rep.status,
-            lastRun: rep.lastRun,
-            createdAt: serverTimestamp()
-          });
-        }
+        setScheduledReports([]);
       }
 
       // 2. Equipment Collection
@@ -183,19 +172,7 @@ export default function AnalyticsTab({ people, isLoading }: AnalyticsProps) {
         }));
         setEquipmentList(loadedEq);
       } else {
-        for (const eq of DEFAULT_EQUIPMENT) {
-          await addDoc(collection(db, 'analytics_equipment'), {
-            name: eq.name,
-            type: eq.type,
-            activeHours: eq.activeHours,
-            idleHours: eq.idleHours,
-            loadFactorPct: eq.loadFactorPct,
-            fuelLiters: eq.fuelLiters,
-            maintDueDays: eq.maintDueDays,
-            status: eq.status,
-            createdAt: serverTimestamp()
-          });
-        }
+        setEquipmentList([]);
       }
 
       // 3. Saved AI Metrics Collection

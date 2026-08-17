@@ -473,27 +473,9 @@ export default function AlertsTab({ alerts: _propAlerts }: { alerts?: AIAlert[] 
 
   const { isConnected: isWsConnected, triggerSafetyAlert: wsTriggerSafetyAlert } = useWebSocket(handleWSMessage);
 
-  // MongoDB & Firestore Sync & Initial Seed
+  // MongoDB & Firestore Sync
   useEffect(() => {
     // 1. Sync Alerts
-    const seedAndSubscribeAlerts = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'alerts_enterprise'));
-        if (snap.empty) {
-          for (const item of INITIAL_ENTERPRISE_ALERTS) {
-            await setDoc(doc(db, 'alerts_enterprise', item.id!), {
-              ...item,
-              timestamp: item.timestamp.toISOString()
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Error seeding enterprise alerts:', err);
-      }
-    };
-
-    seedAndSubscribeAlerts();
-
     const unsubAlerts = onSnapshot(collection(db, 'alerts_enterprise'), (snapshot) => {
       const data = snapshot.docs.map(docSnap => {
         const d = docSnap.data();
@@ -507,40 +489,12 @@ export default function AlertsTab({ alerts: _propAlerts }: { alerts?: AIAlert[] 
     });
 
     // 2. Sync Rules
-    const seedAndSubscribeRules = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'alert_rules'));
-        if (snap.empty) {
-          for (const r of INITIAL_RULES) {
-            await setDoc(doc(db, 'alert_rules', r.id), r);
-          }
-        }
-      } catch (err) {
-        console.error('Error seeding alert rules:', err);
-      }
-    };
-    seedAndSubscribeRules();
-
     const unsubRules = onSnapshot(collection(db, 'alert_rules'), (snapshot) => {
       const data = snapshot.docs.map(docSnap => docSnap.data() as AlertRule);
       setRuleList(data);
     });
 
     // 3. Sync Broadcasts
-    const seedAndSubscribeBroadcasts = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'emergency_broadcasts'));
-        if (snap.empty) {
-          for (const b of INITIAL_BROADCASTS) {
-            await setDoc(doc(db, 'emergency_broadcasts', b.id), b);
-          }
-        }
-      } catch (err) {
-        console.error('Error seeding broadcasts:', err);
-      }
-    };
-    seedAndSubscribeBroadcasts();
-
     const unsubBroadcasts = onSnapshot(collection(db, 'emergency_broadcasts'), (snapshot) => {
       const data = snapshot.docs.map(docSnap => docSnap.data() as EmergencyBroadcast);
       setBroadcastList(data);
