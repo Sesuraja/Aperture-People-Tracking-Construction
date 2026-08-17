@@ -1,10 +1,28 @@
 import { MongoClient, Db } from 'mongodb';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+
 dotenv.config();
 
 let mongoClient: MongoClient | null = null;
 let mongoDb: Db | null = null;
 let runtimeMongoUri: string | null = null;
+
+const PERSISTENT_CONFIG_FILE = path.join(process.cwd(), '.mongo_runtime.json');
+
+// Load any runtime configured MongoDB URI from disk on startup
+try {
+  if (fs.existsSync(PERSISTENT_CONFIG_FILE)) {
+    const raw = fs.readFileSync(PERSISTENT_CONFIG_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (parsed.mongodbUri) {
+      runtimeMongoUri = parsed.mongodbUri;
+    }
+  }
+} catch (e) {
+  // Ignore filesystem cache error
+}
 
 // Transient in-memory store for dev fallback when MongoDB is not connected
 const inMemoryStore: Record<string, any[]> = {
@@ -13,6 +31,9 @@ const inMemoryStore: Record<string, any[]> = {
   role_permissions: [],
   registered_people: [],
   devices: [],
+  hardware_readers: [],
+  hardware_tag_mappings: [],
+  third_party_apis: [],
   visitors: [],
   visitor_security_list: [],
   visitor_access_tokens: [],
@@ -36,20 +57,34 @@ const inMemoryStore: Record<string, any[]> = {
   map_configurations: [],
   geofences: [],
   reader_zone_mappings: [],
-  people: []
+  people: [],
+  ai_insights: [],
+  incidents: []
 };
 
-export function getMongoUri(): string {
-  let uri = runtimeMongoUri || process.env.MONGODB_URI || "";
-  // Auto-heal trailing encoded characters in credentials if Atlas expects plain Jesuraja123
+export function sanitizeMongoUri(rawUri?: string): string {
+  if (!rawUri || typeof rawUri !== 'string') return '';
+  let uri = rawUri.trim();
+  // Strip surrounding quotes if accidentally pasted
+  if ((uri.startsWith('"') && uri.endsWith('"')) || (uri.startsWith("'") && uri.endsWith("'"))) {
+    uri = uri.slice(1, -1).trim();
+  }
+  // Auto-heal common encoding issues
   if (uri.includes('Jesuraja123%40')) {
     uri = uri.replace('Jesuraja123%40', 'Jesuraja123');
   }
   return uri;
 }
 
+export function getMongoUri(): string {
+  const uri = runtimeMongoUri || process.env.MONGODB_URI || "";
+  return sanitizeMongoUri(uri);
+}
+
 export async function initDatabase(customUri?: string): Promise<void> {
-  const uri = customUri || getMongoUri();
+  const rawUri = customUri || getMongoUri();
+  const uri = sanitizeMongoUri(rawUri);
+
   if (!uri) {
     console.warn('[DB Service] MONGODB_URI not set in environment or settings. Operating with transient in-memory storage.');
     return;
@@ -62,15 +97,27 @@ export async function initDatabase(customUri?: string): Promise<void> {
       mongoDb = null;
     }
     
-    mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
+    mongoClient = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 6000,
+      connectTimeoutMS: 6000,
+      socketTimeoutMS: 15000,
+      maxPoolSize: 10
+    });
+    
     await mongoClient.connect();
     await mongoClient.db().admin().ping();
     mongoDb = mongoClient.db();
     runtimeMongoUri = uri;
+
+    // Persist runtime URI to disk
+    try {
+      fs.writeFileSync(PERSISTENT_CONFIG_FILE, JSON.stringify({ mongodbUri: uri, updatedAt: new Date().toISOString() }), 'utf-8');
+    } catch {}
+
     console.log('[DB Service] Successfully connected to MongoDB database.');
   } catch (err: any) {
     console.error('[DB Service] Failed to connect to MongoDB:', err.message);
-    console.warn('[DB Service] Falling back to transient in-memory storage (NON-PERSISTENT).');
+    console.warn('[DB Service] Operating with in-memory storage fallback.');
     mongoClient = null;
     mongoDb = null;
   } finally {
@@ -96,6 +143,7 @@ export async function getMongoStats() {
   const connected = isMongoConnected();
   let collectionsCount = 0;
   let totalRecords = 0;
+  let collectionsBreakdown: Record<string, number> = {};
   let lastError: string | null = null;
 
   if (connected && mongoDb) {
@@ -103,13 +151,24 @@ export async function getMongoStats() {
       const cols = await mongoDb.listCollections().toArray();
       collectionsCount = cols.length;
       for (const col of cols) {
-        const count = await mongoDb.collection(col.name).countDocuments();
-        totalRecords += count;
+        try {
+          const count = await mongoDb.collection(col.name).countDocuments();
+          totalRecords += count;
+          collectionsBreakdown[col.name] = count;
+        } catch {}
       }
     } catch (err: any) {
       lastError = err.message;
     }
   } else {
+    // In-memory breakdown for fallback inspection
+    for (const [key, items] of Object.entries(inMemoryStore)) {
+      if (items.length > 0) {
+        collectionsBreakdown[key] = items.length;
+        totalRecords += items.length;
+      }
+    }
+    collectionsCount = Object.keys(collectionsBreakdown).length;
     lastError = 'MongoDB is not connected (operating with in-memory fallback)';
   }
 
@@ -118,36 +177,52 @@ export async function getMongoStats() {
   return {
     connected,
     connectionString: maskedUri,
-    engine: connected ? 'MongoDB Cluster' : 'In-Memory Fallback',
+    engine: connected ? 'MongoDB Atlas / Cluster' : 'In-Memory Fallback',
     collectionsCount,
     totalRecords,
+    collectionsBreakdown,
     lastError
   };
 }
 
-export async function testMongoConnection(uri: string): Promise<{ success: boolean; error?: string }> {
+export async function testMongoConnection(uriInput: string): Promise<{ success: boolean; latencyMs?: number; error?: string }> {
+  const uri = sanitizeMongoUri(uriInput);
+  if (!uri) {
+    return { success: false, error: 'MongoDB connection string cannot be empty' };
+  }
+
   let tempClient: MongoClient | null = null;
+  const startTime = Date.now();
   try {
-    tempClient = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
+    tempClient = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 6000,
+      connectTimeoutMS: 6000
+    });
     await tempClient.connect();
     await tempClient.db().admin().ping();
+    const latencyMs = Date.now() - startTime;
     await tempClient.close();
-    return { success: true };
+    return { success: true, latencyMs };
   } catch (err: any) {
     if (tempClient) {
       try { await tempClient.close(); } catch {}
     }
-    return { success: false, error: err.message || 'Failed to connect to MongoDB instance' };
+    return { success: false, error: err.message || 'Failed to connect to MongoDB instance. Check credentials, network access, or IP whitelist.' };
   }
 }
 
-export async function reconnectDatabase(newUri: string): Promise<{ success: boolean; error?: string }> {
+export async function reconnectDatabase(newUriInput: string): Promise<{ success: boolean; latencyMs?: number; error?: string }> {
+  const newUri = sanitizeMongoUri(newUriInput);
   try {
+    const testResult = await testMongoConnection(newUri);
+    if (!testResult.success) {
+      return { success: false, error: testResult.error || 'Connection test failed with provided URI' };
+    }
     await initDatabase(newUri);
     if (isMongoConnected()) {
-      return { success: true };
+      return { success: true, latencyMs: testResult.latencyMs };
     } else {
-      return { success: false, error: 'Could not establish connection to MongoDB URI provided' };
+      return { success: false, error: 'Could not initialize MongoDB session with provided URI' };
     }
   } catch (err: any) {
     return { success: false, error: err.message || 'Failed to reconnect to MongoDB' };

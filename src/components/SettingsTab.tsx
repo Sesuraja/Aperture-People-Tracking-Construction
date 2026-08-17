@@ -49,6 +49,8 @@ import WebhookInspector from "./WebhookInspector";
 import HardwareIntegrationForm from "./HardwareIntegrationForm";
 import { RfidApiConfiguration } from "./RfidApiConfiguration";
 import DeveloperApiTab from "./DeveloperApiTab";
+import ThirdPartyApiIntegrationSection from "./ThirdPartyApiIntegrationSection";
+import DirectHardwareIntegrationSection from "./DirectHardwareIntegrationSection";
 import { gaoApi, DEFAULT_HOST } from "../lib/gaoApi";
 import { doc, getDoc, setDoc, isMongoActive, db } from "../lib/db";
 import { AppModeContext } from "../App";
@@ -1610,93 +1612,52 @@ export default function SettingsTab() {
 
         <nav className="flex flex-col gap-1">
           <button
-            onClick={() => setActiveSection("general")}
+            onClick={() => setActiveSection("third_party_api")}
+            id="settings_third_party_api_tab"
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeSection === "general"
+              activeSection === "third_party_api" || activeSection === "rfid" || activeSection === "rfid_config" || activeSection === "aperture"
                 ? "bg-[#007BC4] text-white shadow-sm"
                 : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Layout className="w-4 h-4" /> General Preferences
+            <Radio className="w-4 h-4 text-cyan-400" /> Option 1: Third-Party API Integration
           </button>
 
           <button
-            onClick={() => setActiveSection("rfid")}
-            id="settings_rfid_api_config_tab"
+            onClick={() => setActiveSection("direct_hardware")}
+            id="settings_direct_hardware_tab"
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeSection === "rfid" || activeSection === "rfid_config" || activeSection === "aperture" || activeSection === "hardware_integration"
+              activeSection === "direct_hardware" || activeSection === "hardware_integration" || activeSection === "hardware"
                 ? "bg-[#007BC4] text-white shadow-sm"
                 : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Radio className="w-4 h-4" /> RFID API Configuration
+            <Cpu className="w-4 h-4 text-emerald-400" /> Option 2: Direct Hardware Connection
           </button>
 
-          <button
-            onClick={() => setActiveSection("developer_api")}
-            id="settings_developer_api_tab"
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeSection === "developer_api" || activeSection === "api_docs" || activeSection === "developer_console" || activeSection === "api_documentation"
-                ? "bg-[#007BC4] text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Code2 className="w-4 h-4 text-cyan-500" /> API Documentation & Developer Console
-          </button>
-
-          <button
-            onClick={() => setActiveSection("webhook_inspector")}
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeSection === "webhook_inspector"
-                ? "bg-[#007BC4] text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Terminal className="w-4 h-4 text-emerald-500" /> Webhook Inspector
-          </button>
-
-          <button
-            onClick={() => setActiveSection("realtime")}
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeSection === "realtime"
-                ? "bg-[#007BC4] text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Zap className="w-4 h-4 text-amber-500" /> Real-Time API Streams
-          </button>
 
           <button
             onClick={() => setActiveSection("ai")}
+            id="settings_ai_tab"
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "ai"
                 ? "bg-[#007BC4] text-white shadow-sm"
                 : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Bot className="w-4 h-4" /> AI Vision & Safety Model
-          </button>
-
-          <button
-            onClick={() => setActiveSection("integrations")}
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeSection === "integrations"
-                ? "bg-[#007BC4] text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Database className="w-4 h-4" /> Database & Sync
+            <Bot className="w-4 h-4 text-purple-400" /> AI Engine & Gemini Vision
           </button>
 
           <button
             onClick={() => setActiveSection("security")}
+            id="settings_security_tab"
             className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               activeSection === "security"
                 ? "bg-[#007BC4] text-white shadow-sm"
                 : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Shield className="w-4 h-4" /> Hardware & Safety Thresholds
+            <Shield className="w-4 h-4 text-amber-400" /> Hardware & Safety Thresholds
           </button>
 
           <button
@@ -1708,7 +1669,31 @@ export default function SettingsTab() {
                 : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Users className="w-4 h-4" /> Access Control & User Roles
+            <Users className="w-4 h-4 text-blue-400" /> Access Control & User Roles
+          </button>
+
+          <button
+            onClick={() => setActiveSection("developer_api")}
+            id="settings_developer_api_tab"
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeSection === "developer_api" || activeSection === "api_docs" || activeSection === "developer_console" || activeSection === "api_documentation"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Code2 className="w-4 h-4 text-cyan-500" /> API Docs & Webhook Console
+          </button>
+
+          <button
+            onClick={() => setActiveSection("general")}
+            id="settings_general_tab"
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              activeSection === "general"
+                ? "bg-[#007BC4] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Layout className="w-4 h-4" /> General Preferences
           </button>
         </nav>
       </div>
@@ -1846,18 +1831,25 @@ export default function SettingsTab() {
             </div>
           )}
 
+          {/* OPTION 1: THIRD-PARTY API INTEGRATION */}
+          {(activeSection === "third_party_api" || activeSection === "rfid" || activeSection === "rfid_config" || activeSection === "aperture") && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <ThirdPartyApiIntegrationSection />
+            </div>
+          )}
+
+          {/* OPTION 2: DIRECT HARDWARE CONNECTION */}
+          {(activeSection === "direct_hardware" || activeSection === "hardware_integration" || activeSection === "hardware") && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <DirectHardwareIntegrationSection />
+            </div>
+          )}
+
+
           {/* REAL-TIME API STREAMS SECTION */}
           {activeSection === "realtime" && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
               <RealTimeConnectionsTab />
-              <WebhookInspector />
-            </div>
-          )}
-
-          {/* HARDWARE INTEGRATION & HANDSHAKE SECTION */}
-          {activeSection === "hardware_integration" && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
-              <HardwareIntegrationForm />
               <WebhookInspector />
             </div>
           )}
@@ -1871,15 +1863,9 @@ export default function SettingsTab() {
 
           {/* DEVELOPER API & DOCUMENTATION SECTION */}
           {(activeSection === "developer_api" || activeSection === "api_docs" || activeSection === "developer_console" || activeSection === "api_documentation" || activeSection === "dev_console") && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
               <DeveloperApiTab />
-            </div>
-          )}
-
-          {/* RFID API CONFIGURATION SECTION */}
-          {(activeSection === "rfid" || activeSection === "rfid_config" || activeSection === "aperture" || activeSection === "hardware_integration") && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <RfidApiConfiguration />
+              <WebhookInspector />
             </div>
           )}
 
@@ -2541,138 +2527,6 @@ export default function SettingsTab() {
                     {isSaving ? "Syncing..." : "Save Network Config"}
                   </button>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* SECTION 7: INTEGRATIONS & MONGODB SYNC */}
-          {activeSection === "integrations" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Integrations & MongoDB Database Connection</h3>
-                <p className="text-slate-500 text-xs font-medium mt-1">
-                  Connect MongoDB Cloud Cluster URI for full end-to-end personnel, tag history, and settings persistence.
-                </p>
-              </div>
-
-              <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden divide-y divide-slate-100">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      MongoDB Connection URI (MONGODB_URI)
-                    </label>
-                    <span className="text-xs text-slate-500 font-medium">
-                      Or set <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">MONGODB_URI</code> in environment variables
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type={showMongoPassword ? "text" : "password"}
-                      placeholder="mongodb+srv://<username>:<password>@cluster.mongodb.net/dbname"
-                      value={mongoUri}
-                      onChange={(e) => setMongoUri(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2.5 text-slate-900 focus:border-[#007BC4] focus:ring-2 focus:ring-[#007BC4]/20 outline-none transition font-mono text-xs shadow-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowMongoPassword(!showMongoPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                    >
-                      {showMongoPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  {mongoTestResult && (
-                    <div
-                      className={`mt-3 p-3 rounded-lg text-xs font-mono border text-left flex items-start gap-2 ${
-                        mongoTestResult.success 
-                          ? "bg-emerald-50 text-emerald-900 border-emerald-200" 
-                          : "bg-rose-50 text-rose-900 border-rose-200"
-                      }`}
-                    >
-                      {mongoTestResult.success ? (
-                        <span className="text-emerald-600 font-bold shrink-0">✓ SUCCESS:</span>
-                      ) : (
-                        <span className="text-rose-600 font-bold shrink-0">✗ DIAGNOSTIC:</span>
-                      )}
-                      <span className="break-words leading-relaxed">{mongoTestResult.msg}</span>
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap gap-2.5 items-center">
-                    <button
-                      type="button"
-                      onClick={handleTestMongo}
-                      disabled={testingMongo}
-                      className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
-                    >
-                      <Database className="w-3.5 h-3.5 text-slate-500" />
-                      {testingMongo ? "Testing Connection..." : "Test Connection"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveMongo}
-                      disabled={savingMongo}
-                      className="px-4 py-2 bg-[#007BC4] hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      {savingMongo ? "Saving & Connecting..." : "Save MONGODB_URI"}
-                    </button>
-                  </div>
-
-                  <div className="mt-3.5 p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-2.5 w-2.5">
-                        <span
-                          className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                            isMongoActive() ? "bg-emerald-400" : "bg-amber-400"
-                          }`}
-                        ></span>
-                        <span
-                          className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                            isMongoActive() ? "bg-emerald-500" : "bg-amber-500"
-                          }`}
-                        ></span>
-                      </span>
-                      <span className="text-xs font-bold text-slate-700">Active Database Driver:</span>
-                      <span className="text-xs font-mono text-slate-600 font-semibold">
-                        {isMongoActive() ? "MongoDB Cloud Cluster Proxy (/api/data/*)" : "Cloud Firestore Default"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Legacy Aperture Server Secret Handshake Key
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showLegacyKey ? "text" : "password"}
-                      value={legacyGaoApiKey}
-                      onChange={(e) => setLegacyGaoApiKey(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-mono text-xs focus:border-[#007BC4] outline-none transition pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowLegacyKey(!showLegacyKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                    >
-                      {showLegacyKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={handleSaveSettings}
-                  disabled={isSaving}
-                  className="flex items-center gap-2 bg-[#007BC4] hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
-                >
-                  <Save className="w-4 h-4" />
-                  {isSaving ? "Syncing..." : "Save Integration Settings"}
-                </button>
               </div>
             </div>
           )}

@@ -182,17 +182,11 @@ export async function initMqttService(): Promise<MqttStatus> {
       }
     });
 
-    mqttClient.on('error', async (err) => {
+    mqttClient.on('error', (err) => {
       isConnected = false;
       const errMsg = err.message || 'MQTT Connection Error';
       console.error('[MQTT Service] Error:', errMsg);
       activeConfig.lastError = errMsg;
-
-      await upsertDoc('settings', {
-        id: 'mqtt_config',
-        ...activeConfig,
-        lastError: errMsg
-      });
 
       broadcastWebSocketEvent('mqtt_status', { status: 'error', error: errMsg });
       broadcastSseEvent('mqtt_status', { status: 'error', error: errMsg });

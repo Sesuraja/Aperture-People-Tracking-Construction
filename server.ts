@@ -17,6 +17,8 @@ import { dataRouter } from './src/server/routes/data.js';
 import { eventsRouter } from './src/server/routes/events.js';
 import { mongodbRouter } from './src/server/routes/mongodb.js';
 import { apertureRouter } from './src/server/routes/aperture.js';
+import { apiIntegrationsRouter } from './src/server/routes/apiIntegrations.js';
+import { hardwareRouter } from './src/server/routes/hardware.js';
 import { realtimeRouter } from './src/server/routes/realtime.js';
 import { demoRouter } from './src/server/routes/demo.js';
 import { errorHandler } from './src/server/middleware/errorHandler.js';
@@ -80,8 +82,10 @@ async function startServer() {
   app.use('/api/data', dataRouter);
   app.use('/api/events', eventsRouter);
   app.use('/api/mongodb', mongodbRouter);
+  app.use('/api/integrations', apiIntegrationsRouter);
   app.use('/api/integrations/aperture', apertureRouter);
   app.use('/api/integrations/gao', apertureRouter);
+  app.use('/api/hardware', hardwareRouter);
   app.use('/api/realtime', realtimeRouter);
   app.use('/api/demo', demoRouter);
 
