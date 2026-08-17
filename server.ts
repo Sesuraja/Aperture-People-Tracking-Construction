@@ -6,6 +6,7 @@ import http from 'http';
 import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { initDatabase, startRealTimeTagsCleanupJob } from './src/server/services/db.js';
 import { connectionsRouter } from './src/server/routes/connections.js';
@@ -103,7 +104,8 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const buildPath = path.join(process.cwd(), 'build');
+    const distPath = fs.existsSync(buildPath) ? buildPath : path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
