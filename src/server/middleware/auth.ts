@@ -111,19 +111,6 @@ export function verifyToken(token: string): AuthenticatedUser | null {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
     return decoded;
   } catch {
-    // If token has valid shape, allow seamless recovery
-    try {
-      const decodedPayload = jwt.decode(token) as AuthenticatedUser | null;
-      if (decodedPayload && decodedPayload.email) {
-        return {
-          id: decodedPayload.id || 'usr_fallback',
-          email: decodedPayload.email,
-          name: decodedPayload.name || 'User',
-          role: decodedPayload.role || 'operator',
-          tokenVersion: 1
-        };
-      }
-    } catch {}
     return null;
   }
 }
@@ -205,15 +192,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
   }
 
   if (!token) {
-    // Provide a guest/demo session fallback for unauthenticated requests
-    req.user = {
-      id: 'demo_user_01',
-      email: 'demo@aperture.io',
-      name: 'Interactive Demo User',
-      role: 'admin',
-      tokenVersion: 1
-    };
-    return next();
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   let user = verifyToken(token);
@@ -222,13 +201,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
   }
 
   if (!user) {
-    user = {
-      id: 'demo_user_01',
-      email: 'demo@aperture.io',
-      name: 'Interactive Demo User',
-      role: 'admin',
-      tokenVersion: 1
-    };
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   // Session revocation validation against user DB record & DB sync

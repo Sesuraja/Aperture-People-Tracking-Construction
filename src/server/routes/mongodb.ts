@@ -1,7 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { getMongoStats, testMongoConnection, reconnectDatabase, getMongoUri } from '../services/db.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 export const mongodbRouter = Router();
+
+// Secure all endpoints of this router with Admin authentication by default
+mongodbRouter.use(requireAuth, requireRole('admin'));
 
 // GET /api/mongodb/status
 mongodbRouter.get('/status', async (req: Request, res: Response) => {

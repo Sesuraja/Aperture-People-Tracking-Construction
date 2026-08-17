@@ -4,7 +4,7 @@ import http from 'http';
 import { generateToken } from '../src/server/middleware/auth.js';
 import { dataRouter } from '../src/server/routes/data.js';
 import { mongodbRouter } from '../src/server/routes/mongodb.js';
-import { apertureRouter } from '../src/server/routes/aperture.js';
+import { connectionsRouter } from '../src/server/routes/connections.js';
 import { aiRouter } from '../src/server/routes/ai.js';
 
 describe('Secured Routes Access Control', () => {
@@ -24,7 +24,7 @@ describe('Secured Routes Access Control', () => {
 
     app.use('/api/data', dataRouter);
     app.use('/api/mongodb', mongodbRouter);
-    app.use('/api/integrations/aperture', apertureRouter);
+    app.use('/api/connections', connectionsRouter);
     app.use('/api', aiRouter);
 
     await new Promise<void>((resolve) => {
@@ -84,35 +84,38 @@ describe('Secured Routes Access Control', () => {
     });
   });
 
-  describe('/api/integrations/aperture/*', () => {
+  describe('/api/connections/*', () => {
     it('should reject unauthenticated requests on status endpoints', async () => {
-      const res = await fetch(`${baseUrl}/api/integrations/aperture/config`);
+      const res = await fetch(`${baseUrl}/api/connections`);
       expect(res.status).toBe(401);
     });
 
     it('should allow authenticated users on read-only status endpoints', async () => {
-      const res = await fetch(`${baseUrl}/api/integrations/aperture/config`, {
+      const res = await fetch(`${baseUrl}/api/connections`, {
         headers: { Authorization: `Bearer ${viewerToken}` }
       });
       expect(res.status).toBe(200);
     });
 
     it('should reject non-admin users on config mutation endpoints with 403', async () => {
-      const res = await fetch(`${baseUrl}/api/integrations/aperture/config`, {
+      const res = await fetch(`${baseUrl}/api/connections`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${viewerToken}`
         },
-        body: JSON.stringify({ host: 'http://example.com' })
+        body: JSON.stringify({ name: 'Test Connection', endpointUrl: 'http://example.com' })
       });
       expect(res.status).toBe(403);
     });
 
-    it('should allow unauthenticated webhook ingest requests', async () => {
-      const res = await fetch(`${baseUrl}/api/integrations/aperture/beeceptor-ingest`, {
+    it('should allow hardware ingest requests when device key is provided', async () => {
+      const res = await fetch(`${baseUrl}/api/connections/hardware/ingest`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Key': 'aperture_test_device_key'
+        },
         body: JSON.stringify([{ TagID: 'TAG_123', Location: 'Zone_A' }])
       });
       expect(res.status).toBe(200);

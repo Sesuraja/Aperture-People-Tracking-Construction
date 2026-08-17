@@ -17,7 +17,6 @@ import IncidentsTab from './components/IncidentsTab';
 import AIInsightsTab from './components/AIInsightsTab';
 import MaintenanceTab from './components/MaintenanceTab';
 import TopBar from './components/TopBar';
-import DemoControlBar from './components/DemoControlBar';
 import PeopleTab from './components/PeopleTab';
 import AlertsTab from './components/AlertsTab';
 import AnalyticsTab from './components/AnalyticsTab';
@@ -498,7 +497,6 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
 
       {/* Main Content Workspace Area */}
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900 transition-colors">
-        {mode === 'demo' && <DemoControlBar />}
         <TopBar onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
         
         <div className="flex-1 overflow-y-auto relative min-h-0 w-full flex flex-col">

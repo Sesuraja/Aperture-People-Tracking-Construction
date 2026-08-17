@@ -69,10 +69,6 @@ export function sanitizeMongoUri(rawUri?: string): string {
   if ((uri.startsWith('"') && uri.endsWith('"')) || (uri.startsWith("'") && uri.endsWith("'"))) {
     uri = uri.slice(1, -1).trim();
   }
-  // Auto-heal common encoding issues
-  if (uri.includes('Jesuraja123%40')) {
-    uri = uri.replace('Jesuraja123%40', 'Jesuraja123');
-  }
   return uri;
 }
 
